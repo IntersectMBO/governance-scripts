@@ -7,11 +7,6 @@
 # Default behavior is to not check if file is discoverable on IPFS
 CHECK_TOO="false"
 
-# Gateways to check if file is already hosted on IPFS
-DEFAULT_GATEWAY_1="https://ipfs.io/ipfs/"
-DEFAULT_GATEWAY_2="https://dweb.link/ipfs/"
-DEFAULT_GATEWAY_3="https://gateway.pinata.cloud/ipfs/"
-
 # Pinning services to host the file on IPFS
 DEFAULT_HOST_ON_LOCAL_NODE="true"
 DEFAULT_HOST_ON_NMKR="true"
@@ -95,31 +90,11 @@ echo "Generating CID for the file..."
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_path")
 echo "CID: $ipfs_cid"
 
-check_file_on_gateway() {
-    local gateway="$1"
-    local cid="$2"
-    local timeout="$3"
-    echo "Checking ${gateway}..."
-    if curl --silent --fail "${gateway}${cid}" >/dev/null; then
-        echo "File is accessible on IPFS via ${gateway}${cid}"
-        return 0
-    else
-        echo "File not found at: ${gateway}${cid}"
-        return 1
-    fi
-}
-
 # If user wants to check if file is discoverable on IPFS
 if [ "$check_discoverable" = "true" ]; then
     echo "Checking if file is already hosted on IPFS..."
-    if check_file_on_gateway "$DEFAULT_GATEWAY_1" "$ipfs_cid"; then
-        echo "File is already hosted on IPFS. No need to pin anywhere else."
-        exit 0
-    fi
-    if check_file_on_gateway "$DEFAULT_GATEWAY_2" "$ipfs_cid"; then
-        echo "File is already hosted on IPFS. No need to pin anywhere else."
-        exit 0
-    fi
+    echo "Using ./scripts/check-ipfs.sh script to check if file is discoverable on IPFS..."
+    ./scripts/check-ipfs.sh "$input_path"
 else
     echo "Skipping check of file on ipfs..."
 fi

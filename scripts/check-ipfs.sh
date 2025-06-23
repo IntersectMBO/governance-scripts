@@ -4,10 +4,19 @@
 
 # Can change if you want!
 
+# Timeout for curl requests in seconds
+TIMEOUT=5
+
 # Gateways to check if file is already hosted on IPFS
 DEFAULT_GATEWAY_1="https://ipfs.io/ipfs/"
-DEFAULT_GATEWAY_2="https://dweb.link/ipfs/"
-DEFAULT_GATEWAY_3="https://gateway.pinata.cloud/ipfs/"
+DEFAULT_GATEWAY_2="https://gateway.pinata.cloud/ipfs/"
+# DEFAULT_GATEWAY_3="https://w3s.link/ipfs"
+
+# Other gateways like Dweb.link, 4everland, w3s.link don't seem to work well with curl
+# in future we can fix them by reading the https header and checking if the file is content is returned
+
+# for more gateways see:
+# https://ipfs.github.io/public-gateway-checker/
 
 ######################################################
 
@@ -53,12 +62,13 @@ echo "Generating CID for the file..."
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_path")
 echo "CID: $ipfs_cid"
 
-check_file_on_gateway() {
+check_file_via_gateway() {
     local gateway="$1"
     local cid="$2"
+    local timeout="$3"
     echo " "
     echo "Checking ${gateway}..."
-    if curl --silent --fail "${gateway}${cid}" >/dev/null; then
+    if curl --silent --fail --max-time $timeout "${gateway}${cid}" >/dev/null; then
         echo "File is accessible on IPFS via ${gateway}${cid}"
         return 0
     else
@@ -68,18 +78,16 @@ check_file_on_gateway() {
 }
 
 # If file can be found via gateways then exit
-echo "Checking if file is already hosted on IPFS..."
-if check_file_on_gateway "$DEFAULT_GATEWAY_1" "$ipfs_cid"; then
+if check_file_via_gateway "$DEFAULT_GATEWAY_1" "$ipfs_cid" "$TIMEOUT"; then
     exit 0
 fi
-echo " "
-if check_file_on_gateway "$DEFAULT_GATEWAY_2" "$ipfs_cid"; then
-    exit 0
-fi
-echo " "
-if check_file_on_gateway "$DEFAULT_GATEWAY_3" "$ipfs_cid"; then
+if check_file_via_gateway "$DEFAULT_GATEWAY_2" "$ipfs_cid" "$TIMEOUT"; then
     exit 0
 fi
 
+# todo: add more gateways
+
+# If file cannot be found via gateways then exit
 echo " "
 echo "File is cannot be found via gateways. Exiting."
+exit 0
