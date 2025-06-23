@@ -4,7 +4,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 ## Navigation
 
-### Scripts
+### Scripts
 
 #### 2025 Budget Scripts
 
@@ -12,7 +12,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
   - Uses a combination of the other scripts
 
-#### IPFS Scripts
+#### IPFS Scripts
 
 - [ipfs-check.sh](./scripts/ipfs-check.sh)
   - Checks if a file is accessible via free IPFS gateways
