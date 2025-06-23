@@ -4,7 +4,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 ## Navigation
 
-Scripts
+### Scripts
 
 - [create-author-witness.sh](./scripts/create-author-witness.sh)
   - Adds an author witness to CIP100/CIP108 metadata
@@ -20,8 +20,10 @@ Scripts
   - Applies a spell check to CIP108 metadata 
 - [verify-author-witness.sh](./scripts/verify-author-witness.sh)
   - Checks the correctness of CIP108 metadata with a author(s) witness(es) 
+- [verify-budget-metadata.sh](./scripts/verify-budget-metadata.sh) 
+  - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata. 
 
-Documentation
+### Documentation
 
 - [2025 Budget Treasury Withdrawals](./docs/2025-budget-withdrawals.md)
   - Documents the scripts and high level process to create the treasury withdrawal governance actions for the Intersect 2025 budget.
