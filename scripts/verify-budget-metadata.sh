@@ -67,12 +67,16 @@ if [ -d "$input_path" ]; then
                 echo "Checking author for $file"
                 ./scripts/verify-author-witness.sh "$file"
                 echo " "
+
+                # todo add more checks here
             else
                 echo "Skipping author witness checks..."
                 echo " "
                 echo "Running validation $file"
                 ./scripts/validate-cip-108.sh "$file"
                 echo " "
+
+                # todo add more checks here
             fi
         else
             echo "Error: '$file' is not a valid file."
