@@ -76,6 +76,10 @@ echo " "
 if check_file_on_gateway "$DEFAULT_GATEWAY_2" "$ipfs_cid"; then
     exit 0
 fi
+echo " "
+if check_file_on_gateway "$DEFAULT_GATEWAY_3" "$ipfs_cid"; then
+    exit 0
+fi
 
 echo " "
 echo "File is cannot be found via gateways. Exiting."
