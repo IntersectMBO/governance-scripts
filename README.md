@@ -57,6 +57,12 @@ In order to run all of these scripts you will need
 - [ipfs](https://docs.ipfs.eth.link/install/command-line/)
 - jq
 
+## Secrets
+
+Secrets can be stored via `./scripts/.env` and based on `./scripts/.env.example`.
+
+The only script that uses secrets is `ipfs-pin.sh`.
+
 ## License
 
 See [License](./LICENSE).
