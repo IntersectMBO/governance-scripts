@@ -1,8 +1,6 @@
-# Intersect 2025 Budget Treasury Withdrawals
-
+# Draft --  Intersect 2025 Budget Treasury Withdrawals
 
 Here we intend to document the scripts used within the technical processes of building and verifying the treasury withdrawal actions.
-
 
 ## Steps
 
