@@ -16,7 +16,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 - [ipfs-check.sh](./scripts/ipfs-check.sh)
   - Checks if a file is accessible via free IPFS gateways
-- [ipfs-pin.sh](./scripts/ipfs-check.sh)
+- [ipfs-pin.sh](./scripts/ipfs-pin.sh)
   - Allows user to pin a file on a number of pinning services
   - Optionally allows the user to check file's discoverability first
 
@@ -45,7 +45,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [2025 Budget Treasury Withdrawals](./docs/2025-budget-withdrawals.md)
   - Documents the scripts and high level process to create the treasury withdrawal governance actions for the Intersect 2025 budget.
 
-## Dependencies
+## Dependencies
 
 In order to run all of these scripts you will need
 
