@@ -66,3 +66,15 @@ Host the author witnessed metadata on IPFS.
 ### 7. Create the action files
 
 todo
+
+### 8. Check action files
+
+todo
+
+### 9. Build the transactions
+
+todo
+
+### 10. check the transactions
+
+todo
