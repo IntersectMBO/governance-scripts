@@ -30,9 +30,9 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 #### CIP-100 Author Scripts
 
-- [author-create-witness.sh](./scripts/author-create-witness.sh)
+- [author-create.sh](./scripts/author-create.sh)
   - Adds an author witness to CIP100/CIP108 metadata
-- [author-verify-witness.sh](./scripts/author-verify-witness.sh)
+- [author-validate.sh](./scripts/author-validate.sh)
   - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
 
 #### Other Scripts
