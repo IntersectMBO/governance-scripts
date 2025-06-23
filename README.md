@@ -20,7 +20,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Applies a spell check to CIP108 metadata 
 - [verify-author-witness.sh](./scripts/verify-author-witness.sh)
   - Checks the correctness of CIP108 metadata with a author(s) witness(es) 
-- [verify-budget-metadata.sh](./scripts/verify-budget-metadata.sh) 
+- [check-budget-metadata.sh](./scripts/check-budget-metadata.sh) 
   - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata. 
 
 ### Documentation
