@@ -22,10 +22,10 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 #### CIP-108 Scripts
 
-- [create-human-readable-from-json.sh](./scripts/create-human-readable-from-json.sh)
+- [cip-108-create-human-readable.sh](./scripts/cip-108-create-human-readable.sh)
   - Creates a markdown file from CIP108 metadata
-- [validate-cip-108.sh](./scripts/validate-cip-108.sh)
-  - Compares CIP108 metadata against the established schema
+- [cip-108-validate.sh](./scripts/cip-108-validate.sh)
+  - Compares CIP-108 metadata against the established schema
   - Applies a spell check to CIP108 metadata 
 
 #### Other Scripts
