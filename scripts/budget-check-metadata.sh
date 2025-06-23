@@ -62,10 +62,10 @@ if [ -d "$input_path" ]; then
                 echo "Author witnesses will be checked..."
                 echo " "
                 echo "Running validation $file"
-                ./scripts/validate-cip-108.sh "$file"
+                ./scripts/cip-108-validate.sh "$file"
                 echo " "
                 echo "Checking author for $file"
-                ./scripts/verify-author-witness.sh "$file"
+                ./scripts/author-verify-witness.sh "$file"
                 echo " "
 
                 # todo add more checks here
