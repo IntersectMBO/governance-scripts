@@ -28,12 +28,15 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Compares CIP-108 metadata against the established schema
   - Applies a spell check to CIP108 metadata 
 
+#### CIP-100 Author Scripts
+
+- [author-create-witness.sh](./scripts/author-create-witness.sh)
+  - Adds an author witness to CIP100/CIP108 metadata
+- [author-verify-witness.sh](./scripts/author-verify-witness.sh)
+  - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
+
 #### Other Scripts
 
-- [create-author-witness.sh](./scripts/create-author-witness.sh)
-  - Adds an author witness to CIP100/CIP108 metadata
-- [verify-author-witness.sh](./scripts/verify-author-witness.sh)
-  - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
 - [hash.sh](./scripts/hash.sh)
   - Performs a blake2b-256 hash on provided file
 
