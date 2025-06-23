@@ -4,12 +4,21 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 ## Navigation
 
-### 2025 Budget Scripts
+### Scripts
+
+
+#### 2025 Budget Scripts
 
 - [check-budget-metadata.sh](./scripts/check-budget-metadata.sh) 
   - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
 
-### Scripts
+#### IPFS Scripts
+
+- [ipfs.sh](./scripts/ipfs.sh)
+  - Checks if a file is accessible via IPFS
+  - Allows user to pin a file on a number of pinning services 
+
+#### Other Scripts
 
 - [create-author-witness.sh](./scripts/create-author-witness.sh)
   - Adds an author witness to CIP100/CIP108 metadata
@@ -17,9 +26,6 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Creates a markdown file from CIP108 metadata
 - [hash.sh](./scripts/hash.sh)
   - Performs a blake2b-256 hash on provided file
-- [ipfs.sh](./scripts/ipfs.sh)
-  - Checks if a file is accessible via IPFS
-  - Allows user to pin a file on a number of pinning services 
 - [validate-cip-108.sh](./scripts/validate-cip-108.sh)
   - Compares CIP108 metadata against the established schema
   - Applies a spell check to CIP108 metadata 
