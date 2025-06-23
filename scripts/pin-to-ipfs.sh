@@ -92,16 +92,22 @@ echo "CID: $ipfs_cid"
 
 # If user wants to check if file is discoverable on IPFS
 if [ "$check_discoverable" = "true" ]; then
-    echo "Checking if file is already hosted on IPFS..."
     echo "Using ./scripts/check-ipfs.sh script to check if file is discoverable on IPFS..."
-    ./scripts/check-ipfs.sh "$input_path"
+    # check if file is discoverable on IPFS
+    if ! ./scripts/check-ipfs.sh "$input_path"; then
+        echo "File is not discoverable on IPFS. Proceeding to pin it."
+    else
+        echo "File is already discoverable on IPFS. No need to pin it."
+        exit 0
+    fi
+
 else
     echo "Skipping check of file on ipfs..."
 fi
 
-# If file is not accessible then pin it!!
 echo " "
 echo "File is not hosted on IPFS, so pinning it..."
+echo " "
 
 # Pin on local node
 if [ "$local_host" = "true" ]; then

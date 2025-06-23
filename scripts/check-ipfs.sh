@@ -90,4 +90,4 @@ fi
 # If file cannot be found via gateways then exit
 echo " "
 echo "File is cannot be found via gateways. Exiting."
-exit 0
+exit 1
