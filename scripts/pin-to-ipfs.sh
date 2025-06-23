@@ -4,13 +4,13 @@
 
 # Can change if you want!
 
-# used to by pass waiting for gateway checks
-JUST_PIN="false"
-JUST_CHECK="false"
+# Default behavior is to not check if file is discoverable on IPFS
+CHECK_TOO="false"
 
 # Gateways to check if file is already hosted on IPFS
 DEFAULT_GATEWAY_1="https://ipfs.io/ipfs/"
-DEFAULT_GATEWAY_2="https://gateway.pinata.cloud/ipfs/"
+DEFAULT_GATEWAY_2="https://dweb.link/ipfs/"
+DEFAULT_GATEWAY_3="https://gateway.pinata.cloud/ipfs/"
 
 # Pinning services to host the file on IPFS
 DEFAULT_HOST_ON_LOCAL_NODE="true"
@@ -31,24 +31,22 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <file> [--just-pin] [--just-check] [--no-local] [--no-pinata] [--no-blockfrost] [--no-nmkr]"
-    echo "Check if a file is on IPFS, and also pin it locally and via Blockfrost and NMKR."
+    echo "Usage: $0 <file> [--check-too] [--no-local] [--no-pinata] [--no-blockfrost] [--no-nmkr]"
+    echo "Pin a file to local IPFS node and pin via Blockfrost, NMKR and Pinata. Optionally check if file is already discoverable on IPFS."
     echo "  "
     echo "Options:"
     echo "  <file>                  Path to your file."
-    echo "  --just-pin              Don't look for the file, just pin it (default: $JUST_PIN)"
-    echo "  --just-check            Only look for the file don't try to pin it (default: $JUST_CHECK)"
-    echo "  --no-local              Don't try to pin file on local ipfs node? (default: $DEFAULT_HOST_ON_LOCAL_NODE)"
-    echo "  --no-pinata             Don't try to pin file on pinata service? (default: $DEFAULT_HOST_ON_PINATA)"
-    echo "  --no-blockfrost         Don't try to pin file on blockfrost service? (default: $DEFAULT_HOST_ON_BLOCKFROST)"
-    echo "  --no-nmkr               Don't try to pin file on NMKR service? (default: $DEFAULT_HOST_ON_NMKR_STORAGE)"
+    echo "  --check-too             Run a check if file is discoverable on ipfs, only pin if not discoverable (default: $CHECK_TOO)"
+    echo "  --no-local              Don't try to pin file on local ipfs node (default: $DEFAULT_HOST_ON_LOCAL_NODE)"
+    echo "  --no-pinata             Don't try to pin file on pinata service (default: $DEFAULT_HOST_ON_PINATA)"
+    echo "  --no-blockfrost         Don't try to pin file on blockfrost service (default: $DEFAULT_HOST_ON_BLOCKFROST)"
+    echo "  --no-nmkr               Don't try to pin file on NMKR service (default: $DEFAULT_HOST_ON_NMKR)"
     exit 1
 }
 
 # Initialize variables with defaults
 input_path=""
-just_pin="$JUST_PIN"
-just_check="$JUST_CHECK"
+check_discoverable="$CHECK_TOO"
 local_host="$DEFAULT_HOST_ON_LOCAL_NODE"
 pinata_host="$DEFAULT_HOST_ON_PINATA"
 blockfrost_host="$DEFAULT_HOST_ON_BLOCKFROST"
@@ -57,12 +55,8 @@ nmkr_host="$DEFAULT_HOST_ON_NMKR"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --just-pin)
-            just_pin="true"
-            shift
-            ;;
-        --just-check)
-            just_check="true"
+        --check-too)
+            check_discoverable="true"
             shift
             ;;
         --no-local)
@@ -101,10 +95,6 @@ echo "Generating CID for the file..."
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_path")
 echo "CID: $ipfs_cid"
 
-# check two gateways if file can be accessed
-echo " "
-echo "Checking if file is already hosted on IPFS..."
-
 check_file_on_gateway() {
     local gateway="$1"
     local cid="$2"
@@ -119,25 +109,19 @@ check_file_on_gateway() {
     fi
 }
 
-# If file can be found via gateways then exit
-if [ "$just_pin" = "false" ]; then
+# If user wants to check if file is discoverable on IPFS
+if [ "$check_discoverable" = "true" ]; then
     echo "Checking if file is already hosted on IPFS..."
-    if check_file_on_gateway "$DEFAULT_GATEWAY_1" "$ipfs_cid" "TIMEOUT"; then
+    if check_file_on_gateway "$DEFAULT_GATEWAY_1" "$ipfs_cid"; then
         echo "File is already hosted on IPFS. No need to pin anywhere else."
         exit 0
     fi
-    if check_file_on_gateway "$DEFAULT_GATEWAY_2" "$ipfs_cid" "TIMEOUT"; then
+    if check_file_on_gateway "$DEFAULT_GATEWAY_2" "$ipfs_cid"; then
         echo "File is already hosted on IPFS. No need to pin anywhere else."
         exit 0
     fi
 else
     echo "Skipping check of file on ipfs..."
-fi
-
-# If just checking then exit
-if [ "$just_check" = "true" ]; then
-    echo "File is not hosted on IPFS, but you requested to just check. Exiting."
-    exit 0
 fi
 
 # If file is not accessible then pin it!!
