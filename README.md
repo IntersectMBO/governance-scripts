@@ -28,6 +28,18 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [2025 Budget Treasury Withdrawals](./docs/2025-budget-withdrawals.md)
   - Documents the scripts and high level process to create the treasury withdrawal governance actions for the Intersect 2025 budget.
 
+## Dependencies
+
+In order to run all of these scripts you will need
+
+- [ajv-cli](https://www.npmjs.com/package/ajv-cli)
+- aspell
+- b2sum
+- cardano-cli
+- [cardano-signer](https://github.com/gitmachtl/cardano-signer)
+- [ipfs](https://docs.ipfs.eth.link/install/command-line/)
+- jq
+
 ## License
 
 See [License](./LICENSE).
