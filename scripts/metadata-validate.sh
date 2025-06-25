@@ -29,23 +29,57 @@ usage() {
     echo "Options:"
     echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
+    echo "  --schema URL          Compare against schema at URL"
     exit 1
 }
 
-INPUT_FILE="$1"
-TMP_JSON_FILE=""
+# Initialize variables with defaults
+input_file=""
+use_cip_108="$DEFAULT_USE_CIP_108"
+use_cip_100="$DEFAULT_USE_CIP_100"
+user_schema_url=""
+user_schema="false"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --cip108)
+            use_cip_108="true"
+            shift
+            ;;
+        --cip108)
+            use_cip_108="true"
+            shift
+            ;;
+        --schema)
+            user_schema_url="$2"
+            user_schema="true"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            if [ -z "$input_file" ]; then
+                input_file="$1"
+            fi
+            shift
+            ;;
+    esac
+done
 
 # If the file ends with .jsonld, create a temporary .json copy (overwrite if exists)
-if [[ "$INPUT_FILE" == *.jsonld ]]; then
-    if [ ! -f "$INPUT_FILE" ]; then
-        echo "Error: File '$INPUT_FILE' does not exist."
+TMP_JSON_FILE=""
+if [[ "$input_file" == *.jsonld ]]; then
+    if [ ! -f "$input_file" ]; then
+        echo "Error: File '$input_file' does not exist."
         exit 1
     fi
     TMP_JSON_FILE="/tmp/metadata.json"
-    cp -f "$INPUT_FILE" "$TMP_JSON_FILE"
+    cp -f "$input_file" "$TMP_JSON_FILE"
     JSON_FILE="$TMP_JSON_FILE"
 else
-    JSON_FILE="$INPUT_FILE"
+    JSON_FILE="$input_file"
 fi
 
 # Check if the file exists
@@ -62,7 +96,23 @@ if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Pull the schema from the URL (suppress curl output)
+# Download the schemas as needed
+if [ "$use_cip_108" = "true" ]; then
+    TEMP_CIP_108_SCHEMA="/tmp/cip-108-schema.json"
+    curl -sSfSL "$CIP_108_SCHEMA" -o "$TEMP_CIP_108_SCHEMA"
+fi
+
+if [ "$use_cip_100" = "true" ]; then
+    TEMP_CIP_100_SCHEMA="/tmp/cip-100-schema.json"
+    curl -sSfSL "$CIP_100_SCHEMA" -o "$TEMP_CIP_100_SCHEMA"
+fi
+
+if [ "$user_schema" = "true" ]; then
+    TEMP_USER_SCHEMA="/tmp/user-schema.json"
+    curl -sSfSL "$use_schema_url" -o "$TEMP_USER_SCHEMA"
+fi
+
+# Pull the schema from the URL
 TMP_SCHEMA="/tmp/cip-108-schema.json"
 curl -sSfSL "$SCHEMA_URL" -o "$TMP_SCHEMA"
 
