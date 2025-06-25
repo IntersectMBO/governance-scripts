@@ -1,13 +1,36 @@
 #!/bin/bash
 
-# Hardcoded JSON Schema URL
-SCHEMA_URL="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
+##################################################
+# Default schema values
+CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0100/cip-0100.common.schema.json"
+CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
+INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 
-# Check if the correct number of arguments is provided
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <jsonld-file>"
-    exit 1
+# Default schema values
+DEFAULT_USE_CIP_100="false"
+DEFAULT_USE_CIP_108="true"
+##################################################
+
+# Check if cardano-signer is installed
+if ! command -v cardano-signer >/dev/null 2>&1; then
+  echo "Error: cardano-signer is not installed or not in your PATH." >&2
+  exit 1
 fi
+
+# Check if ajv is installed
+if ! command -v ajv >/dev/null 2>&1; then
+  echo "Error: ajv is not installed or not in your PATH." >&2
+  exit 1
+fi
+
+# Usage message
+usage() {
+    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--schema URL]"
+    echo "Options:"
+    echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
+    echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
+    exit 1
+}
 
 INPUT_FILE="$1"
 TMP_JSON_FILE=""
