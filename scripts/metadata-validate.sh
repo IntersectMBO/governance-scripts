@@ -32,7 +32,7 @@ usage() {
     echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     echo "  --cip136              Compare against CIP-136 schema (default: $DEFAULT_USE_CIP_136)"
-    echo "  --schema URL          Compare against schema at URL"
+    echo "  --schema <URL>        Compare against schema at URL"
     exit 1
 }
 
@@ -53,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --cip100)
             use_cip_100="true"
+            shift
+            ;;
+        --cip136)
+            use_cip_136="true"
             shift
             ;;
         --schema)
