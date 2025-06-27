@@ -126,9 +126,9 @@ if [ "$use_cip_136" = "true" ]; then
 fi
 
 if [ "$user_schema" = "true" ]; then
-    echo "Downloading schema from {$use_schema_url}..."
+    echo "Downloading schema from {$user_schema_url}..."
     TEMP_USER_SCHEMA="/tmp/schemas/user-schema.json"
-    curl -sSfSL "$use_schema_url" -o "$TEMP_USER_SCHEMA"
+    curl -sSfSL "$user_schema_url" -o "$TEMP_USER_SCHEMA"
 fi
 
 # Basic spell check on key data fields (requires 'aspell' installed)
