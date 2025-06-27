@@ -20,13 +20,16 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Allows user to pin a file on a number of pinning services
   - Optionally allows the user to check file's discoverability first
 
+#### CIP-100+ Metadata Scripts
+
+- [metadata-validate.sh](./scripts/cip-108-validate.sh)
+  - Compares governance metadata against the established schema(s)
+  - Applies a spell check to CIP108 metadata
+
 #### CIP-108 Scripts
 
 - [cip-108-create-human-readable.sh](./scripts/cip-108-create-human-readable.sh)
   - Creates a markdown file from CIP108 metadata
-- [cip-108-validate.sh](./scripts/cip-108-validate.sh)
-  - Compares CIP-108 metadata against the established schema
-  - Applies a spell check to CIP108 metadata 
 
 #### CIP-100 Author Scripts
 
