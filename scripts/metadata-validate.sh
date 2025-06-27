@@ -11,6 +11,7 @@ INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/govern
 DEFAULT_USE_CIP_100="false"
 DEFAULT_USE_CIP_108="true"
 DEFAULT_USE_CIP_136="false"
+DEFAULT_USE_INTERSECT_TREASURY="false"
 ##################################################
 
 # Check if cardano-signer is installed
@@ -27,11 +28,12 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--schema URL]"
+    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-treasury] [--schema URL]"
     echo "Options:"
     echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     echo "  --cip136              Compare against CIP-136 schema (default: $DEFAULT_USE_CIP_136)"
+    echo "  --intersect-treasury  Compare against Intersect Treasury withdrawals schema (default: $DEFAULT_USE_INTERSECT_TREASURY)"
     echo "  --schema <URL>        Compare against schema at URL"
     exit 1
 }
@@ -41,6 +43,7 @@ input_file=""
 use_cip_108="$DEFAULT_USE_CIP_108"
 use_cip_100="$DEFAULT_USE_CIP_100"
 use_cip_136="$DEFAULT_USE_CIP_136"
+use_intersect_treasury="$DEFAULT_USE_INTERSECT_TREASURY"
 user_schema_url=""
 user_schema="false"
 
@@ -57,6 +60,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --cip136)
             use_cip_136="true"
+            shift
+            ;;
+        --intersect-treasury)
+            use_intersect_treasury="true"
             shift
             ;;
         --schema)
@@ -123,6 +130,12 @@ if [ "$use_cip_136" = "true" ]; then
     echo "Downloading CIP-136 schema..."
     TEMP_CIP_136_SCHEMA="/tmp/schemas/cip-136-schema.json"
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
+fi
+
+if [ "$use_intersect_treasury" = "true" ]; then
+    echo "Downloading Intersect treasury withdrawal schema..."
+    TEMP_INT_TREASURY_SCHEMA="/tmp/schemas/intersect-treasury-withdrawal-schema.json"
+    curl -sSfSL "$INTERSECT_TREASURY_SCHEMA" -o "$TEMP_INT_TREASURY_SCHEMA"
 fi
 
 if [ "$user_schema" = "true" ]; then
