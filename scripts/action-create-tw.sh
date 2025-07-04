@@ -36,9 +36,9 @@ fi
 # Usage message
 
 usage() {
-    echo "Usage: $0 <jsonld-file|directory> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
+    echo "Usage: $0 <jsonld-file> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
-    echo "  <jsonld-file|directory>                          Path to the JSON-LD metadata file or directory containing metadata files"
+    echo "  <jsonld-file>                                    Path to the JSON-LD metadata file"
     echo "  --withdraw-to-script                             Check that the withdrawal address is a script-based address, exit otherwise"
     echo "  --deposit-return-addr <stake address>            Check that metadata deposit return address matches provided one (Bech32)"
     echo "  --withdrawal-addr <stake address>                Check that metadata withdrawal address matches provided one (Bech32)"
