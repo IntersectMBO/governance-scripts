@@ -52,7 +52,7 @@ input_file=""
 
 # Optional variables
 testnet_magic=""
-deposit_return_address=""
+deposit_return_address_input=""
 withdrawal_address_input=""
 
 # todo check all the inputs work
@@ -71,7 +71,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --deposit-return-addr)
             if [ -n "${2:-}" ]; then
-                deposit_return_address="$2"
+                deposit_return_address_input="$2"
                 shift 2
             else
                 echo -e "${RED}Error: --deposit-return-addr requires a value${NC}" >&2
@@ -167,13 +167,13 @@ fi
 # todo: add check that the deposit address is the same network as the connected and provided testnet_magic
 
 # if return address passed in check against metadata
-if [ !"$deposit_return_address" = "" ]; then
+if [ ! -z "$deposit_return_address_input" ]; then
     echo "Deposit return address provided"
     echo "Comparing provided address to metadata"
-    if [ "$deposit_return_address" = "$deposit_return" ]; then
-        echo "Metadata has expected deposit return address"
+    if [ "$deposit_return_address_input" = "$deposit_return" ]; then
+        echo -e "${GREEN}Metadata has expected deposit return address${NC}"
     else
-        echo "Metadata does not have expected deposit return address"
+        echo -e "${RED}Metadata does not have expected deposit return address${NC}"
         exit 1
     fi
 fi
@@ -183,9 +183,9 @@ if [ ! -z "$withdrawal_address_input" ]; then
     echo "Withdrawal address provided"
     echo "Comparing provided address to metadata"
     if [ "$withdrawal_address_input" = "$withdrawal_address" ]; then
-        echo "Metadata has expected withdrawal address"
+        echo -e "${GREEN}Metadata has expected withdrawal address${NC}"
     else
-        echo "Metadata does not have expected withdrawal address"
+        echo -e "${RED}Metadata does not have expected withdrawal address${NC}"
         exit 1
     fi
 fi
