@@ -136,18 +136,9 @@ else
     exit 1
 fi
 
-# deposit address is the same network as the connected and provided testnet_magic
+# todo: add check that the deposit address is the same network as the connected and provided testnet_magic
 
-# check the bech32 prefix to determine network
-# if [ "$($deposit_return_address)" = "stake1" && "$testnet_magic" = "" ]; then
-#     echo
-# else
-
-# fi
-
-# deposit address matches the one provided
-
-# if return address provided check against metadata
+# if return address passed in check against metadata
 if [ !"$deposit_return_address" = "" ]; then
     echo "Deposit return address provided"
     echo "Comparing provided address to metadata"
@@ -168,16 +159,17 @@ echo -e "${CYAN}Computing details${NC}"
 
 # Compute the hash and IPFS URI
 file_hash=$(b2sum -l 256 "$input_file" | awk '{print $1}')
-echo "Metadata file hash: $file_hash"
+echo -e "Metadata file hash: ${YELLOW}$file_hash${NC}"
 
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_file")
-echo "IPFS URI: ipfs://$ipfs_cid"
+echo -e "IPFS URI: ${YELLOW}ipfs://$ipfs_cid${NC}"
 
 # Make user manually confirm the choices
 echo -e " "
 echo -e "${CYAN}Creating treasury withdrawal action${NC}"
-echo -e "Title: $title"
-echo -e "Deposit return address: $deposit_return"
+echo -e "Title: ${YELLOW}$title${NC}"
+echo -e " "
+echo -e "Deposit return address: ${YELLOW}$deposit_return${NC}"
 
 read -p "Do you want to proceed with this deposit return address? (yes/no): " confirm_deposit
 
@@ -186,11 +178,12 @@ if [ "$confirm_deposit" != "yes" ]; then
   exit 1
 fi
 
-echo "Withdrawal address: $withdrawal_address"
+echo " "
+echo "Withdrawal address: ${YELLOW}$withdrawal_address${NC}"
 
-# todo also show amount in ada
-
-echo "Withdrawal amount (lovelace): $withdrawal_amount"
+ada_amount=$(echo "scale=6; $withdrawal_amount / 1000000" | bc)
+ada_amount_formatted=$(printf "%'0.6f" "$ada_amount")
+echo "Withdrawal amount (ada): ${YELLOW}$ada_amount${NC}"
 
 read -p "Do you want to proceed with these files? (yes/no): " confirm_withdrawal
 
