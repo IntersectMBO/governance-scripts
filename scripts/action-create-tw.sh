@@ -3,8 +3,7 @@
 ##################################################
 
 # Default configuration values
-
-
+WITHDRAW_TO_SCRIPT="false"
 
 ##################################################
 
@@ -37,10 +36,13 @@ fi
 # Usage message
 
 usage() {
-    echo "Usage: $0 <jsonld-file|directory> [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
+    echo "Usage: $0 <jsonld-file|directory> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
-    echo "  --deposit-return-addr <stake address>         Check that metadata deposit return address matches provided one (Bech32)"
-    echo "  --withdrawal-addr <stake address>             Check that metadata withdrawal address matches provided one (Bech32)"
+    echo "  <jsonld-file|directory>                          Path to the JSON-LD metadata file or directory containing metadata files"
+    echo "  --withdraw-to-script                             Check that the withdrawal address is a script-based address, exit otherwise"
+    echo "  --deposit-return-addr <stake address>            Check that metadata deposit return address matches provided one (Bech32)"
+    echo "  --withdrawal-addr <stake address>                Check that metadata withdrawal address matches provided one (Bech32)"
+    echo "  -h, --help                                       Show this help message and exit"
     exit 1
 }
 
@@ -48,6 +50,7 @@ usage() {
 input_file=""
 
 # Optional variables
+withdraw_to_script="$WITHDRAW_TO_SCRIPT"
 deposit_return_address_input=""
 withdrawal_address_input=""
 
@@ -56,6 +59,10 @@ withdrawal_address_input=""
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --withdraw-to-script)
+            withdraw_to_script="true"
+            shift
+            ;;    
         --deposit-return-addr)
             if [ -n "${2:-}" ]; then
                 deposit_return_address_input="$2"
@@ -101,11 +108,10 @@ if [ ! -f "$input_file" ]; then
     exit 1
 fi
 
+echo -e " "
 echo -e "${YELLOW}Creating a treasury withdrawal governance action from a given metadata file${NC}"
 echo -e "${CYAN}This script assumes compliance Intersect's treasury withdrawal action schema${NC}"
-echo -e " "
-echo -e "${CYAN}This script assumes that CARDANO_NODE_SOCKET_PATH is set${NC}"
-echo -e "${CYAN}This script assumes that CARDANO_NODE_NETWORK_ID is set${NC}"
+echo -e "${CYAN}This script assumes that CARDANO_NODE_SOCKET_PATH and CARDANO_NODE_NETWORK_ID are set${NC}"
 
 # Exit if socket path is not set
 if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
@@ -116,6 +122,15 @@ fi
 # Exit if network id is not set
 if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
     echo "Error: Cardano node $CARDANO_NODE_NETWORK_ID environment variable is not set." >&2
+fi
+
+# Get if mainnet or testnet
+if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
+    echo -e "${YELLOW}Local node is using mainnet${NC}"
+    protocol_magic="mainnet"
+else
+    echo -e "${YELLOW}Local node is using a testnet${NC}"
+    protocol_magic="$CARDANO_NODE_NETWORK_ID"
 fi
 
 # Open the provided metadata file
@@ -159,8 +174,6 @@ else
     exit 1
 fi
 
-# todo: add check that the deposit address is the same network as the connected and provided testnet_magic
-
 # if return address passed in check against metadata
 if [ ! -z "$deposit_return_address_input" ]; then
     echo "Deposit return address provided"
@@ -185,6 +198,54 @@ if [ ! -z "$withdrawal_address_input" ]; then
     fi
 fi
 
+# todo: check if addresses are on the same network as local node
+
+# use bech32 prefix to determine if addresses are mainnet or testnet
+is_stake_address_mainnet() {
+    local address="$1"
+    # Check if address starts with stake1 (mainnet)
+    if [[ "$address" =~ ^stake1 ]]; then
+        return 0
+    # Check if address starts with stake_test1 (testnet)
+    elif [[ "$address" =~ ^stake_test1 ]]; then
+        return 1
+    else
+        echo -e "${RED}Error: Invalid stake address format: $address${NC}" >&2
+        exit 1
+    fi
+}
+
+# if mainnet node then expect addresses to be mainnet
+if [ "$protocol_magic" = "mainnet" ]; then
+    if is_stake_address_mainnet "$deposit_return"; then
+        echo -e "Deposit return address is a valid mainnet stake address"
+    else
+        echo -e "${RED}Deposit return address is not a valid mainnet stake address${NC}"
+        exit 1
+    fi
+
+    if is_stake_address_mainnet "$withdrawal_address"; then
+        echo -e "Withdrawal address is a valid mainnet stake address"
+    else
+        echo -e "${RED}Withdrawal address is not a valid mainnet stake address${NC}"
+        exit 1
+    fi
+else
+    if ! is_stake_address_mainnet "$deposit_return"; then
+        echo -e "Deposit return address is a valid testnet stake address"
+    else
+        echo -e "${RED}Deposit return address is not a valid testnet stake address${NC}"
+        exit 1
+    fi
+
+    if ! is_stake_address_mainnet "$withdrawal_address"; then
+        echo -e "Withdrawal address is a valid testnet stake address"
+    else
+        echo -e "${RED}Withdrawal address is not a valid testnet stake address${NC}"
+        exit 1
+    fi
+fi
+
 echo -e "${GREEN}Automatic validations passed${NC}"
 echo -e " "
 echo -e "${CYAN}Computing details${NC}"
@@ -198,6 +259,8 @@ echo -e "Metadata file hash: ${YELLOW}$file_hash${NC}"
 
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_file")
 echo -e "IPFS URI: ${YELLOW}ipfs://$ipfs_cid${NC}"
+
+# todo add information about if addresses are script-based or key-based
 
 # Make user manually confirm the choices
 echo -e " "
@@ -231,21 +294,15 @@ fi
 echo -e " "
 echo -e "${CYAN}Creating action file...${NC}"
 
-# todo support other networks
-if [ -n "$testnet_magic" ]; then
-    echo -e "${YELLOW}Using testnet magic: $testnet_magic${NC}"
-else
-    echo -e "${YELLOW}Using mainnet${NC}"
-fi
 
 cardano-cli conway governance action create-treasury-withdrawal \
-  -- \
-  --governance-action-deposit $(cardano-cli conway query gov-state --mainnet | jq -r '.currentPParams.govActionDeposit') \
+  --mainnet \
+  --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
   --check-anchor-data \
   --funds-receiving-stake-address "$withdrawal_address" \
   --transfer "$withdrawal_amount" \
-  --constitution-script-hash $(cardano-cli conway query constitution --mainnet | jq -r '.script') \
+  --constitution-script-hash $(cardano-cli conway query constitution | jq -r '.script') \
   --out-file "$input_file.action"
