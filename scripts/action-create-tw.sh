@@ -329,7 +329,6 @@ fi
 echo -e " "
 echo -e "${CYAN}Creating action file...${NC}"
 
-
 cardano-cli conway governance action create-treasury-withdrawal \
   --mainnet \
   --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
@@ -341,3 +340,11 @@ cardano-cli conway governance action create-treasury-withdrawal \
   --transfer "$withdrawal_amount" \
   --constitution-script-hash $(cardano-cli conway query constitution | jq -r '.script') \
   --out-file "$input_file.action"
+
+echo -e "${GREEN}Action file created at "$input_file.action" ${NC}"
+
+echo -e " "
+echo -e "${CYAN}Creating JSON representation of action file...${NC}"
+
+cardano-cli conway governance action view --action-file "$input_file.action" > "$input_file.action.json"
+echo -e "${GREEN}JSON file created at "$input_file.action.json" ${NC}"
