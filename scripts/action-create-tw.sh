@@ -130,7 +130,7 @@ if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" 
     protocol_magic="mainnet"
 else
     echo -e "${YELLOW}Local node is using a testnet${NC}"
-    protocol_magic="$CARDANO_NODE_NETWORK_ID"
+    protocol_magic="testnet"
 fi
 
 # Open the provided metadata file
@@ -295,6 +295,23 @@ else
     exit 1
 fi
 
+is_stake_address_delegated_to_abstain() {
+    local address="$1"
+    vote_delegation=$(cardano-cli conway query stake-address-info --$protocol_magic --address "$address" | jq -r '.[0].voteDelegation')
+    if [ "$vote_delegation" = "alwaysAbstain" ] || [ "$vote_delegation" = "null" ] ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+if is_stake_address_delegated_to_abstain_or_null "$withdrawal_address"; then
+    echo -e "Withdrawal stake address is not deleted to abstain or not delegated at all"
+else
+    echo -e "${RED}Withdrawal stake address is delegated to something other than abstain, exiting.${NC}"
+    exit 1
+fi
+
 echo -e "${GREEN}Automatic validations passed${NC}"
 echo -e " "
 echo -e "${CYAN}Computing details${NC}"
@@ -355,7 +372,7 @@ echo -e " "
 echo -e "${CYAN}Creating action file...${NC}"
 
 cardano-cli conway governance action create-treasury-withdrawal \
-  --mainnet \
+  --$protocol_magic \
   --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
