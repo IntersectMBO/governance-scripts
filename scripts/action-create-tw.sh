@@ -53,7 +53,7 @@ input_file=""
 # Optional variables
 testnet_magic=""
 deposit_return_address=""
-withdrawal_address=""
+withdrawal_address_input=""
 
 # todo check all the inputs work
 
@@ -69,7 +69,7 @@ while [[ $# -gt 0 ]]; do
             shift 3
             ;;
         --single-withdrawal-addr)
-            withdrawal_address="$4"
+            withdrawal_address_input="$4"
             shift 4
             ;;
         -h|--help)
@@ -146,6 +146,18 @@ if [ !"$deposit_return_address" = "" ]; then
         echo "Metadata has expected deposit return address"
     else
         echo "Metadata does not have expected deposit return address"
+        exit 1
+    fi
+fi
+
+# check if withdrawal address is provided
+if [ ! -z "$withdrawal_address_input" ]; then
+    echo "Withdrawal address provided"
+    echo "Comparing provided address to metadata"
+    if [ "$withdrawal_address_input" = "$withdrawal_address" ]; then
+        echo "Metadata has expected withdrawal address"
+    else
+        echo "Metadata does not have expected withdrawal address"
         exit 1
     fi
 fi
