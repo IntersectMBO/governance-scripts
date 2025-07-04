@@ -218,14 +218,14 @@ if [ "$confirm_deposit" != "yes" ]; then
   exit 1
 fi
 
-echo " "
-echo "Withdrawal address: ${YELLOW}$withdrawal_address${NC}"
+echo -e " "
+echo -e "Withdrawal address: ${YELLOW}$withdrawal_address${NC}"
 
 ada_amount=$(echo "scale=6; $withdrawal_amount / 1000000" | bc)
 ada_amount_formatted=$(printf "%'0.6f" "$ada_amount")
-echo "Withdrawal amount (ada): ${YELLOW}$ada_amount${NC}"
+echo -e "Withdrawal amount (ada): ${YELLOW}$ada_amount_formatted${NC}"
 
-read -p "Do you want to proceed with these files? (yes/no): " confirm_withdrawal
+read -p "Do you want to proceed with this withdrawal address and amount? (yes/no): " confirm_withdrawal
 
 if [ "$confirm_withdrawal" != "yes" ]; then
   echo -e "${RED}Withdrawal amount or withdrawal address not confirmed by user, exiting.${NC}"
@@ -233,9 +233,11 @@ if [ "$confirm_withdrawal" != "yes" ]; then
 fi
 
 # Create the action
-echo "Creating action"
+echo -e " "
+echo -e "${CYAN}Creating action file...${NC}"
 
 cardano-cli conway governance action create-treasury-withdrawal \
+  --socket-path $SOCKET_PATH \
   --mainnet \
   --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-address "$deposit_return_address" \
