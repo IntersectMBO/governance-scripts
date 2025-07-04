@@ -36,12 +36,9 @@ fi
 
 # Usage message
 
-# todo get the network/testnet magic from the set $SOCKET_PATH
-
 usage() {
-    echo "Usage: $0 <jsonld-file|directory> [--testnet-magic <NUMBER>] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
+    echo "Usage: $0 <jsonld-file|directory> [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
-    echo "  --testnet-magic <NUMBER>                      Use a test network, denoted by magic protocol value"
     echo "  --deposit-return-addr <stake address>         Check that metadata deposit return address matches provided one (Bech32)"
     echo "  --withdrawal-addr <stake address>             Check that metadata withdrawal address matches provided one (Bech32)"
     exit 1
@@ -51,7 +48,6 @@ usage() {
 input_file=""
 
 # Optional variables
-testnet_magic=""
 deposit_return_address_input=""
 withdrawal_address_input=""
 
@@ -60,15 +56,6 @@ withdrawal_address_input=""
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --testnet-magic)
-            if [ -n "${2:-}" ]; then
-                testnet_magic="$2"
-                shift 2
-            else
-                echo -e "${RED}Error: --testnet-magic requires a value${NC}" >&2
-                usage
-            fi
-            ;;
         --deposit-return-addr)
             if [ -n "${2:-}" ]; then
                 deposit_return_address_input="$2"
@@ -116,11 +103,19 @@ fi
 
 echo -e "${YELLOW}Creating a treasury withdrawal governance action from a given metadata file${NC}"
 echo -e "${CYAN}This script assumes compliance Intersect's treasury withdrawal action schema${NC}"
-echo -e "${CYAN}This script assumes that SOCKET_PATH is set to a local node socket file${NC}"
-# Exit is socket path is not set
-if [ -z "$SOCKET_PATH" ]; then
-    echo "Error: Cardano node $SOCKET_PATH environment variable is not set." >&2
+echo -e " "
+echo -e "${CYAN}This script assumes that CARDANO_NODE_SOCKET_PATH is set${NC}"
+echo -e "${CYAN}This script assumes that CARDANO_NODE_NETWORK_ID is set${NC}"
+
+# Exit if socket path is not set
+if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
+    echo "Error: Cardano node $CARDANO_NODE_SOCKET_PATH environment variable is not set." >&2
     exit 1
+fi
+
+# Exit if network id is not set
+if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
+    echo "Error: Cardano node $CARDANO_NODE_NETWORK_ID environment variable is not set." >&2
 fi
 
 # Open the provided metadata file
@@ -236,15 +231,21 @@ fi
 echo -e " "
 echo -e "${CYAN}Creating action file...${NC}"
 
+# todo support other networks
+if [ -n "$testnet_magic" ]; then
+    echo -e "${YELLOW}Using testnet magic: $testnet_magic${NC}"
+else
+    echo -e "${YELLOW}Using mainnet${NC}"
+fi
+
 cardano-cli conway governance action create-treasury-withdrawal \
-  --socket-path $SOCKET_PATH \
-  --mainnet \
-  --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
-  --deposit-return-stake-address "$deposit_return_address" \
+  -- \
+  --governance-action-deposit $(cardano-cli conway query gov-state --mainnet | jq -r '.currentPParams.govActionDeposit') \
+  --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
   --check-anchor-data \
   --funds-receiving-stake-address "$withdrawal_address" \
   --transfer "$withdrawal_amount" \
-  --constitution-script-hash $(cardano-cli conway query constitution | jq -r '.script') \
+  --constitution-script-hash $(cardano-cli conway query constitution --mainnet | jq -r '.script') \
   --out-file "$input_file.action"
