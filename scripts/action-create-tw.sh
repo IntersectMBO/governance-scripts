@@ -295,7 +295,7 @@ else
     exit 1
 fi
 
-is_stake_address_delegated_to_abstain() {
+is_stake_address_delegated_to_abstain_or_null() {
     local address="$1"
     vote_delegation=$(cardano-cli conway query stake-address-info --$protocol_magic --address "$address" | jq -r '.[0].voteDelegation')
     if [ "$vote_delegation" = "alwaysAbstain" ] || [ "$vote_delegation" = "null" ] ; then
