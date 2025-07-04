@@ -41,7 +41,7 @@ fi
 usage() {
     echo "Usage: $0 <jsonld-file|directory> [--testnet-magic <NUMBER>] [--deposit-return-addr <stake address>] [--single-withdrawal-addr <stake address>]"
     echo "Options:"
-    echo "  --testnet-magic <NUMBER>                      Use a test network, denoted by magic value"
+    echo "  --testnet-magic <NUMBER>                      Use a test network, denoted by magic protocol value"
     echo "  --deposit-return-addr <stake address>         Check that metadata deposit return address matches provided one (Bech32)"
     echo "  --single-withdrawal-addr <stake address>      Check that metadata withdrawal address matches provided one (Bech32)"
     exit 1
@@ -97,19 +97,36 @@ fi
 
 # Open the provided metadata file
 
-# todo: add checks to exit if any of these fields are not found
-
-title=$(jq -r '.body.title' "$input_file")
-ga_type=$(jq -r '.body.onChain.governanceActionType' "$input_file")
-deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$input_file")
-
-# todo: for now just support one withdrawal
-withdrawal_address=$(jq -r '.body.onChain.withdrawals[0].withdrawalAddress' "$input_file")
-withdrawal_address=$(jq -r '.body.onChain.withdrawals[0].withdrawalAmount' "$input_file")
-
-# Do some basic validation checks
+# Do some basic validation checks on metadata
 echo -e " "
 echo -e "${CYAN}Doing some basic validation and checks on metadata${NC}"
+
+# Function to check if jq query returned null or empty
+check_field() {
+    local field_name="$1"
+    local field_value="$2"
+    
+    if [ -z "$field_value" ] || [ "$field_value" = "null" ]; then
+        echo -e "${RED}Error: Required field '$field_name' not found in metadata${NC}" >&2
+        exit 1
+    fi
+}
+
+# Extract and validate required fields
+title=$(jq -r '.body.title' "$input_file")
+check_field "title" "$title"
+
+ga_type=$(jq -r '.body.onChain.governanceActionType' "$input_file")
+check_field "governanceActionType" "$ga_type"
+
+deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$input_file")
+check_field "depositReturnAddress" "$deposit_return"
+
+# todo: support multiple withdrawals
+withdrawal_address=$(jq -r '.body.onChain.withdrawals[0].withdrawalAddress' "$input_file")
+check_field "withdrawalAddress" "$withdrawal_address"
+withdrawal_amount=$(jq -r '.body.onChain.withdrawals[0].withdrawalAmount' "$input_file")
+check_field "withdrawalAmount" "$withdrawal_amount"
 
 if [ "$ga_type" = "treasuryWithdrawals" ]; then
     echo "Metadata has correct governanceActionType"
@@ -157,10 +174,10 @@ ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_file")
 echo "IPFS URI: ipfs://$ipfs_cid"
 
 # Make user manually confirm the choices
-echo " "
-echo "Creating treasury withdrawal action"
-echo "Titled: $title"
-echo "Deposit return address: $deposit_return"
+echo -e " "
+echo -e "${CYAN}Creating treasury withdrawal action${NC}"
+echo -e "Title: $title"
+echo -e "Deposit return address: $deposit_return"
 
 read -p "Do you want to proceed with this deposit return address? (yes/no): " confirm_deposit
 
@@ -196,5 +213,3 @@ cardano-cli conway governance action create-treasury-withdrawal \
   --transfer "$withdrawal_amount" \
   --constitution-script-hash $(cardano-cli conway query constitution | jq -r '.script') \
   --out-file "$input_file.action"
-
-
