@@ -111,7 +111,7 @@ fi
 echo -e " "
 echo -e "${YELLOW}Creating a treasury withdrawal governance action from a given metadata file${NC}"
 echo -e "${CYAN}This script assumes compliance Intersect's treasury withdrawal action schema${NC}"
-echo -e "${CYAN}This script assumes that CARDANO_NODE_SOCKET_PATH and CARDANO_NODE_NETWORK_ID are set${NC}"
+echo -e "${CYAN}This script assumes that CARDANO_NODE_SOCKET_PATH, CARDANO_NODE_NETWORK_ID and IPFS_GATEWAY_URI are set${NC}"
 
 # Exit if socket path is not set
 if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
@@ -198,8 +198,6 @@ if [ ! -z "$withdrawal_address_input" ]; then
     fi
 fi
 
-# todo: check if addresses are on the same network as local node
-
 # use bech32 prefix to determine if addresses are mainnet or testnet
 is_stake_address_mainnet() {
     local address="$1"
@@ -246,6 +244,32 @@ else
     fi
 fi
 
+# use header byte to determine if stake address is script-based or key-based
+is_stake_address_script() {
+    local address="$1"
+
+    address_hex=$(cardano-cli address info --address "$address"| jq -r ".base16")
+    first_char="${address_hex:0:1}"
+    
+    if [ "$first_char" = "f" ]; then
+        return 0  # true
+    elif [ "$first_char" = "e" ]; then
+        return 1  # false
+    else
+        echo -e "${RED}Error: Invalid stake address header byte${NC}" >&2
+        exit 1
+    fi
+}
+
+if [ "$withdraw_to_script" = "true" ]; then
+    if is_stake_address_script "$withdrawal_address"; then
+        echo -e "Withdrawal address is script-based"
+    else
+        echo -e "${RED}Withdrawal address is not script-based as requested, exiting.${NC}"
+        exit 1
+    fi
+fi
+
 echo -e "${GREEN}Automatic validations passed${NC}"
 echo -e " "
 echo -e "${CYAN}Computing details${NC}"
@@ -260,7 +284,6 @@ echo -e "Metadata file hash: ${YELLOW}$file_hash${NC}"
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_file")
 echo -e "IPFS URI: ${YELLOW}ipfs://$ipfs_cid${NC}"
 
-# todo add information about if addresses are script-based or key-based
 
 # Make user manually confirm the choices
 echo -e " "
@@ -268,7 +291,13 @@ echo -e "${CYAN}Creating treasury withdrawal action${NC}"
 echo -e "Title: ${YELLOW}$title${NC}"
 echo -e " "
 echo -e "Deposit return address: ${YELLOW}$deposit_return${NC}"
+if is_stake_address_script "$deposit_return"; then
+    echo -e "(this is a script-based address)"
+else
+    echo -e "(this is a key-based address)"
+fi
 
+echo -e " "
 read -p "Do you want to proceed with this deposit return address? (yes/no): " confirm_deposit
 
 if [ "$confirm_deposit" != "yes" ]; then
@@ -278,11 +307,17 @@ fi
 
 echo -e " "
 echo -e "Withdrawal address: ${YELLOW}$withdrawal_address${NC}"
+if is_stake_address_script "$withdrawal_address"; then
+    echo -e "(this is a script-based address)"
+else
+    echo -e "(this is a key-based address)"
+fi
 
 ada_amount=$(echo "scale=6; $withdrawal_amount / 1000000" | bc)
 ada_amount_formatted=$(printf "%'0.6f" "$ada_amount")
 echo -e "Withdrawal amount (ada): ${YELLOW}$ada_amount_formatted${NC}"
 
+echo -e " "
 read -p "Do you want to proceed with this withdrawal address and amount? (yes/no): " confirm_withdrawal
 
 if [ "$confirm_withdrawal" != "yes" ]; then
