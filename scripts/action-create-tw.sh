@@ -270,6 +270,31 @@ if [ "$withdraw_to_script" = "true" ]; then
     fi
 fi
 
+is_stake_address_registered(){
+    local address="$1"
+    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].delegationDeposit')
+    if [ "$stake_address_deposit" != "null" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# check if stake addresses are registered
+if is_stake_address_registered "$deposit_return"; then
+    echo -e "Deposit return stake address is registered"
+else
+   echo -e "${RED}Deposit return stake address is not registered, exiting.${NC}"
+   exit 1
+fi
+
+if is_stake_address_registered "$withdrawal_address"; then
+    echo -e "Withdrawal stake address is registered"
+else
+    echo -e "${RED}Withdrawal stake address is not registered, exiting.${NC}"
+    exit 1
+fi
+
 echo -e "${GREEN}Automatic validations passed${NC}"
 echo -e " "
 echo -e "${CYAN}Computing details${NC}"
