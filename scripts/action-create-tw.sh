@@ -306,7 +306,7 @@ is_stake_address_delegated_to_abstain_or_null() {
 }
 
 if is_stake_address_delegated_to_abstain_or_null "$withdrawal_address"; then
-    echo -e "Withdrawal stake address is not deleted to abstain or not delegated at all"
+    echo -e "Withdrawal stake address is delegated to always abstain or not delegated at all"
 else
     echo -e "${RED}Withdrawal stake address is delegated to something other than abstain, exiting.${NC}"
     exit 1
