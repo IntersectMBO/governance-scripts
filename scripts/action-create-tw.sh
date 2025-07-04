@@ -39,11 +39,11 @@ fi
 # todo get the network/testnet magic from the set $SOCKET_PATH
 
 usage() {
-    echo "Usage: $0 <jsonld-file|directory> [--testnet-magic <NUMBER>] [--deposit-return-addr <stake address>] [--single-withdrawal-addr <stake address>]"
+    echo "Usage: $0 <jsonld-file|directory> [--testnet-magic <NUMBER>] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
     echo "  --testnet-magic <NUMBER>                      Use a test network, denoted by magic protocol value"
     echo "  --deposit-return-addr <stake address>         Check that metadata deposit return address matches provided one (Bech32)"
-    echo "  --single-withdrawal-addr <stake address>      Check that metadata withdrawal address matches provided one (Bech32)"
+    echo "  --withdrawal-addr <stake address>             Check that metadata withdrawal address matches provided one (Bech32)"
     exit 1
 }
 
@@ -61,16 +61,31 @@ withdrawal_address_input=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --testnet-magic)
-            testnet_magic="$2"
-            shift 2
+            if [ -n "${2:-}" ]; then
+                testnet_magic="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --testnet-magic requires a value${NC}" >&2
+                usage
+            fi
             ;;
         --deposit-return-addr)
-            deposit_return_address="$3"
-            shift 3
+            if [ -n "${2:-}" ]; then
+                deposit_return_address="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --deposit-return-addr requires a value${NC}" >&2
+                usage
+            fi
             ;;
-        --single-withdrawal-addr)
-            withdrawal_address_input="$4"
-            shift 4
+        --withdrawal-addr)
+            if [ -n "${2:-}" ]; then
+                withdrawal_address_input="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --withdrawal-addr requires a value${NC}" >&2
+                usage
+            fi
             ;;
         -h|--help)
             usage
@@ -78,17 +93,30 @@ while [[ $# -gt 0 ]]; do
         *)
             if [ -z "$input_file" ]; then
                 input_file="$1"
+            else
+                echo -e "${RED}Error: Input file already specified. Unexpected argument: $1${NC}" >&2
+                usage
             fi
             shift
             ;;
     esac
 done
 
-echo "Creating a treasury withdrawal governance action from a given metadata file"
-echo "This script assumes compliance Intersect's treasury withdrawal action schema"
-echo "This script assumes that SOCKET_PATH is set to a local node socket file"
-echo " "
+# If no input file provided, show usage
+if [ -z "$input_file" ]; then
+    echo -e "${RED}Error: No input file specified${NC}" >&2
+    usage
+fi
 
+# Check if input file exists
+if [ ! -f "$input_file" ]; then
+    echo -e "${RED}Error: Input file not found: $input_file${NC}" >&2
+    exit 1
+fi
+
+echo -e "${YELLOW}Creating a treasury withdrawal governance action from a given metadata file${NC}"
+echo -e "${CYAN}This script assumes compliance Intersect's treasury withdrawal action schema${NC}"
+echo -e "${CYAN}This script assumes that SOCKET_PATH is set to a local node socket file${NC}"
 # Exit is socket path is not set
 if [ -z "$SOCKET_PATH" ]; then
     echo "Error: Cardano node $SOCKET_PATH environment variable is not set." >&2
