@@ -3,6 +3,7 @@
 ##################################################
 DEFAULT_AUTHOR_NAME="Intersect"
 DEFAULT_USE_CIP8="false" # default to false, to the script uses Ed25519
+DEFAULT_NEW_FILE="false" # default to false, to the script overwrites the input file
 ##################################################
 
 # This is just a script for testing purposes.
@@ -20,9 +21,10 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <jsonld-file|directory> <signing-key> [--author-name NAME] [--use-cip8]"
+    echo "Usage: $0 <jsonld-file|directory> <signing-key> [--author-name NAME] [--use-cip8] [--new-file]"
     echo "Options:"
     echo "  --author-name NAME    Specify the author name (default: $DEFAULT_AUTHOR_NAME)"
+    echo "  --new-file            Create a new file with the signed metadata (default: $DEFAULT_NEW_FILE)"
     echo "  --use-cip8            Use CIP-8 signing algorithm (default: $DEFAULT_USE_CIP8)"
     exit 1
 }
@@ -32,6 +34,7 @@ input_path=""
 input_key=""
 author_name="$DEFAULT_AUTHOR_NAME"
 use_cip8="$DEFAULT_USE_CIP8"
+new_file="$DEFAULT_NEW_FILE"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -44,6 +47,11 @@ while [[ $# -gt 0 ]]; do
             use_cip8="true"
             shift
             ;;
+        --new-file)
+            new_file="true"
+            shift
+            ;;
+
         -h|--help)
             usage
             ;;
@@ -76,6 +84,15 @@ fi
 sign_file() {
     local file="$1"
     local use_cip8="$2"
+    local new_file="$3"
+
+    if [ $new_file = "true" ]; then
+        echo "Creating a new file with the signed metadata..."
+        extension=".authored.jsonld" # New file will have .authored.jsonld extension
+    else
+        echo "Overwriting the original file with the signed metadata..."
+        extension=".jsonld"
+    fi
 
     if [ "$use_cip8" = "true" ]; then
         echo "Signing with CIP-8 algorithm..."
@@ -101,7 +118,7 @@ sign_file() {
             --secret-key "$input_key" \
             --author-name "$author_name" \
             --address "$public_key_hash" \
-            --out-file "${file%.jsonld}.authored.jsonld"
+            --out-file "${file%.jsonld}$extension"
         return
     else
         echo "Signing with Ed25519 algorithm..."
@@ -109,7 +126,7 @@ sign_file() {
             --data-file "$file" \
             --secret-key "$input_key" \
             --author-name "$author_name" \
-            --out-file "${file%.jsonld}.authored.jsonld"
+            --out-file "${file%.jsonld}$extension"
         return
     fi
 }
@@ -127,11 +144,11 @@ if [ -d "$input_path" ]; then
     fi
     # for each .jsonld file in the directory, sign it
     for file in "${jsonld_files[@]}"; do
-        sign_file "$file" "$use_cip8"
+        sign_file "$file" "$use_cip8" "$new_file"
     done
 elif [ -f "$input_path" ]; then
     # Input is a single file
-    sign_file "$input_path" "$use_cip8"
+    sign_file "$input_path" "$use_cip8" "$new_file"
 else
     echo "Error: '$input_path' is not a valid file or directory."
     exit 1
