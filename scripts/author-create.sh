@@ -84,7 +84,15 @@ fi
 sign_file() {
     local file="$1"
     local use_cip8="$2"
-    local output_path="$3"
+    local new_file="$3"
+
+    if [ $new_file = "true" ]; then
+        echo "Creating a new file with the signed metadata..."
+        extension=".authored.jsonld" # New file will have .authored.jsonld extension
+    else
+        echo "Overwriting the original file with the signed metadata..."
+        extension=".jsonld"
+    fi
 
     if [ "$use_cip8" = "true" ]; then
         echo "Signing with CIP-8 algorithm..."
@@ -110,7 +118,7 @@ sign_file() {
             --secret-key "$input_key" \
             --author-name "$author_name" \
             --address "$public_key_hash" \
-            --out-file "${file%.jsonld}.authored.jsonld"
+            --out-file "${file%.jsonld}$extension"
         return
     else
         echo "Signing with Ed25519 algorithm..."
@@ -118,7 +126,7 @@ sign_file() {
             --data-file "$file" \
             --secret-key "$input_key" \
             --author-name "$author_name" \
-            --out-file "${file%.jsonld}.authored.jsonld"
+            --out-file "${file%.jsonld}$extension"
         return
     fi
 }
@@ -136,11 +144,11 @@ if [ -d "$input_path" ]; then
     fi
     # for each .jsonld file in the directory, sign it
     for file in "${jsonld_files[@]}"; do
-        sign_file "$file" "$use_cip8"
+        sign_file "$file" "$use_cip8" "$new_file"
     done
 elif [ -f "$input_path" ]; then
     # Input is a single file
-    sign_file "$input_path" "$use_cip8"
+    sign_file "$input_path" "$use_cip8" "$new_file"
 else
     echo "Error: '$input_path' is not a valid file or directory."
     exit 1
