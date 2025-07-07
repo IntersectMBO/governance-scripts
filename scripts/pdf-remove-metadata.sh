@@ -66,21 +66,22 @@ BASENAME=$(basename "$input_path" .pdf)
 # could add some logic here
 TITLE=$(echo "$BASENAME")
 
-echo "New title: $BASENAME"
-
-# Remove all metadata from the original PDF
-exiftool -all= "$input_path"
-
 # We need to create a new PDF, as it is not possible to overwrite the original PDF with exiftool
 if [ "$new_file" = "true" ]; then
     output_new_file="${BASENAME}-new-metadata.pdf"
-
-    qpdf --linearize "$input_path" - > "$output_new_file"
-    
+    # remove all metadata from the original PDF and create a new PDF
+    exiftool -all= "$input_path" -o "$output_new_file"
+    # remove all hidden metadata
+    qpdf --linearize "$input_path" --replace-input
+    # add the Title metadata to the new PDF
     exiftool -Title="$TITLE" "$output_new_file" -overwrite_original_in_place
     echo "Metadata processing completed. New file: $output_new_file with Title: $TITLE"
 else
+    # remove all metadata from the original PDF
+    exiftool -all= "$input_path" -overwrite_original_in_place
+    # remove all hidden metadata from the original PDF
     qpdf --linearize "$input_path" --replace-input
+    # add the Title metadata to the original PDF
     exiftool -Title="$TITLE" "$input_path" -overwrite_original_in_place
     echo "Metadata processing completed. Your file: $input_path now only has a Title: $TITLE"
 fi
