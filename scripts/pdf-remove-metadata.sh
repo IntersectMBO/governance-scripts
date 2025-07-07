@@ -66,9 +66,8 @@ BASENAME=$(basename "$input_path" .pdf)
 # could add some logic here
 TITLE=$(echo "$BASENAME")
 
-# We need to create a new PDF, as it is not possible to overwrite the original PDF with exiftool
 if [ "$new_file" = "true" ]; then
-    output_new_file="${BASENAME}-new-metadata.pdf"
+    output_new_file="$input_path-new-metadata.pdf"
     # remove all metadata from the original PDF and create a new PDF
     exiftool -all= "$input_path" -o "$output_new_file"
     # remove all hidden metadata
