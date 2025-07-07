@@ -51,7 +51,6 @@ while [[ $# -gt 0 ]]; do
             new_file="true"
             shift
             ;;
-
         -h|--help)
             usage
             ;;

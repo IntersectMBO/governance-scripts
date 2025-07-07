@@ -42,6 +42,8 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 - [hash.sh](./scripts/hash.sh)
   - Performs a blake2b-256 hash on provided file
+- [pdf-remove-metadata.sh](./scripts/pdf-remove-metadata.sh)
+  - Removes PDF metadata from PDF files  
 
 ### Documentation
 
