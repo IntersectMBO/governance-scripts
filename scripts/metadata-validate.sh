@@ -9,9 +9,9 @@ INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/govern
 
 # Default schema values
 DEFAULT_USE_CIP_100="false"
-DEFAULT_USE_CIP_108="true"
+DEFAULT_USE_CIP_108="false"
 DEFAULT_USE_CIP_136="false"
-DEFAULT_USE_INTERSECT_TREASURY="false"
+DEFAULT_USE_INTERSECT_TREASURY="true"
 ##################################################
 
 # Check if cardano-signer is installed
@@ -28,13 +28,14 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-treasury] [--schema URL]"
+    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-treasury] [--schema URL] [--dict FILE]"
     echo "Options:"
     echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     echo "  --cip136              Compare against CIP-136 schema (default: $DEFAULT_USE_CIP_136)"
     echo "  --intersect-treasury  Compare against Intersect Treasury withdrawals schema (default: $DEFAULT_USE_INTERSECT_TREASURY)"
     echo "  --schema <URL>        Compare against schema at URL"
+    echo "  --dict <FILE>         Use custom aspell dictionary file (optional)"
     exit 1
 }
 
@@ -46,6 +47,7 @@ use_cip_136="$DEFAULT_USE_CIP_136"
 use_intersect_treasury="$DEFAULT_USE_INTERSECT_TREASURY"
 user_schema_url=""
 user_schema="false"
+custom_dict_file=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -70,6 +72,15 @@ while [[ $# -gt 0 ]]; do
             user_schema_url="$2"
             user_schema="true"
             shift 2
+            ;;
+        --dict)
+            if [ -n "${2:-}" ]; then
+                custom_dict_file="$2"
+                shift 2
+            else
+                echo "Error: --dict requires a file path" >&2
+                usage
+            fi
             ;;
         -h|--help)
             usage
@@ -148,14 +159,42 @@ fi
 echo " "
 echo "Spell check warnings:"
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Determine which dictionary to use
+if [ -n "$custom_dict_file" ]; then
+    # User provided a custom dictionary
+    CARDANO_DICT="$custom_dict_file"
+    if [ ! -f "$CARDANO_DICT" ]; then
+        echo "Error: Custom dictionary file not found at $CARDANO_DICT" >&2
+        exit 1
+    fi
+    echo "Using custom dictionary: $CARDANO_DICT"
+else
+    # Use default dictionary from script directory
+    echo "Using default spelling dictionary in script directory"
+    CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
+fi
+
+# Check if the dictionary file exists
+if [ ! -f "$CARDANO_DICT" ]; then
+    echo "Warning: Cardano aspell dictionary not found at $CARDANO_DICT"
+    echo "Using default aspell dictionary only."
+    PERSONAL_DICT_ARG=""
+else
+    PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
+fi
+
 # This hardcoded for CIP108
 # todo fix for other schemas
 for field in title abstract motivation rationale; do
     # Extract field text
     text=$(jq -r ".body.$field // empty" "$JSON_FILE")
     if [ -n "$text" ]; then
-        # Use aspell to check spelling, output only misspelled words
-        echo "$text" | aspell list | sort -u | while read -r word; do
+        # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
+        # Filter out common Cardano identifiers that shouldn't be spell-checked
+        echo "$text" | aspell list $PERSONAL_DICT_ARG | grep -v -E '^(gov_action1|stake1|stake_test1|addr1|addr_test1|pool1|asset1|policy_)[a-z0-9]*$' | sort -u | while read -r word; do
             if [ -n "$word" ]; then
                 echo "  Possible misspelling in '$field': $word"
             fi
@@ -166,6 +205,7 @@ done
 # Validate the JSON file against the schemas
 schemas=(/tmp/schemas/*-schema.json)
 for schema in "${schemas[@]}"; do
+    echo " "
     echo "Validating against schema: $schema"
     if [ -f "$schema" ]; then
         ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=true
