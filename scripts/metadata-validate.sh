@@ -193,8 +193,7 @@ for field in title abstract motivation rationale; do
     text=$(jq -r ".body.$field // empty" "$JSON_FILE")
     if [ -n "$text" ]; then
         # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
-        # Filter out common Cardano identifiers that shouldn't be spell-checked
-        echo "$text" | aspell list $PERSONAL_DICT_ARG | grep -v -E '^(gov_action1|stake1|stake_test1|addr1|addr_test1|pool1|asset1|policy_)[a-z0-9]*$' | sort -u | while read -r word; do
+        echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
             if [ -n "$word" ]; then
                 echo "  Possible misspelling in '$field': $word"
             fi
