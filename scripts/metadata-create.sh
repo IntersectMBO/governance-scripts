@@ -212,6 +212,7 @@ WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/
 
 # todo get the withdrawal address from the metadata
 # For now, we will leave it empty
+echo -e "${RED}Warning: Withdrawal address is currently empty. Please update the script to include a valid withdrawal address.${NC}"
 
 cat <<EOF > "$TEMP_OUTPUT_JSON"
 {
