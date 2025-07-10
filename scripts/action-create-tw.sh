@@ -166,6 +166,11 @@ check_field "withdrawalAddress" "$withdrawal_address"
 withdrawal_amount=$(jq -r '.body.onChain.withdrawals[0].withdrawalAmount' "$input_file")
 check_field "withdrawalAmount" "$withdrawal_amount"
 
+authors=$(jq -r '.authors' "$input_file")
+check_field "authors" "$authors"
+witness=$(jq -r '.authors[0].witness' "$input_file")
+check_field "witness" "$witness"
+
 if [ "$ga_type" = "treasuryWithdrawals" ]; then
     echo "Metadata has correct governanceActionType"
 else
