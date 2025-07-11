@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
             check_author="false"
             shift
             ;;
-        --no-author)
+        --no-ipfs)
             check_ipfs="false"
             shift
             ;;
@@ -130,6 +130,8 @@ if [ -d "$input_path" ]; then
 
             title=$(jq -r '.body.title' "$file")
             check_field "title" "$title"
+            abstract=$(jq -r '.body.abstract' "$file")
+            check_field "abstract" "$abstract"
             ga_type=$(jq -r '.body.onChain.governanceActionType' "$file")
             check_field "governanceActionType" "$ga_type"
             deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$file")
@@ -147,6 +149,35 @@ if [ -d "$input_path" ]; then
                 echo "Expected: treasuryWithdrawals found: $ga_type"
                 exit 1
             fi
+
+            # ensure that the term 'ada' is not used in the title
+            # this was a common mistake in the past
+            if [[ "$title" == *"ada"* ]]; then
+                echo -e "${RED}Error: The term 'ada' is not allowed in the title!" >&2
+                exit 1
+            else
+                echo "Title does not contain the term 'ada'"
+            fi
+
+            # ensure that title is less than 81 characters
+            if [ ${#title} -gt 81 ]; then
+                echo -e "${RED}Error: Title is too long, must be less than 80 characters" >&2
+                exit 1
+            else
+                echo "Title length is acceptable length"
+            fi
+
+            # ensure that the abstract is less than 2501 characters 
+            if [ ${#abstract} -gt 2500 ]; then
+                echo -e "${RED}Error: Abstract is too long, must be less than 2500 characters" >&2
+                exit 1
+            else
+                echo "Abstract length is acceptable length"
+            fi  
+
+            # todo ensure all ipfs references are accessible
+
+            # add check ekkelisia link in references matches
 
         else
             echo -e " "

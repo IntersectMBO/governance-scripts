@@ -4,7 +4,12 @@ cardano
 blockchain
 cryptocurrency
 ADA
+ROI
+toolset
+IOG
 lovelace
+onboarding
+toolsets
 mainnet
 testnet
 preprod
