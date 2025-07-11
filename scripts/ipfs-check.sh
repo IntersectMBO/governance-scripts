@@ -28,11 +28,11 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <file>"
-    echo "Check if a file is discoverable via free IPFS gateways"
+    echo "Usage: $0 <file|CID>"
+    echo "Check if a file or IPFS CIDv1 is discoverable via free IPFS gateways"
     echo "  "
     echo "Options:"
-    echo "  <file>                  Path to your file."
+    echo "  <file|CID>                  Path to your file."
     exit 1
 }
 
@@ -54,12 +54,36 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Generate CID from the given file
-echo "Generating CID for the file..."
+if [ -z "$input_path" ]; then
+    echo -e "Error: No file or CID specified" >&2
+    usage
+fi
 
-# use ipfs add to generate a CID
-# use CIDv1
-ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_path")
+# Check if the input is a file or CID
+file="false"
+
+if [[ -f "$input_path" ]]; then
+    file="true"
+    echo "Input is a file"
+elif [[ "$input_path" =~ ^[a-zA-Z0-9]{59,}$ ]]; then
+    echo "Input is a CID"
+else
+    echo "Input is neither a file nor a valid CID"
+    echo -e "Error: Invalid input: $input_path is not a valid file or CID" >&2
+    usage
+fi
+
+# Generate CID from the given if needed
+
+ipfs_cid=" "
+
+if [ "$file" = "false" ]; then
+    ipfs_cid="$input_path"
+else
+    echo "Generating CID for the file..."
+    ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_path")
+fi
+
 echo "CID: $ipfs_cid"
 
 check_file_via_gateway() {

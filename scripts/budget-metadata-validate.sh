@@ -132,6 +132,8 @@ if [ -d "$input_path" ]; then
             check_field "title" "$title"
             abstract=$(jq -r '.body.abstract' "$file")
             check_field "abstract" "$abstract"
+            references=$(jq -r '.body.references' "$file")
+            check_field "references" "$references"
             ga_type=$(jq -r '.body.onChain.governanceActionType' "$file")
             check_field "governanceActionType" "$ga_type"
             deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$file")
@@ -178,6 +180,21 @@ if [ -d "$input_path" ]; then
             # todo ensure all ipfs references are accessible
 
             # add check ekkelisia link in references matches
+
+            # for each reference in the references array
+            for reference in $(echo "$references" | jq -r '.[]'); do
+                # if reference is a ipfs URI
+                if [[ "$reference" == ipfs://* ]]; then
+                    ipfs_hash=$(echo "$reference" | cut -d '/' -f 3)
+                    if ! ipfs pin ls "$ipfs_hash" &>/dev/null; then
+                        echo -e "${RED}Error: IPFS link $reference is not accessible${NC}" >&2
+                        exit 1
+                    else
+                        echo "IPFS link $reference is accessible"
+                    fi
+                fi
+            done
+
 
         else
             echo -e " "
