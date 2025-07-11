@@ -66,6 +66,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+check_field() {
+    local field_name="$1"
+    local field_value="$2"
+    
+    if [ -z "$field_value" ] || [ "$field_value" = "null" ]; then
+        echo -e "${RED}Error: Required field '$field_name' not found in metadata${NC}" >&2
+        exit 1
+    fi
+}
+
 echo " "
 echo "Running budget metadata validation for: $input_path"
 
@@ -99,11 +109,17 @@ if [ -d "$input_path" ]; then
             fi
 
             # get content from the file for budget specific checks
+            # exit if null for any of these
             title=$(jq -r '.body.title' "$file")
+            check_field "title" "$title"
             ga_type=$(jq -r '.body.onChain.governanceActionType' "$file")
+            check_field "governanceActionType" "$ga_type"
             deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$file")
+            check_field "depositReturnAddress" "$deposit_return"
             withdrawal_amount=$(jq -r '.body.onChain.withdrawals[0].withdrawalAmount' "$file")
+            check_field "withdrawalAmount" "$withdrawal_amount"
             withdrawal_address=$(jq -r '.body.onChain.withdrawals[0].withdrawalAddress' "$file")
+            check_field "withdrawalAddress" "$withdrawal_address"
 
             # ensure the correct type is there
             if [ "$ga_type" = "treasuryWithdrawals" ]; then
