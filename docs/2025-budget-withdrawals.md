@@ -110,19 +110,9 @@ Pin the metadata to different IPFS pinning services.
 ./scripts/ipfs-pin.sh ./my-metadata-directory
 ```
 
-### 9. Check metadata is accessible via IPFS
-
-Hit a couple of gateways and see if it is accessible.
-
-```shell
-./scripts/ipfs-check.sh my-metadata.jsonld
-```
-
-### 10. Create the action file
+### 9. Create the action file
 
 Now we can create a governance action file from our metadata.
-
-This does require `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
 
 This performs some validations
 - can check against some known deposit return and withdrawal address
@@ -135,10 +125,10 @@ This performs some validations
 - has user manually confirm the addresses and the amount
 
 ```shell
-./scripts/ipfs-check.sh my-metadata.jsonld --withdraw-to-script --deposit-return-addr <stake address> --withdrawal-addr <stake address>
+./scripts/ipfs-check.sh my-metadata.jsonld --withdraw-to-script --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
-### 11. Share the action file
+### 10. Share the action file
 
 Share the action file and the .json representation publicly.
 
