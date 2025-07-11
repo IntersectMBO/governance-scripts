@@ -26,12 +26,12 @@ NC='\033[0m'
 
 # Usage message
 usage() {
-    echo "Usage: $0 <file|directory> [--no-author] [--no-ipfs]"
-    echo "Run 2025 Intersect budget treasury withdrawal checks on CIP108 metadata files."
+    echo "Usage: $0 <directory> [--no-author] [--no-ipfs]"
+    echo "Run 2025 Intersect budget treasury withdrawal checks on metadata files."
     echo "Check "
     echo "  "
     echo "Options:"
-    echo "  <file|directory>         Path to your CIP108 file or directory."
+    echo "  <directory>              Path to your metadata files."
     echo "  --no-author              Skip author witness checks (default check author: $AUTHOR_CHECK)"
     echo "  --no-ipfs                Skip IPFS checks (default check ipfs: $AUTHOR_CHECK)"
     echo "  -h, --help               Show this help message and exit"
@@ -66,10 +66,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-
 # If no input file provided, show usage
-if [ -z "$input_file" ]; then
-    echo -e "${RED}Error: No input file specified${NC}" >&2
+if [ -z "$input_path" ]; then
+    echo -e "${RED}Error: No path specified${NC}" >&2
     usage
 fi
 
@@ -89,32 +88,41 @@ if [ -d "$input_path" ]; then
     # check if any .jsonld files were found
     if [ ${#jsonld_files[@]} -eq 0 ]; then
         echo -e " "
-        echo -e "${RED}Error: No .jsonld files found in directory: $input_path${NC}" >&2
+        echo -e "${RED}Error: No .jsonld files found in directory: ${YELLOW}$input_path${NC}" >&2
         exit 1
     fi
+    
     # for each .jsonld file in the directory, go over it
     for file in "${jsonld_files[@]}"; do
         if [ -f "$file" ]; then
 
             if [ "$check_author" = "true" ]; then
                 echo -e " "
+
+                echo -e " "
                 echo -e "${CYAN}Checking author for ${YELLOW}$file${NC}"
-                ./scripts/author-verify-witness.sh "$file"
+                echo -e "Using ./scripts/author-validate.sh"
+                echo -e " "
+                ./scripts/author-validate.sh "$file"
+                echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
             fi
 
             if [ "$check_ipfs" = "true" ]; then
-                echo ie " "
+                echo -e " "
                 echo -e "${CYAN}Checking IPFS status for ${YELLOW}$file${NC}"
+                echo -e "Using ./scripts/ipfs-check.sh"
                 ./scripts/ipfs-check.sh "$file"
+                echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
             fi
 
             echo -e " "
             echo -e "${CYAN}Running schema and spell check on: ${YELLOW}$file${NC}"
+            echo -e "Using ./scripts/metadata-validate.sh"
             ./scripts/metadata-validate.sh "$file" --intersect-budget
+            echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
             echo -e " "
             echo -e "${CYAN}Running budget metadata checks on: ${YELLOW}$file${NC}"
-
 
             # get content from the file for budget specific checks
             # exit if null for any of these
@@ -141,11 +149,13 @@ if [ -d "$input_path" ]; then
             fi
 
         else
-            echo "Error: '$file' is not a valid file."
+            echo -e " "
+            echo -e "${RED}Error: file is not a valid file: ${YELLOW}$file${NC}" >&2
             exit 1
         fi
     done
 else
-    echo "Error: '$input_path' is not a valid file or directory."
+    echo -e " "
+    echo -e "${RED}Error: Input is not a valid directory: ${YELLOW}$input_path${NC}" >&2
     exit 1
 fi
