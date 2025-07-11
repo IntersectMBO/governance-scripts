@@ -43,7 +43,7 @@ automated checks:
 - spelling check
 
 ```shell
-./scripts/metadata-validate.sh
+./scripts/metadata-validate.sh my-metadata.jsonld
 ```
 
 ### 5. Budget specific tests to validate the metadata
@@ -55,7 +55,7 @@ Then do specific budget checks:
 - manually confirm the withdrawal amount
 
 ```shell
-./scripts/budget-metadata-validate.sh
+./scripts/budget-metadata-validate.sh my-metadata.jsonld
 ```
 
 ### 6. Sign with author's key
@@ -66,34 +66,91 @@ Sign it with the Intersect author key
 (this will be done via an air-gapped setup)
 
 ```shell
-./scripts/author-create.sh
+./scripts/author-create.sh my-metadata.jsonld intersect-key.skey
 ```
 
-### 6. Verify the witnesses
+### 7. Verify the author's witness
 
-Check the author witnesses.
+Check the author witness.
+
+Ensure it is from the expected intersect key.
 
 ```shell
-./scripts/verify-author-witness.sh
+./scripts/author-validate.sh my-metadata.jsonld
 ```
 
-### . Host on IPFS
+### 8. Host on IPFS
 
-Host the author witnessed metadata on IPFS.
+Pin the metadata to different IPFS pinning services.
+
+You'll need to set the secrets for these pinning services first.
 
 ```shell
-./scripts/ipfs.sh
+source ./scripts/.env
+
+./scripts/ipfs-pin.sh my-metadata.jsonld
 ```
 
-### . Create the action files
+### 9. Check metadata is accessible via IPFS
 
-todo
+Hit a couple of gateways and see if it is accessible.
 
-### . Check action files
+```shell
+./scripts/ipfs-check.sh my-metadata.jsonld
+```
 
-todo
+### 10. Create the action file
 
-### . Build the transactions
+Now we can create a governance action file from our metadata.
+
+This does require `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
+
+This performs some validations
+- can check against some known deposit return and withdrawal address
+- checks that metadata fields are present and look right
+- compares the addresses against the local node
+- checks if withdrawal address is script-based
+- checks if withdrawal address and deposit address are registered
+- checks if withdrawal address is not vote delegated or is delegated to auto-abstain
+- checks that the metadata is hosted on ipfs
+- has user manually confirm the addresses and the amount
+
+```shell
+./scripts/ipfs-check.sh my-metadata.jsonld --withdraw-to-script --deposit-return-addr <stake address> --withdrawal-addr <stake address>
+```
+
+### 11. Share the action file
+
+Share the action file and the .json representation publicly.
+
+Have people check that this looks good.
+You dont want to mess this up.
+
+Checks;
+- withdrawal and stake address are correct
+- withdrawal address is script-based
+- withdrawal amount is correct
+- metadata compliance with .docx
+- hash and URI match
+
+### 12. Check action file
+
+Automated checks.
+
+Checks;
+- withdrawal and stake address are correct
+- withdrawal address is script-based
+- withdrawal amount is correct -- can auto-check against title
+- metadata accessible via IPFS
+- metadata compliance with .docx
+- hash and URI match
+- manually have the user confirm aspects too
+
+```shell
+./scripts/action-validate.sh my-action.action
+```
+
+### 13. Build the transaction
 
 todo
 
