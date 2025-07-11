@@ -8,7 +8,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 #### 2025 Budget Scripts
 
-- [budget-check-metadata.sh](./scripts/budget-check-metadata.sh) 
+- [budget-metadata-validate.sh](./scripts/budget-metadata-validate.sh) 
   - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
   - Uses a combination of the other scripts
 
