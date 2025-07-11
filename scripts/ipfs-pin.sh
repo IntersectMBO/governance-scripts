@@ -18,24 +18,40 @@ DEFAULT_HOST_ON_PINATA="true"
 
 ######################################################
 
+# Exit immediately if a command exits with a non-zero status, 
+# treat unset variables as an error, and fail if any command in a pipeline fails
+set -euo pipefail
+
+# Colors
+#BLACK='\033[0;30m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BRIGHTWHITE='\033[0;37;1m'
+NC='\033[0m'
+
 # check if user has ipfs cli installed
 if ! command -v ipfs >/dev/null 2>&1; then
-  echo "Error: ipfs cli is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: ipfs cli is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <file> [--check-too] [--no-local] [--no-pinata] [--no-blockfrost] [--no-nmkr]"
-    echo "Pin a file to local IPFS node and pin via Blockfrost, NMKR and Pinata. Optionally check if file is already discoverable on IPFS."
-    echo "  "
-    echo "Options:"
-    echo "  <file>                  Path to your file."
-    echo "  --check-too             Run a check if file is discoverable on ipfs, only pin if not discoverable (default: $CHECK_TOO)"
-    echo "  --no-local              Don't try to pin file on local ipfs node (default: $DEFAULT_HOST_ON_LOCAL_NODE)"
-    echo "  --no-pinata             Don't try to pin file on pinata service (default: $DEFAULT_HOST_ON_PINATA)"
-    echo "  --no-blockfrost         Don't try to pin file on blockfrost service (default: $DEFAULT_HOST_ON_BLOCKFROST)"
-    echo "  --no-nmkr               Don't try to pin file on NMKR service (default: $DEFAULT_HOST_ON_NMKR)"
+    echo -e "${YELLOW}Usage: $0 <file|directory> [--check-too] [--no-local] [--no-pinata] [--no-blockfrost] [--no-nmkr]${NC}"
+    echo -e "${CYAN}Pin a file or directory of .jsonld files to local IPFS node and pin via Blockfrost, NMKR and Pinata.${NC}"
+    echo -e "${CYAN}Optionally check if file is already discoverable on IPFS.${NC}"
+    echo -e " "
+    echo -e "Options:"
+    echo -e "  <file|directory>        Path to your file or directory containing .jsonld files."
+    echo -e "  --check-too             Run a check if file is discoverable on ipfs, only pin if not discoverable (default: ${YELLOW}$CHECK_TOO${NC})"
+    echo -e "  --no-local              Don't try to pin file on local ipfs node (default: ${YELLOW}$DEFAULT_HOST_ON_LOCAL_NODE${NC})"
+    echo -e "  --no-pinata             Don't try to pin file on pinata service (default: ${YELLOW}$DEFAULT_HOST_ON_PINATA${NC})"
+    echo -e "  --no-blockfrost         Don't try to pin file on blockfrost service (default: ${YELLOW}$DEFAULT_HOST_ON_BLOCKFROST${NC})"
+    echo -e "  --no-nmkr               Don't try to pin file on NMKR service (default: ${YELLOW}$DEFAULT_HOST_ON_NMKR${NC})"
+    echo -e "  -h, --help              Show this help message and exit"
     exit 1
 }
 
@@ -82,155 +98,216 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Generate CID from the given file
-echo "Generating CID for the file..."
+# If no input path provided, show usage
+if [ -z "$input_path" ]; then
+    echo -e "${RED}Error: No file or directory specified${NC}" >&2
+    usage
+fi
 
-# use ipfs add to generate a CID
-# use CIDv1
-ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_path")
-echo "CID: $ipfs_cid"
+echo -e " "
+echo -e "${YELLOW}IPFS File Pinning Service${NC}"
+echo -e "${CYAN}This script pins files to IPFS using multiple pinning services${NC}"
 
-# If user wants to check if file is discoverable on IPFS
-if [ "$check_discoverable" = "true" ]; then
-    echo "Using ./scripts/ipfs-check.sh script to check if file is discoverable on IPFS..."
-    # check if file is discoverable on IPFS
-    if ! ./scripts/ipfs-check.sh "$input_path"; then
-        echo "File is not discoverable on IPFS. Proceeding to pin it."
+# Function to pin a single file
+pin_single_file() {
+    local file="$1"
+    
+    echo -e " "
+    echo -e "${CYAN}Processing file: ${YELLOW}$file${NC}"
+    
+    # Generate CID from the given file
+    echo -e "${CYAN}Generating CID for the file...${NC}"
+    
+    # use ipfs add to generate a CID
+    # use CIDv1
+    ipfs_cid=$(ipfs add -Q --cid-version 1 "$file")
+    echo -e "CID: ${YELLOW}$ipfs_cid${NC}"
+    
+    # If user wants to check if file is discoverable on IPFS
+    if [ "$check_discoverable" = "true" ]; then
+        echo -e "${CYAN}Using ./scripts/ipfs-check.sh script to check if file is discoverable on IPFS...${NC}"
+        # check if file is discoverable on IPFS
+        if ! ./scripts/ipfs-check.sh "$file"; then
+            echo -e "${YELLOW}File is not discoverable on IPFS. Proceeding to pin it.${NC}"
+        else
+            echo -e "${GREEN}File is already discoverable on IPFS. No need to pin it.${NC}"
+            return 0
+        fi
     else
-        echo "File is already discoverable on IPFS. No need to pin it."
-        exit 0
+        echo -e "${CYAN}Skipping check of file on ipfs...${NC}"
     fi
-
-else
-    echo "Skipping check of file on ipfs..."
-fi
-
-echo " "
-echo "File is not hosted on IPFS, so pinning it..."
-echo " "
-
-# Pin on local node
-if [ "$local_host" = "true" ]; then
-    echo "Pinning file on local IPFS node..."
-    if ipfs pin add "$ipfs_cid"; then
-        echo "File pinned successfully on local IPFS node."
+    
+    echo -e " "
+    echo -e "${CYAN}File is not hosted on IPFS, so pinning it...${NC}"
+    
+    # Pin on local node
+    if [ "$local_host" = "true" ]; then
+        echo -e " "
+        echo -e "${CYAN}Pinning file on local IPFS node...${NC}"
+        if ipfs pin add "$ipfs_cid"; then
+            echo -e "${GREEN}File pinned successfully on local IPFS node.${NC}"
+        else
+            echo -e "${RED}Failed to pin file on local IPFS node.${NC}" >&2
+            return 1
+        fi
     else
-        echo "Failed to pin file on local IPFS node." >&2
-        exit 1
-    fi
-else
-    echo "Skipping pinning on local IPFS node."
-fi
-
-# Pin on local node's remote services
-# todo
-local_node_pinning_services=$(ipfs pin remote service ls)
-
-# Pin on Pinata
-echo " "
-echo "Pinning file to Pinata..."
-
-if [ "$pinata_host" = "true" ]; then
-    # Check for secret environment variables
-    # todo, this in a nicer way
-    echo "Reading Pinata API key from environment variable..."
-    if [ -z "$PINATA_API_KEY" ]; then
-        echo "Error: PINATA_API_KEY environment variable is not set." >&2
-        exit 1
+        echo -e "${YELLOW}Skipping pinning on local IPFS node.${NC}"
     fi
     
-    echo "Uploading file to Pinata service..."
-    response=$(curl -s -X POST "https://uploads.pinata.cloud/v3/files" \
-                -H "Authorization: Bearer ${PINATA_API_KEY}" \
-                -F "file=@$input_path" \
-                -F "network=public" \
-            )
-    # Check response for errors
-    if echo "$response" | grep -q '"errors":'; then
-        echo "Error in Pinata response:" >&2
-        echo "$response" | jq . >&2
-        exit 1
-    fi
-
-    echo "Pinata upload successful!"
-else
-    echo "Skipping pinning on Pinata."
-fi
-
-# Pin on Blockfrost
-echo " "
-echo "Pinning file to Blockfrost..."
-
-if [ "$blockfrost_host" = "true" ]; then
-    # Check for secret environment variables
-    # todo, this in a nicer way
-    echo "Reading Blockfrost API key from environment variable..."
-    if [ -z "$BLOCKFROST_API_KEY" ]; then
-        echo "Error: BLOCKFROST_API_KEY environment variable is not set." >&2
-        exit 1
-    fi
-    
-    echo "Uploading file to Blockfrost service..."
-    response=$(curl -s -X POST "https://ipfs.blockfrost.io/api/v0/ipfs/add" \
-                -H "project_id: $BLOCKFROST_API_KEY" \
-                -F "file=@$input_path" \
-            )
-    # Check response for errors
-    if echo "$response" | grep -q '"errors":'; then
-        echo "Error in Blockfrost response:" >&2
-        echo "$response" | jq . >&2
-        exit 1
-    fi
-
-    echo "Blockfrost upload successful!"
-else
-    echo "Skipping pinning on Blockfrost."
-fi
-
-# Pin on NMKR
-echo " "
-echo "Pinning file to NMKR..."
-
-if [ "$nmkr_host" = "true" ]; then
-    # Check for secret environment variables
-    # todo, this in a nicer way
-    echo "Reading NMKR API key from environment variable..."
-    if [ -z "$NMKR_API_KEY" ]; then
-        echo "Error: NMKR_API_KEY environment variable is not set." >&2
-        exit 1
-    fi
-    echo "Reading NMKR user id from environment variable..."
-    if [ -z "$NMKR_USER_ID" ]; then
-        echo "Error: NMKR_USER_ID environment variable is not set." >&2
-        exit 1
+    # Pin on Pinata
+    if [ "$pinata_host" = "true" ]; then
+        echo -e " "
+        echo -e "${CYAN}Pinning file to Pinata...${NC}"
+        
+        # Check for secret environment variables
+        echo -e "${CYAN}Reading Pinata API key from environment variable...${NC}"
+        if [ -z "$PINATA_API_KEY" ]; then
+            echo -e "${RED}Error: PINATA_API_KEY environment variable is not set.${NC}" >&2
+            return 1
+        fi
+        
+        echo -e "${CYAN}Uploading file to Pinata service...${NC}"
+        response=$(curl -s -X POST "https://uploads.pinata.cloud/v3/files" \
+                    -H "Authorization: Bearer ${PINATA_API_KEY}" \
+                    -F "file=@$file" \
+                    -F "network=public" \
+                )
+        # Check response for errors
+        if echo "$response" | grep -q '"errors":'; then
+            echo -e "${RED}Error in Pinata response:${NC}" >&2
+            echo "$response" | jq . >&2
+            return 1
+        fi
+        
+        echo -e "${GREEN}Pinata upload successful!${NC}"
+    else
+        echo -e "${YELLOW}Skipping pinning on Pinata.${NC}"
     fi
     
-    # base64 encode the file because NMKR API requires it
-    echo "Encoding file to base64..."
-    base64_content=$(base64 -i "$input_path")
-
-    echo "Uploading file to NMKR service..."
-    response=$(curl -s -X POST "https://studio-api.nmkr.io/v2/UploadToIpfs/${NMKR_USER_ID}" \
-        -H 'accept: text/plain' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer ${NMKR_API_KEY}" \
-        -d @- <<EOF
+    # Pin on Blockfrost
+    if [ "$blockfrost_host" = "true" ]; then
+        echo -e " "
+        echo -e "${CYAN}Pinning file to Blockfrost...${NC}"
+        
+        # Check for secret environment variables
+        echo -e "${CYAN}Reading Blockfrost API key from environment variable...${NC}"
+        if [ -z "$BLOCKFROST_API_KEY" ]; then
+            echo -e "${RED}Error: BLOCKFROST_API_KEY environment variable is not set.${NC}" >&2
+            return 1
+        fi
+        
+        echo -e "${CYAN}Uploading file to Blockfrost service...${NC}"
+        response=$(curl -s -X POST "https://ipfs.blockfrost.io/api/v0/ipfs/add" \
+                    -H "project_id: $BLOCKFROST_API_KEY" \
+                    -F "file=@$file" \
+                )
+        # Check response for errors
+        if echo "$response" | grep -q '"errors":'; then
+            echo -e "${RED}Error in Blockfrost response:${NC}" >&2
+            echo "$response" | jq . >&2
+            return 1
+        fi
+        
+        echo -e "${GREEN}Blockfrost upload successful!${NC}"
+    else
+        echo -e "${YELLOW}Skipping pinning on Blockfrost.${NC}"
+    fi
+    
+    # Pin on NMKR
+    if [ "$nmkr_host" = "true" ]; then
+        echo -e " "
+        echo -e "${CYAN}Pinning file to NMKR...${NC}"
+        
+        # Check for secret environment variables
+        echo -e "${CYAN}Reading NMKR API key from environment variable...${NC}"
+        if [ -z "$NMKR_API_KEY" ]; then
+            echo -e "${RED}Error: NMKR_API_KEY environment variable is not set.${NC}" >&2
+            return 1
+        fi
+        echo -e "${CYAN}Reading NMKR user id from environment variable...${NC}"
+        if [ -z "$NMKR_USER_ID" ]; then
+            echo -e "${RED}Error: NMKR_USER_ID environment variable is not set.${NC}" >&2
+            return 1
+        fi
+        
+        # base64 encode the file because NMKR API requires it
+        echo -e "${CYAN}Encoding file to base64...${NC}"
+        base64_content=$(base64 -i "$file")
+        
+        echo -e "${CYAN}Uploading file to NMKR service...${NC}"
+        response=$(curl -s -X POST "https://studio-api.nmkr.io/v2/UploadToIpfs/${NMKR_USER_ID}" \
+            -H 'accept: text/plain' \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${NMKR_API_KEY}" \
+            -d @- <<EOF
 {
     "fileFromBase64": "$base64_content",
-    "name": "$(basename "$input_path")",
+    "name": "$(basename "$file")",
     "mimetype": "application/json"
 }
 EOF
-    )
-    # Check response for errors
-    if echo "$response" | grep -q '"errors":'; then
-        echo "Error in NMKR response:" >&2
-        echo "$response" | jq . >&2
+        )
+        # Check response for errors
+        if echo "$response" | grep -q '"errors":'; then
+            echo -e "${RED}Error in NMKR response:${NC}" >&2
+            echo "$response" | jq . >&2
+            return 1
+        fi
+        
+        echo -e "${GREEN}NMKR upload successful!${NC}"
+    else
+        echo -e "${YELLOW}Skipping pinning on NMKR.${NC}"
+    fi
+    
+    echo -e " "
+    echo -e "${GREEN}File pinning completed: ${YELLOW}$file${NC}"
+}
+
+# Main processing logic
+if [ -d "$input_path" ]; then
+    # If input is a directory: pin all .jsonld files
+    echo -e " "
+    echo -e "${CYAN}Processing directory: ${YELLOW}$input_path${NC}"
+    
+    shopt -s nullglob
+    jsonld_files=("$input_path"/*.jsonld)
+    # check if any .jsonld files were found
+    if [ ${#jsonld_files[@]} -eq 0 ]; then
+        echo -e "${RED}Error: No .jsonld files found in directory: ${YELLOW}$input_path${NC}" >&2
         exit 1
     fi
-
-    echo "NMKR upload successful!"
+    
+    echo -e "${CYAN}Found ${YELLOW}${#jsonld_files[@]}${NC}${CYAN} .jsonld files to process${NC}"
+    
+    # for each .jsonld file in the directory, pin it
+    for file in "${jsonld_files[@]}"; do
+        # ask user if they want to continue with the next file
+        # skip for the first file
+        if [ "$file" != "${jsonld_files[0]}" ]; then
+            echo -e " "
+            echo -e "${CYAN}The next file is: ${YELLOW}$file${NC}"
+            read -p "Do you want to continue with the next file? (y/n): " choice
+            case "$choice" in
+                y|Y ) echo -e "${GREEN}Continuing with the next file...${NC}";;
+                n|N ) echo -e "${YELLOW}Exiting...${NC}"; exit 0;;
+                * ) echo -e "${RED}Invalid choice, exiting...${NC}"; exit 1;;
+            esac
+        fi
+        pin_single_file "$file"
+    done
+    
+    echo -e " "
+    echo -e "${GREEN}All files processed successfully!${NC}"
+    
+elif [ -f "$input_path" ]; then
+    # Input is a single file
+    echo -e " "
+    echo -e "${CYAN}Processing single file: ${YELLOW}$input_path${NC}"
+    pin_single_file "$input_path"
+    echo -e " "
+    echo -e "${GREEN}File processed successfully!${NC}"
 else
-    echo "Skipping pinning on NMKR."
+    echo -e "${RED}Error: '$input_path' is not a valid file or directory.${NC}" >&2
+    exit 1
 fi
 
