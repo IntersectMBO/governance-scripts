@@ -176,6 +176,21 @@ if [ -d "$input_path" ]; then
             else
                 echo "Abstract length is acceptable"
             fi
+
+            # check that withdaral amount is in the title
+
+            echo -e "Extracting withdrawal amount from the title"
+            withdrawal_amount_raw=$(echo "$title" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
+            withdrawal_amount_from_title=$(echo "$withdrawal_amount_raw" | tr -d ',' | sed 's/$/000000/')
+
+            if [ "$withdrawal_amount_from_title" != "$withdrawal_amount" ]; then
+                echo -e "${RED}Error: Withdrawal amount in the title does not match the withdrawal amount in the metadata!" >&2
+                echo -e "Title withdrawal amount: ${YELLOW}$withdrawal_amount_from_title${NC}"
+                echo -e "Metadata withdrawal amount: ${YELLOW}$withdrawal_amount${NC}"
+                exit 1
+            else
+                echo "Withdrawal amount in the title matches the metadata"
+            fi
             
             # Check all IPFS references are accessible
             echo -e " "
