@@ -66,6 +66,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+
+# If no input file provided, show usage
+if [ -z "$input_file" ]; then
+    echo -e "${RED}Error: No input file specified${NC}" >&2
+    usage
+fi
+
 check_field() {
     local field_name="$1"
     local field_value="$2"
@@ -76,15 +83,13 @@ check_field() {
     fi
 }
 
-echo " "
-echo "Running budget metadata validation for: $input_path"
-
 if [ -d "$input_path" ]; then
     # get all .jsonld files in the directory
     jsonld_files=("$input_path"/*.jsonld)
     # check if any .jsonld files were found
     if [ ${#jsonld_files[@]} -eq 0 ]; then
-        echo "Error: No .jsonld files found in directory '$input_path'."
+        echo -e " "
+        echo -e "${RED}Error: No .jsonld files found in directory: $input_path${NC}" >&2
         exit 1
     fi
     # for each .jsonld file in the directory, go over it
@@ -92,24 +97,29 @@ if [ -d "$input_path" ]; then
         if [ -f "$file" ]; then
 
             if [ "$check_author" = "true" ]; then
-                echo "Author witnesses will be checked..."
-                echo " "
-                echo "Checking author for $file"
+                echo -e " "
+                echo -e "${CYAN}Checking author for ${YELLOW}$file${NC}"
                 ./scripts/author-verify-witness.sh "$file"
             fi
 
-            echo " "
-            echo "Running schema and spell check on: $file"
-            ./scripts/metadata-validate.sh "$file" --intersect-budget
-
             if [ "$check_ipfs" = "true" ]; then
-                echo " "
-                echo "Checking IPFS status for $file"
+                echo ie " "
+                echo -e "${CYAN}Checking IPFS status for ${YELLOW}$file${NC}"
                 ./scripts/ipfs-check.sh "$file"
             fi
 
+            echo -e " "
+            echo -e "${CYAN}Running schema and spell check on: ${YELLOW}$file${NC}"
+            ./scripts/metadata-validate.sh "$file" --intersect-budget
+
+            echo -e " "
+            echo -e "${CYAN}Running budget metadata checks on: ${YELLOW}$file${NC}"
+
+
             # get content from the file for budget specific checks
             # exit if null for any of these
+            echo -e "Checking the existence of required fields"
+
             title=$(jq -r '.body.title' "$file")
             check_field "title" "$title"
             ga_type=$(jq -r '.body.onChain.governanceActionType' "$file")
@@ -121,7 +131,7 @@ if [ -d "$input_path" ]; then
             withdrawal_address=$(jq -r '.body.onChain.withdrawals[0].withdrawalAddress' "$file")
             check_field "withdrawalAddress" "$withdrawal_address"
 
-            # ensure the correct type is there
+            # ensure the correct governance action type
             if [ "$ga_type" = "treasuryWithdrawals" ]; then
                 echo "Metadata has correct governanceActionType"
             else
