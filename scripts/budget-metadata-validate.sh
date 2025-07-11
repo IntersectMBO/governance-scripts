@@ -6,27 +6,40 @@
 # Can change if you want!
 
 AUTHOR_CHECK="true"
+IPFS_CHECK="true"
 
 ######################################################
 
 # Usage message
 usage() {
-    echo "Usage: $0 <file|directory> [--no-author]"
+    echo "Usage: $0 <file|directory> [--no-author] [--no-ipfs]"
     echo "Run 2025 Intersect budget treasury withdrawal checks on CIP108 metadata files."
     echo "Check "
     echo "  "
     echo "Options:"
     echo "  <file|directory>         Path to your CIP108 file or directory."
+    echo "  --no-author              Skip author witness checks (default check author: $AUTHOR_CHECK)"
+    echo "  --no-ipfs                Skip IPFS checks (default check ipfs: $AUTHOR_CHECK)"
+    echo "  -h, --help               Show this help message and exit"
     exit 1
 }
 
 # Initialize variables with defaults
 input_path=""
 check_author="$AUTHOR_CHECK"
+check_ipfs="$IPFS_CHECK"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --no-author)
+            check_author="false"
+            shift
+            ;;
+        --no-author)
+            check_ipfs="false"
+            shift
+            ;;
         -h|--help)
             usage
             ;;
