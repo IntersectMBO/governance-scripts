@@ -317,6 +317,8 @@ else
     exit 1
 fi
 
+# todo add check if withdrawal address is delegated to an SPO
+
 echo -e "${GREEN}Automatic validations passed${NC}"
 echo -e " "
 echo -e "${CYAN}Computing details${NC}"

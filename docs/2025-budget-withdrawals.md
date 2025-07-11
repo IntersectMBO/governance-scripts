@@ -1,4 +1,4 @@
-# Draft --  Intersect 2025 Budget Treasury Withdrawals
+# Intersect 2025 Budget Treasury Withdrawals
 
 Here we intend to document the scripts used within the technical processes of building and verifying the treasury withdrawal actions.
 
@@ -7,74 +7,153 @@ Here we intend to document the scripts used within the technical processes of bu
 ### Pre-Requisites
 
 Have authored your treasury withdrawal metadata.
-This can be done via Google docs, or some collaborative document platform.
+This is done via Google docs.
 
-### 1. Create the metadata documents
+### 1. Download `.docx` into working directory
 
-convert the Google docs to .JSONLD
+For Intersect [governance-actions](https://github.com/IntersectMBO/governance-actions) will be used as working directory.
 
-tbd how to do this and tbd how much can be automated
+### 2. Create the metadata documents
 
-### 2. Check metadata documents
+Convert the `.docx` to [intersect's metadata standard](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
+this is a modified CIP-108 document.
+
+With the `metadata-create` script taking the data from the doc and creating a `.jsonld`.
+
+```shell
+./scripts/metadata-create.sh my-metadata.docx
+```
+
+### 3. Sanity check the metadata
+
+Generate a markdown representation from the created `.jsonld`
+and manually compare against the `.docx`.
+
+```shell
+./scripts/cip-108-create-human-readable.sh my-metadata.jsonld
+```
+
+### 4. Formally validate the metadata
 
 Ensure that the metadata documents are correct.
 
+automated checks:
+- compliance with CIP schema(s)
+- compliance with Intersect schema
+- spelling check
+
 ```shell
-./scripts/validate-budget-metadata.sh
+./scripts/metadata-validate.sh my-metadata.jsonld
 ```
 
-automated checks
-- compliance with CIPs
-- check on IPFS ?
-- compliance with budget schema
-- spelling check
-- probably more
+### 5. Budget specific tests to validate the metadata
 
-### 3. Manual check
+Then do specific budget checks:
+- is author valid?
+- expected withdrawal and deposit address?
+- addresses are key-based or script-based?
+- manually confirm the withdrawal amount
 
-- lets look over and make sure we are happy
+```shell
+./scripts/budget-metadata-validate.sh my-metadata.jsonld
+```
 
-### 4. Sign with author's key
+### 6. Sign with author's key
 
 If metadata passes all the checks.
 Sign it with the Intersect author key
 
-using script
+(this will be done via an air-gapped setup)
 
 ```shell
-./scripts/create-author-witness.sh
+./scripts/author-create.sh my-metadata.jsonld intersect-key.skey
 ```
 
-Copy the authored one back.
+### 7. Verify the author's witness
 
-### 5. Verify the witnesses
+Check the author witness.
 
-Check the author witnesses.
+Ensure it is from the expected intersect key.
 
 ```shell
-./scripts/verify-author-witness.sh
+./scripts/author-validate.sh my-metadata.jsonld
 ```
 
-### 6. Host on IPFS
+### 8. Host on IPFS
 
-Host the author witnessed metadata on IPFS.
+Pin the metadata to different IPFS pinning services.
+
+You'll need to set the secrets for these pinning services first.
 
 ```shell
-./scripts/ipfs.sh
+source ./scripts/.env
+
+./scripts/ipfs-pin.sh my-metadata.jsonld
 ```
 
-### 7. Create the action files
+### 9. Check metadata is accessible via IPFS
+
+Hit a couple of gateways and see if it is accessible.
+
+```shell
+./scripts/ipfs-check.sh my-metadata.jsonld
+```
+
+### 10. Create the action file
+
+Now we can create a governance action file from our metadata.
+
+This does require `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
+
+This performs some validations
+- can check against some known deposit return and withdrawal address
+- checks that metadata fields are present and look right
+- compares the addresses against the local node
+- checks if withdrawal address is script-based
+- checks if withdrawal address and deposit address are registered
+- checks if withdrawal address is not vote delegated or is delegated to auto-abstain
+- checks that the metadata is hosted on ipfs
+- has user manually confirm the addresses and the amount
+
+```shell
+./scripts/ipfs-check.sh my-metadata.jsonld --withdraw-to-script --deposit-return-addr <stake address> --withdrawal-addr <stake address>
+```
+
+### 11. Share the action file
+
+Share the action file and the .json representation publicly.
+
+Have people check that this looks good.
+You dont want to mess this up.
+
+Checks;
+- withdrawal and stake address are correct
+- withdrawal address is script-based
+- withdrawal amount is correct
+- metadata compliance with .docx
+- hash and URI match
+
+### 12. Check action file
+
+Automated checks.
+
+Checks;
+- withdrawal and stake address are correct
+- withdrawal address is script-based
+- withdrawal amount is correct -- can auto-check against title
+- metadata accessible via IPFS
+- metadata compliance with .docx
+- hash and URI match
+- manually have the user confirm aspects too
+
+```shell
+./scripts/action-validate.sh my-action.action
+```
+
+### 13. Build the transaction
 
 todo
 
-### 8. Check action files
-
-todo
-
-### 9. Build the transactions
-
-todo
-
-### 10. check the transactions
+### . check the transactions
 
 todo

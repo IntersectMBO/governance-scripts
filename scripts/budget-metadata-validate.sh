@@ -17,7 +17,6 @@ usage() {
     echo "  "
     echo "Options:"
     echo "  <file|directory>         Path to your CIP108 file or directory."
-    echo "  --no-author              Don't run checks for author witnesses (default: $AUTHOR_CHECK)"
     exit 1
 }
 
@@ -28,10 +27,6 @@ check_author="$AUTHOR_CHECK"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --no-author)
-            check_author="false"
-            shift
-            ;;
         -h|--help)
             usage
             ;;
@@ -62,21 +57,11 @@ if [ -d "$input_path" ]; then
                 echo "Author witnesses will be checked..."
                 echo " "
                 echo "Running validation $file"
-                ./scripts/cip-108-validate.sh "$file"
+                ./scripts/metadata-validate.sh "$file" --intersect-budget
                 echo " "
                 echo "Checking author for $file"
                 ./scripts/author-verify-witness.sh "$file"
                 echo " "
-
-                # todo add more checks here
-            else
-                echo "Skipping author witness checks..."
-                echo " "
-                echo "Running validation $file"
-                ./scripts/validate-cip-108.sh "$file"
-                echo " "
-
-                # todo add more checks here
             fi
         else
             echo "Error: '$file' is not a valid file."

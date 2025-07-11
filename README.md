@@ -8,9 +8,15 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 #### 2025 Budget Scripts
 
-- [budget-check-metadata.sh](./scripts/budget-check-metadata.sh) 
+- [budget-metadata-validate.sh](./scripts/budget-metadata-validate.sh) 
   - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
   - Uses a combination of the other scripts
+
+#### Governance Action Scripts
+
+- [action-create-tw.sh](./scripts/action-create-tw.sh)
+  - Creates a treasury withdrawal governance action from a Intersect metadata
+  - Uses a local cardano node socket file
 
 #### IPFS Scripts
 
@@ -20,11 +26,13 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Allows user to pin a file on a number of pinning services
   - Optionally allows the user to check file's discoverability first
 
-#### CIP-100+ Metadata Scripts
+#### Governance (CIP-100+) Metadata Scripts
 
-- [metadata-validate.sh](./scripts/cip-108-validate.sh)
+- [metadata-create.sh](./scripts/metadata-create.sh)
+  - Creates Intersect budget metadata file from a `.docx`
+- [metadata-validate.sh](./scripts/metadata-validate.sh)
   - Compares governance metadata against the established schema(s)
-  - Applies a spell check to CIP108 metadata
+  - Applies a spell check to CIP108 metadata fields
 
 #### CIP-108 Scripts
 
@@ -43,7 +51,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [hash.sh](./scripts/hash.sh)
   - Performs a blake2b-256 hash on provided file
 - [pdf-remove-metadata.sh](./scripts/pdf-remove-metadata.sh)
-  - Removes PDF metadata from PDF files  
+  - Removes PDF metadata from PDF files
 
 ### Documentation
 
@@ -62,11 +70,28 @@ In order to run all of these scripts you will need
 - [ipfs](https://docs.ipfs.eth.link/install/command-line/)
 - jq
 
-## Secrets
+probably more I have missed...
+
+## Environment Variables
+
+### Cardano Node
+
+The only script that uses secrets is `action-create-tw.sh`.
+
+This expects `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
+So you'll need a local cardano node socket path.
+
+### Secrets
+
+The only script that uses secrets is `ipfs-pin.sh`.
 
 Secrets can be stored via `./scripts/.env` and based on `./scripts/.env.example`.
 
-The only script that uses secrets is `ipfs-pin.sh`.
+This is setup so you can run:
+
+```shell
+source ./scripts/.env
+```
 
 ## License
 
