@@ -26,15 +26,17 @@ NC='\033[0m'
 
 # Usage message
 usage() {
-    echo "Usage: $0 <directory> [--no-author] [--no-ipfs]"
+    echo "Usage: $0 <directory> [--no-author] [--no-ipfs] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Run 2025 Intersect budget treasury withdrawal checks on metadata files."
     echo "Check "
     echo "  "
     echo "Options:"
-    echo "  <directory>              Path to your metadata files."
-    echo "  --no-author              Skip author witness checks (default check author: $AUTHOR_CHECK)"
-    echo "  --no-ipfs                Skip IPFS checks (default check ipfs: $AUTHOR_CHECK)"
-    echo "  -h, --help               Show this help message and exit"
+    echo "  <directory>                            Path to your metadata files."
+    echo "  --no-author                            Skip author witness checks (default check author: $AUTHOR_CHECK)"
+    echo "  --no-ipfs                              Skip IPFS checks (default check ipfs: $AUTHOR_CHECK)"
+    echo "  --deposit-return-addr <stake address>  Stake address for deposit return (bech32)"
+    echo "  --withdrawal-addr <stake address>      Stake address for withdrawal (bech32)"
+    echo "  -h, --help                             Show this help message and exit" 
     exit 1
 }
 
@@ -42,6 +44,8 @@ usage() {
 input_path=""
 check_author="$AUTHOR_CHECK"
 check_ipfs="$IPFS_CHECK"
+deposit_return_address_input=""
+withdrawal_address_input=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -53,6 +57,24 @@ while [[ $# -gt 0 ]]; do
         --no-ipfs)
             check_ipfs="false"
             shift
+            ;;
+        --deposit-return-addr)
+            if [ -n "${2:-}" ]; then
+                deposit_return_address_input="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --deposit-return-addr requires a value${NC}" >&2
+                usage
+            fi
+            ;;
+        --withdrawal-addr)
+            if [ -n "${2:-}" ]; then
+                withdrawal_address_input="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --withdrawal-addr requires a value${NC}" >&2
+                usage
+            fi
             ;;
         -h|--help)
             usage
@@ -152,6 +174,32 @@ if [ -d "$input_path" ]; then
                 exit 1
             fi
 
+            # Check if deposit address is provided
+            # and if provided, check if it matches the one in the metadata
+            if [ ! -z "$deposit_return_address_input" ]; then
+                if [ "$deposit_return_address_input" != "$deposit_return" ]; then
+                    echo -e "${RED}Error: Deposit return address does not match the one in the metadata!${NC}" >&2
+                    echo -e "Provided deposit return address: ${YELLOW}$deposit_return_address_input${NC}"
+                    echo -e "Metadata deposit return address: ${YELLOW}$deposit_return${NC}"
+                    exit 1
+                else
+                    echo "Deposit return address matches the metadata"
+                fi
+            fi
+
+            # Check if withdrawal address is provided
+            # and if provided, check if it matches the one in the metadata
+            if [ ! -z "$withdrawal_address_input" ]; then
+                if [ "$withdrawal_address_input" != "$withdrawal_address" ]; then
+                    echo -e "${RED}Error: Withdrawal address does not match the one in the metadata!${NC}" >&2
+                    echo -e "Provided withdrawal address: ${YELLOW}$withdrawal_address_input${NC}"
+                    echo -e "Metadata withdrawal address: ${YELLOW}$withdrawal_address${NC}"
+                    exit 1
+                else
+                    echo "Withdrawal address matches the metadata"
+                fi
+            fi
+
             # ensure that the term 'ada' is not used in the title
             # this was a common mistake in the past
             if [[ "$title" == *"ada"* ]]; then
@@ -177,8 +225,7 @@ if [ -d "$input_path" ]; then
                 echo "Abstract length is acceptable"
             fi
 
-            # check that withdaral amount is in the title
-
+            # check that withdrawal amount is in the title
             echo -e "Extracting withdrawal amount from the title"
             withdrawal_amount_raw=$(echo "$title" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
             withdrawal_amount_from_title=$(echo "$withdrawal_amount_raw" | tr -d ',' | sed 's/$/000000/')
@@ -195,6 +242,7 @@ if [ -d "$input_path" ]; then
             # Check all IPFS references are accessible
             echo -e " "
             echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            echo -e " "
             echo -e "${CYAN}Checking all IPFS references are accessible in: ${YELLOW}$file${NC}"
             echo -e "Using ./scripts/ipfs-check.sh"
             reference_uris=$(jq -r '.body.references[].uri' "$file")
@@ -205,6 +253,9 @@ if [ -d "$input_path" ]; then
                     ./scripts/ipfs-check.sh "$ipfs_hash"
                 fi
             done
+            echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            echo -e " "
+            echo -e "${GREEN}All checks passed for: ${YELLOW}$file${NC}"
             echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
             # todo add check ekkelisia link in references matches
