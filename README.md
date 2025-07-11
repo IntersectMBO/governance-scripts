@@ -26,13 +26,13 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Allows user to pin a file on a number of pinning services
   - Optionally allows the user to check file's discoverability first
 
-#### CIP-100+ Metadata Scripts
+#### Governance (CIP-100+) Metadata Scripts
 
 - [metadata-create.sh](./scripts/metadata-create.sh)
   - Creates Intersect budget metadata file from a `.docx`
 - [metadata-validate.sh](./scripts/metadata-validate.sh)
   - Compares governance metadata against the established schema(s)
-  - Applies a spell check to CIP108 metadata
+  - Applies a spell check to CIP108 metadata fields
 
 #### CIP-108 Scripts
 

@@ -1,4 +1,4 @@
-# Draft --  Intersect 2025 Budget Treasury Withdrawals
+# Intersect 2025 Budget Treasury Withdrawals
 
 Here we intend to document the scripts used within the technical processes of building and verifying the treasury withdrawal actions.
 
@@ -7,47 +7,69 @@ Here we intend to document the scripts used within the technical processes of bu
 ### Pre-Requisites
 
 Have authored your treasury withdrawal metadata.
-This can be done via Google docs, or some collaborative document platform.
+This is done via Google docs.
 
-### 1. Create the metadata documents
+### 1. Download `.docx` into working directory
 
-convert the Google docs to .JSONLD
+For Intersect [governance-actions](https://github.com/IntersectMBO/governance-actions) will be used as working directory.
 
-tbd how to do this and tbd how much can be automated
+### 2. Create the metadata documents
 
-### 2. Check metadata documents
+Convert the `.docx` to [intersect's metadata standard](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
+this is a modified CIP-108 document.
+
+With the `metadata-create` script taking the data from the doc and creating a `.jsonld`.
+
+```shell
+./scripts/metadata-create.sh my-metadata.docx
+```
+
+### 3. Sanity check the metadata
+
+Generate a markdown representation from the created `.jsonld`
+and manually compare against the `.docx`.
+
+```shell
+./scripts/cip-108-create-human-readable.sh my-metadata.jsonld
+```
+
+### 4. Formally validate the metadata
 
 Ensure that the metadata documents are correct.
 
+automated checks:
+- compliance with CIP schema(s)
+- compliance with Intersect schema
+- spelling check
+
 ```shell
-./scripts/validate-budget-metadata.sh
+./scripts/metadata-validate.sh
 ```
 
-automated checks
-- compliance with CIPs
-- check on IPFS ?
-- compliance with budget schema
-- spelling check
-- probably more
+### 5. Budget specific tests to validate the metadata
 
-### 3. Manual check
+Then do specific budget checks:
+- is author valid?
+- expected withdrawal and deposit address?
+- addresses are key-based or script-based?
+- manually confirm the withdrawal amount
 
-- lets look over and make sure we are happy
+```shell
+./scripts/budget-metadata-validate.sh
+```
 
-### 4. Sign with author's key
+### 6. Sign with author's key
 
 If metadata passes all the checks.
 Sign it with the Intersect author key
 
-using script
+(this will be done via an air-gapped setup)
 
 ```shell
-./scripts/create-author-witness.sh
+./scripts/author-create.sh
 ```
 
-Copy the authored one back.
-
-### 5. Verify the witnesses
+### 6. Verify the witnesses
 
 Check the author witnesses.
 
@@ -55,7 +77,7 @@ Check the author witnesses.
 ./scripts/verify-author-witness.sh
 ```
 
-### 6. Host on IPFS
+### . Host on IPFS
 
 Host the author witnessed metadata on IPFS.
 
@@ -63,18 +85,18 @@ Host the author witnessed metadata on IPFS.
 ./scripts/ipfs.sh
 ```
 
-### 7. Create the action files
+### . Create the action files
 
 todo
 
-### 8. Check action files
+### . Check action files
 
 todo
 
-### 9. Build the transactions
+### . Build the transactions
 
 todo
 
-### 10. check the transactions
+### . check the transactions
 
 todo
