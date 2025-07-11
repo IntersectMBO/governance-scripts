@@ -333,7 +333,6 @@ echo -e "Metadata file hash: ${YELLOW}$file_hash${NC}"
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_file")
 echo -e "IPFS URI: ${YELLOW}ipfs://$ipfs_cid${NC}"
 
-
 # Make user manually confirm the choices
 echo -e " "
 echo -e "${CYAN}Creating treasury withdrawal action${NC}"
