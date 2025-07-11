@@ -32,21 +32,12 @@ and manually compare against the `.docx`.
 ```shell
 ./scripts/cip-108-create-human-readable.sh my-metadata.jsonld
 ```
+### 5. Validate the metadata
 
-### 4. Formally validate the metadata
-
-Ensure that the metadata documents are correct.
-
-automated checks:
+automated formal checks:
 - compliance with CIP schema(s)
 - compliance with Intersect schema
 - spelling check
-
-```shell
-./scripts/metadata-validate.sh my-metadata.jsonld
-```
-
-### 5. Budget specific tests to validate the metadata
 
 Then do specific budget checks:
 - is author valid?
