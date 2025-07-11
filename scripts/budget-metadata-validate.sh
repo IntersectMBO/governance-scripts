@@ -166,7 +166,7 @@ if [ -d "$input_path" ]; then
                 echo -e "${RED}Error: Title is too long, must be less than 80 characters" >&2
                 exit 1
             else
-                echo "Title length is acceptable length"
+                echo "Title length is acceptable"
             fi
 
             # ensure that the abstract is less than 2501 characters 
@@ -174,27 +174,25 @@ if [ -d "$input_path" ]; then
                 echo -e "${RED}Error: Abstract is too long, must be less than 2500 characters" >&2
                 exit 1
             else
-                echo "Abstract length is acceptable length"
-            fi  
-
-            # todo ensure all ipfs references are accessible
-
-            # add check ekkelisia link in references matches
-
-            # for each reference in the references array
-            for reference in $(echo "$references" | jq -r '.[]'); do
+                echo "Abstract length is acceptable"
+            fi
+            
+            # Check all IPFS references are accessible
+            echo -e " "
+            echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            echo -e "${CYAN}Checking all IPFS references are accessible in: ${YELLOW}$file${NC}"
+            echo -e "Using ./scripts/ipfs-check.sh"
+            reference_uris=$(jq -r '.body.references[].uri' "$file")
+            for reference in $reference_uris; do
                 # if reference is a ipfs URI
                 if [[ "$reference" == ipfs://* ]]; then
                     ipfs_hash=$(echo "$reference" | cut -d '/' -f 3)
-                    if ! ipfs pin ls "$ipfs_hash" &>/dev/null; then
-                        echo -e "${RED}Error: IPFS link $reference is not accessible${NC}" >&2
-                        exit 1
-                    else
-                        echo "IPFS link $reference is accessible"
-                    fi
+                    ./scripts/ipfs-check.sh "$ipfs_hash"
                 fi
             done
+            echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
+            # todo add check ekkelisia link in references matches
 
         else
             echo -e " "
