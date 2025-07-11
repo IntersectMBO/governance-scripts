@@ -50,12 +50,18 @@ automated checks:
 
 Then do specific budget checks:
 - is author valid?
-- expected withdrawal and deposit address?
-- addresses are key-based or script-based?
-- manually confirm the withdrawal amount
+- is metadata discoverable on ipfs?
+- Metadata has correct `governanceActionType`
+- Title does not contain the term 'ada'
+- Title length is acceptable
+- Abstract length is acceptable
+- Withdrawal amount in the title matches the metadata
+- Provided deposit return address matches the metadata
+- Provided withdrawal address matches the metadata
+- All IPFS references are discoverable via IPFS
 
 ```shell
-./scripts/budget-metadata-validate.sh my-metadata.jsonld
+./scripts/budget-metadata-validate.sh ./my-metadata-directory
 ```
 
 ### 6. Sign with author's key
