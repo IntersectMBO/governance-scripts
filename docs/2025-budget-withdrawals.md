@@ -13,7 +13,25 @@ This is done via Google docs.
 
 For Intersect [governance-actions](https://github.com/IntersectMBO/governance-actions) will be used as working directory.
 
-### 2. Create the metadata documents
+### 2. Set environment variables
+
+Set secrets
+
+```shell
+source ./scripts/.env
+```
+
+Set some useful variables
+
+```shell
+export DEPOSIT_RETURN_ADDR=""
+export WITHDRAWAL_ADDR=""
+```
+
+Make sure that `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` are set.
+
+
+### 3. Create the metadata documents
 
 Convert the `.docx` to [intersect's metadata standard](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
 this is a modified CIP-108 document.
@@ -21,10 +39,10 @@ this is a modified CIP-108 document.
 With the `metadata-create` script taking the data from the doc and creating a `.jsonld`.
 
 ```shell
-./scripts/metadata-create.sh my-metadata.docx
+./scripts/metadata-create.sh my-metadata.docx --deposit-return-addr $DEPOSIT_RETURN_ADDR
 ```
 
-### 3. Sanity check the metadata
+### 4. Sanity check the metadata
 
 Generate a markdown representation from the created `.jsonld`
 and manually compare against the `.docx`.
@@ -32,6 +50,7 @@ and manually compare against the `.docx`.
 ```shell
 ./scripts/cip-108-create-human-readable.sh my-metadata.jsonld
 ```
+
 ### 5. Validate the metadata
 
 automated formal checks:
@@ -51,8 +70,12 @@ Then do specific budget checks:
 - Provided withdrawal address matches the metadata
 - All IPFS references are discoverable via IPFS
 
+We will pass `--no-author` as we know there is no author witness yet.
+
+We will pass `--no-ipfs` as we know we didn't put it on ipfs yet.
+
 ```shell
-./scripts/budget-metadata-validate.sh ./my-metadata-directory
+./scripts/budget-metadata-validate.sh ./my-metadata-directory --no-author --no-ipfs --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
 ### 6. Sign with author's key
@@ -63,29 +86,28 @@ Sign it with the Intersect author key
 (this will be done via an air-gapped setup)
 
 ```shell
-./scripts/author-create.sh my-metadata.jsonld intersect-key.skey
+./scripts/author-create.sh ./my-metadata-directory intersect-key.skey
 ```
 
 ### 7. Verify the author's witness
 
-Check the author witness.
+Check the author witness via the same script
+as we know it checks everything.
 
-Ensure it is from the expected intersect key.
+Ensure it is from the expected intersect key
+
+We will pass `--no-ipfs` as we know we didn't put it on ipfs yet.
 
 ```shell
-./scripts/author-validate.sh my-metadata.jsonld
+./scripts/budget-metadata-validate.sh ./my-metadata-directory --no-ipfs --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
 ### 8. Host on IPFS
 
 Pin the metadata to different IPFS pinning services.
 
-You'll need to set the secrets for these pinning services first.
-
 ```shell
-source ./scripts/.env
-
-./scripts/ipfs-pin.sh my-metadata.jsonld
+./scripts/ipfs-pin.sh ./my-metadata-directory
 ```
 
 ### 9. Check metadata is accessible via IPFS
