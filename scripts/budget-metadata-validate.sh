@@ -69,13 +69,20 @@ if [ -d "$input_path" ]; then
             if [ "$check_author" = "true" ]; then
                 echo "Author witnesses will be checked..."
                 echo " "
-                echo "Running validation $file"
-                ./scripts/metadata-validate.sh "$file" --intersect-budget
-                echo " "
                 echo "Checking author for $file"
                 ./scripts/author-verify-witness.sh "$file"
-                echo " "
             fi
+
+            echo " "
+            echo "Running schema and spell check on: $file"
+            ./scripts/metadata-validate.sh "$file" --intersect-budget
+
+            if [ "$check_ipfs" = "true" ]; then
+                echo " "
+                echo "Checking IPFS status for $file"
+                ./scripts/ipfs-check.sh "$file"
+            fi
+
         else
             echo "Error: '$file' is not a valid file."
             exit 1
