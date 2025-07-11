@@ -116,6 +116,20 @@ if [ -d "$input_path" ]; then
     
     # for each .jsonld file in the directory, go over it
     for file in "${jsonld_files[@]}"; do
+
+        # ask user if they want to continue with the next file
+        # skip for the first file
+        if [ "$file" != "${jsonld_files[0]}" ]; then
+            echo -e " "
+            echo -e "${CYAN}The next file is: ${YELLOW}$file${NC}"
+            read -p "Do you want to continue with the next file? (y/n): " choice
+            case "$choice" in
+                y|Y ) echo -e "${GREEN}Continuing with the next file...${NC}";;
+                n|N ) echo -e "${YELLOW}Exiting...${NC}"; exit 0;;
+                * ) echo -e "${RED}Invalid choice, exiting...${NC}"; exit 1;;
+            esac
+        fi
+
         if [ -f "$file" ]; then
 
             if [ "$check_author" = "true" ]; then
@@ -174,32 +188,6 @@ if [ -d "$input_path" ]; then
                 exit 1
             fi
 
-            # Check if deposit address is provided
-            # and if provided, check if it matches the one in the metadata
-            if [ ! -z "$deposit_return_address_input" ]; then
-                if [ "$deposit_return_address_input" != "$deposit_return" ]; then
-                    echo -e "${RED}Error: Deposit return address does not match the one in the metadata!${NC}" >&2
-                    echo -e "Provided deposit return address: ${YELLOW}$deposit_return_address_input${NC}"
-                    echo -e "Metadata deposit return address: ${YELLOW}$deposit_return${NC}"
-                    exit 1
-                else
-                    echo "Deposit return address matches the metadata"
-                fi
-            fi
-
-            # Check if withdrawal address is provided
-            # and if provided, check if it matches the one in the metadata
-            if [ ! -z "$withdrawal_address_input" ]; then
-                if [ "$withdrawal_address_input" != "$withdrawal_address" ]; then
-                    echo -e "${RED}Error: Withdrawal address does not match the one in the metadata!${NC}" >&2
-                    echo -e "Provided withdrawal address: ${YELLOW}$withdrawal_address_input${NC}"
-                    echo -e "Metadata withdrawal address: ${YELLOW}$withdrawal_address${NC}"
-                    exit 1
-                else
-                    echo "Withdrawal address matches the metadata"
-                fi
-            fi
-
             # ensure that the term 'ada' is not used in the title
             # this was a common mistake in the past
             if [[ "$title" == *"ada"* ]]; then
@@ -226,7 +214,6 @@ if [ -d "$input_path" ]; then
             fi
 
             # check that withdrawal amount is in the title
-            echo -e "Extracting withdrawal amount from the title"
             withdrawal_amount_raw=$(echo "$title" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
             withdrawal_amount_from_title=$(echo "$withdrawal_amount_raw" | tr -d ',' | sed 's/$/000000/')
 
@@ -237,6 +224,32 @@ if [ -d "$input_path" ]; then
                 exit 1
             else
                 echo "Withdrawal amount in the title matches the metadata"
+            fi
+
+            # Check if deposit address is provided
+            # and if provided, check if it matches the one in the metadata
+            if [ ! -z "$deposit_return_address_input" ]; then
+                if [ "$deposit_return_address_input" != "$deposit_return" ]; then
+                    echo -e "${RED}Error: Deposit return address does not match the one in the metadata!${NC}" >&2
+                    echo -e "Provided deposit return address: ${YELLOW}$deposit_return_address_input${NC}"
+                    echo -e "Metadata deposit return address: ${YELLOW}$deposit_return${NC}"
+                    exit 1
+                else
+                    echo "Deposit return address matches the metadata"
+                fi
+            fi
+
+            # Check if withdrawal address is provided
+            # and if provided, check if it matches the one in the metadata
+            if [ ! -z "$withdrawal_address_input" ]; then
+                if [ "$withdrawal_address_input" != "$withdrawal_address" ]; then
+                    echo -e "${RED}Error: Withdrawal address does not match the one in the metadata!${NC}" >&2
+                    echo -e "Provided withdrawal address: ${YELLOW}$withdrawal_address_input${NC}"
+                    echo -e "Metadata withdrawal address: ${YELLOW}$withdrawal_address${NC}"
+                    exit 1
+                else
+                    echo "Withdrawal address matches the metadata"
+                fi
             fi
             
             # Check all IPFS references are accessible
