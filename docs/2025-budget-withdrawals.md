@@ -125,15 +125,15 @@ This performs some validations
 - has user manually confirm the addresses and the amount
 
 ```shell
-./scripts/ipfs-check.sh my-metadata.jsonld --withdraw-to-script --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
+./scripts/action-create.jsonld my-metadata.jsonld --withdraw-to-script --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
 ### 10. Share the action file
 
-Share the action file and the .json representation publicly.
+Share the action file and the `.action.json` representation publicly.
 
 Have people check that this looks good.
-You dont want to mess this up.
+You **don't** want to mess this up.
 
 Checks;
 - withdrawal and stake address are correct
@@ -142,7 +142,7 @@ Checks;
 - metadata compliance with .docx
 - hash and URI match
 
-### 12. Check action file
+### 11. Check action file
 
 Automated checks.
 
@@ -156,13 +156,13 @@ Checks;
 - manually have the user confirm aspects too
 
 ```shell
-./scripts/action-validate.sh my-action.action
+./scripts/action-validate.sh my-metadata.action --withdraw-to-script --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
 ### 13. Build the transaction
 
-todo
+Manually, dependent on where the deposit is from.
 
-### . check the transactions
+### 14. check the transactions
 
-todo
+Manually.
