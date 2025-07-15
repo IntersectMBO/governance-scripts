@@ -105,12 +105,16 @@ check_field() {
 }
 
 if [ -d "$input_path" ]; then
-    # get all .jsonld files in the directory
-    jsonld_files=("$input_path"/*.jsonld)
+    # get all .jsonld files in the directory and subdirectories
+    jsonld_files=()
+    while IFS= read -r -d '' file; do
+        jsonld_files+=("$file")
+    done < <(find "$input_path" -type f -name "*.jsonld" -print0)
+    
     # check if any .jsonld files were found
-    if [ ${#jsonld_files[@]} -eq 0 ] || [ ! -f "${jsonld_files[0]}" ]; then
+    if [ ${#jsonld_files[@]} -eq 0 ]; then
         echo -e " "
-        echo -e "${RED}Error: No .jsonld files found in directory: ${YELLOW}$input_path${NC}" >&2
+        echo -e "${RED}Error: No .jsonld files found in directory (including subdirectories): ${YELLOW}$input_path${NC}" >&2
         exit 1
     fi
     
