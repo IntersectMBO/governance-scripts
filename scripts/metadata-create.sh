@@ -140,7 +140,7 @@ get_section() {
 
 get_section_last() {
   local label="$1"
-  awk "/^${label}\$/,/^Authors\$/" "$TEMP_MD" | sed "1d" \
+  awk "/^${label}\$/,/^References\$/" "$TEMP_MD" | sed "1d" \
     | awk 'BEGIN{ORS=""; RS=""} {gsub(/\n/, " "); print $0 "\n\n"}' \
     | sed 's/[[:space:]]\+$//' \
     | jq -Rs .
