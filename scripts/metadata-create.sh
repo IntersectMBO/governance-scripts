@@ -318,6 +318,20 @@ echo -e "${CYAN}Cleaning up the formatting on the JSON output...${NC}"
 
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
 
+# Clean up for markdown formatting already present within the .docx file
+# replace \\*\\* with ** (remove escaped asterisks)
+perl -i -pe 's/\\\\\*\\\\\*/\*\*/g' "$FINAL_OUTPUT_JSON"
+# replace \\\" with "
+perl -i -pe 's/\\\\\"/\"/g' "$FINAL_OUTPUT_JSON"
+# replace \\\" with "
+perl -i -pe 's/\\\\\"/\"/g' "$FINAL_OUTPUT_JSON"
+# replace \\* with *
+perl -i -pe 's/\\\\\*/\*/g' "$FINAL_OUTPUT_JSON"
+# remove \n\n<!-- --> patterns
+perl -i -pe 's/\\n\\n<!-- -->//g' "$FINAL_OUTPUT_JSON"
+# replace \\' with '
+perl -i -pe 's/\\\\\x27/\x27/g' "$FINAL_OUTPUT_JSON"
+
 # Clean up trailing \n\n from JSON string fields
 echo -e "${CYAN}Removing trailing newlines from JSON fields...${NC}"
 sed -i '' 's/\\n\\n"/"/g' "$FINAL_OUTPUT_JSON"
