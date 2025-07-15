@@ -196,6 +196,12 @@ extract_references() {
   ' "$TEMP_MD"
 }
 
+# this search term can be changed to match the expected pattern
+extract_withdrawal_address() {
+  local rationale_text="$1"
+  echo "$rationale_text" | jq -r . | grep -oE "With the confirmed withdrawal address being:\s*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:\s*//'
+}
+
 # use helper functions to extract sections
 echo -e "Extracting sections from Markdown"
 
@@ -210,9 +216,9 @@ WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr 
 # Remove commas and add 6 zeros (convert to lovelace)
 WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
 
-# todo get the withdrawal address from the metadata
-# For now, we will leave it empty
-echo -e "${RED}Warning: Withdrawal address is currently empty. Please update the script to include a valid withdrawal address.${NC}"
+# Extract withdrawal address from the rationale section
+echo -e "Extracting withdrawal address from the rationale"
+WITHDRAWAL_ADDR=$(extract_withdrawal_address "$RATIONALE")
 
 cat <<EOF > "$TEMP_OUTPUT_JSON"
 {
@@ -296,7 +302,7 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
       "depositReturnAddress": "$deposit_return_address",
       "withdrawals": [
         {
-          "withdrawalAddress": "",
+          "withdrawalAddress": "$WITHDRAWAL_ADDR",
           "withdrawalAmount": $WITHDRAWAL_AMOUNT
         }
       ]
