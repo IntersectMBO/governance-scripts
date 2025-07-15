@@ -5,9 +5,18 @@
 INTERSECT_AUTHOR_PATH="https://raw.githubusercontent.com/IntersectMBO/governance-actions/b1c5603fb306623e0261c234312eb7e011ac3d38/intersect-author.json"
 ######################################################
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BRIGHTWHITE='\033[0;37;1m'
+NC='\033[0m'
+
 # Check if cardano-signer is installed
 if ! command -v cardano-signer >/dev/null 2>&1; then
-  echo "Error: cardano-signer is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: cardano-signer is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
@@ -26,15 +35,14 @@ input_path="$1"
 
 # Check if the key input file exists
 if [ ! -f "$input_path" ]; then
-    echo "Error: JSON file '$input_path' not found!"
+    echo -e "${RED}Error: JSON file '${YELLOW}$input_path${RED}' not found!${NC}"
     exit 1
 fi
 
 # Get Intersect author public key
-# echo " "
-# echo "Fetching Intersect author public key from $INTERSECT_AUTHOR_PATH"
+echo -e "${CYAN}Fetching Intersect author public key from ${YELLOW}$INTERSECT_AUTHOR_PATH${NC}"
 intersect_author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey')
-# echo " "
+echo -e " "
 
 # Use cardano-signer to verify author witnesses
 # https://github.com/gitmachtl/cardano-signer?tab=readme-ov-file#verify-governance-metadata-and-the-authors-signatures
@@ -55,13 +63,14 @@ check_if_intersect_author() {
         author_key=$(jq -r ".authors[$i].witness.publicKey" "$file")
         
         if [ "$author_key" == "$intersect_author_key" ]; then
-            echo "Author public key matches Intersect's known public key."
+            echo -e "${GREEN}Author public key matches Intersect's known public key.${NC}"
         else
-            echo "Warning: Author public key does NOT match Intersect's known public key."
-            echo "Author public key: $author_key"
-            echo "Intersect's known public key: $intersect_author_key"
+            echo -e " "
+            echo -e "${RED}Warning: Author public key does NOT match Intersect's known public key.${NC}"
+            echo -e "Author public key: ${YELLOW}$author_key${NC}"
+            echo -e "Intersect's known public key: ${YELLOW}$intersect_author_key${NC}"
         fi
-        echo " "
+        echo -e " "
     done
 }
 
@@ -71,7 +80,7 @@ if [ -d "$input_path" ]; then
     jsonld_files=("$input_path"/*.jsonld)
     # check if any .jsonld files were found
     if [ ${#jsonld_files[@]} -eq 0 ]; then
-        echo "Error: No .jsonld files found in directory '$input_path'."
+        echo -e "${RED}Error: No .jsonld files found in directory '${YELLOW}$input_path${RED}'.${NC}"
         exit 1
     fi
     # for each .jsonld file in the directory, go over it
@@ -84,6 +93,6 @@ elif [ -f "$input_path" ]; then
     verify_author_witness "$input_path"
     check_if_intersect_author "$input_path"
 else
-    echo "Error: '$input_path' is not a valid file or directory."
+    echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is not a valid file or directory.${NC}"
     exit 1
 fi
