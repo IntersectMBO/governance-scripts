@@ -31,7 +31,7 @@ usage() {
     echo "Check "
     echo "  "
     echo "Options:"
-    echo "  <directory>                            Path to your metadata files."
+    echo "  <directory>                            Path to your metadata files directory."
     echo "  --no-author                            Skip author witness checks (default check author: $AUTHOR_CHECK)"
     echo "  --no-ipfs                              Skip IPFS checks (default check ipfs: $AUTHOR_CHECK)"
     echo "  --deposit-return-addr <stake address>  Stake address for deposit return (bech32)"
@@ -108,7 +108,7 @@ if [ -d "$input_path" ]; then
     # get all .jsonld files in the directory
     jsonld_files=("$input_path"/*.jsonld)
     # check if any .jsonld files were found
-    if [ ${#jsonld_files[@]} -eq 0 ]; then
+    if [ ${#jsonld_files[@]} -eq 0 ] || [ ! -f "${jsonld_files[0]}" ]; then
         echo -e " "
         echo -e "${RED}Error: No .jsonld files found in directory: ${YELLOW}$input_path${NC}" >&2
         exit 1
@@ -228,7 +228,7 @@ if [ -d "$input_path" ]; then
 
             # Check if deposit address is provided
             # and if provided, check if it matches the one in the metadata
-            if [ ! -z "$deposit_return_address_input" ]; then
+            if [ -n "$deposit_return_address_input" ]; then
                 if [ "$deposit_return_address_input" != "$deposit_return" ]; then
                     echo -e "${RED}Error: Deposit return address does not match the one in the metadata!${NC}" >&2
                     echo -e "Provided deposit return address: ${YELLOW}$deposit_return_address_input${NC}"
@@ -241,7 +241,7 @@ if [ -d "$input_path" ]; then
 
             # Check if withdrawal address is provided
             # and if provided, check if it matches the one in the metadata
-            if [ ! -z "$withdrawal_address_input" ]; then
+            if [ -n "$withdrawal_address_input" ]; then
                 if [ "$withdrawal_address_input" != "$withdrawal_address" ]; then
                     echo -e "${RED}Error: Withdrawal address does not match the one in the metadata!${NC}" >&2
                     echo -e "Provided withdrawal address: ${YELLOW}$withdrawal_address_input${NC}"
@@ -253,19 +253,22 @@ if [ -d "$input_path" ]; then
             fi
             
             # Check all IPFS references are accessible
-            echo -e " "
-            echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-            echo -e " "
-            echo -e "${CYAN}Checking all IPFS references are accessible in: ${YELLOW}$file${NC}"
-            echo -e "Using ./scripts/ipfs-check.sh"
-            reference_uris=$(jq -r '.body.references[].uri' "$file")
-            for reference in $reference_uris; do
-                # if reference is a ipfs URI
-                if [[ "$reference" == ipfs://* ]]; then
-                    ipfs_hash=$(echo "$reference" | cut -d '/' -f 3)
-                    ./scripts/ipfs-check.sh "$ipfs_hash"
-                fi
-            done
+
+            if [ "$check_ipfs" = "true" ]; then
+                echo -e " "
+                echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+                echo -e " "
+                echo -e "${CYAN}Checking all IPFS references are accessible in: ${YELLOW}$file${NC}"
+                echo -e "Using ./scripts/ipfs-check.sh"
+                reference_uris=$(jq -r '.body.references[].uri' "$file")
+                for reference in $reference_uris; do
+                    # if reference is a ipfs URI
+                    if [[ "$reference" == ipfs://* ]]; then
+                        ipfs_hash=$(echo "$reference" | cut -d '/' -f 3)
+                        ./scripts/ipfs-check.sh "$ipfs_hash"
+                    fi
+                done
+            fi
             echo -e "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
             echo -e " "
             echo -e "${GREEN}All checks passed for: ${YELLOW}$file${NC}"
