@@ -125,7 +125,7 @@ This performs some validations
 - has user manually confirm the addresses and the amount
 
 ```shell
-./scripts/action-create.jsonld my-metadata.jsonld --withdraw-to-script --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
+./scripts/action-create-tw.sh my-metadata.jsonld --withdraw-to-script --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
 ### 10. Share the action file

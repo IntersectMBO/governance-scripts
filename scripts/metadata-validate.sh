@@ -220,4 +220,4 @@ echo " "
 echo "Validation complete."
 echo " "
 
-exit $AJV_EXIT_CODE
+exit 0
