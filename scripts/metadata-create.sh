@@ -113,6 +113,8 @@ sed -E -i '' 's/\[\[([^]]+)\]\]\{\.([a-zA-Z0-9_-]+)\}/\1/g' "$TEMP_MD"
 sed -E -i '' 's/\[([^]]+)\]\{\.([a-zA-Z0-9_-]+)\}/\1/g' "$TEMP_MD"
 # Fix broken markdown-style links [[Label]](url) change to [Label](url)
 sed -E -i '' 's/\[\[([^\]]+)\]\]\(([^)]+)\)/[\1](\2)/g' "$TEMP_MD"
+# Fix links with style markup: [[url]{.mark}](url) change to [url](url)
+sed -E -i '' 's/\[\[([^]]+)\]\{\.mark\}\]\(([^)]+)\)/[\1](\2)/g' "$TEMP_MD"
 # Normalize ₳ formatting
 sed -E -i '' 's/\[₳\]\{\.mark\}/₳/g' "$TEMP_MD"
 sed -E -i '' 's/₳[[:space:]]*/₳/g' "$TEMP_MD"
@@ -199,7 +201,7 @@ extract_references() {
 # this search term can be changed to match the expected pattern
 extract_withdrawal_address() {
   local rationale_text="$1"
-  echo "$rationale_text" | jq -r . | grep -oE "With the confirmed withdrawal address being:\s*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:\s*//'
+  echo "$rationale_text" | jq -r . | grep -oE "With the confirmed withdrawal address being:[[:space:]]*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:[[:space:]]*//'
 }
 
 # use helper functions to extract sections
@@ -315,5 +317,9 @@ echo -e " "
 echo -e "${CYAN}Cleaning up the formatting on the JSON output...${NC}"
 
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
+
+# Clean up trailing \n\n from JSON string fields
+echo -e "${CYAN}Removing trailing newlines from JSON fields...${NC}"
+sed -i '' 's/\\n\\n"/"/g' "$FINAL_OUTPUT_JSON"
 
 echo -e "${GREEN}JSONLD saved to $FINAL_OUTPUT_JSON${NC}"
