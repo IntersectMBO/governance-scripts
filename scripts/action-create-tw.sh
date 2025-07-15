@@ -3,7 +3,7 @@
 ##################################################
 
 # Default configuration values
-WITHDRAW_TO_SCRIPT="false"
+WITHDRAW_TO_SCRIPT="true"
 
 ##################################################
 
@@ -302,7 +302,7 @@ fi
 
 is_stake_address_delegated_to_abstain_or_null() {
     local address="$1"
-    vote_delegation=$(cardano-cli conway query stake-address-info --$protocol_magic --address "$address" | jq -r '.[0].voteDelegation')
+    vote_delegation=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].voteDelegation')
     if [ "$vote_delegation" = "alwaysAbstain" ] || [ "$vote_delegation" = "null" ] ; then
         return 0
     else
