@@ -369,10 +369,12 @@ perl -i -pe 's/\\\\\x27/\x27/g' "$FINAL_OUTPUT_JSON"
 # replace \' with '
 # give up on this one for now
 
+# remove any instances of \n\nReferences
+perl -i -pe 's/\\n\\nReferences//g' "$FINAL_OUTPUT_JSON"
+
 # replace **[Smart Contract Guide**](https://docs.intersectmbo.org/cardano-facilitation-services/cardano-budget/intersect-administration-services/smart-contracts-as-part-of-our-administration)
 # with **[Smart Contract Guide](https://docs.intersectmbo.org/cardano-facilitation-services/cardano-budget/intersect-administration-services/smart-contracts-as-part-of-our-administration)**
 # i know, i know, this is a bit of a hack, but it works
-
 perl -i -pe 's/\*\*\[Smart Contract Guide\*\*\]\(https:\/\/docs\.intersectmbo\.org\/cardano-facilitation-services\/cardano-budget\/intersect-administration-services\/smart-contracts-as-part-of-our-administration\)/\*\*\[Smart Contract Guide\]\(https:\/\/docs\.intersectmbo\.org\/cardano-facilitation-services\/cardano-budget\/intersect-administration-services\/smart-contracts-as-part-of-our-administration\)\*\*/g' "$FINAL_OUTPUT_JSON"
 
 # Clean up trailing \n\n from JSON string fields
