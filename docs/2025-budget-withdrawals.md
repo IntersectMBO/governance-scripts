@@ -24,8 +24,10 @@ source ./scripts/.env
 Set some useful variables
 
 ```shell
-export DEPOSIT_RETURN_ADDR=""
-export WITHDRAWAL_ADDR=""
+export DEPOSIT_RETURN_ADDR="stake1uyvjdz9rxsfsmv44rtk75k2rqyqskrga96dgdfrqjvjjpwsefcjnp"
+export WITHDRAWAL_ADDR="stake17xzc8pt7fgf0lc0x7eq6z7z6puhsxmzktna7dluahrj6g6ghh5qjr"
+
+export a="../governance-actions/mainnet/2025-07-13-budget-2025"
 ```
 
 Make sure that `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` are set.
