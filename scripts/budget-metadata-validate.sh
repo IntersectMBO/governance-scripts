@@ -172,6 +172,10 @@ if [ -d "$input_path" ]; then
             check_field "title" "$title"
             abstract=$(jq -r '.body.abstract' "$file")
             check_field "abstract" "$abstract"
+            motivation=$(jq -r '.body.motivation' "$file")
+            check_field "motivation" "$motivation"
+            rationale=$(jq -r '.body.rationale' "$file")
+            check_field "rationale" "$rationale"
             references=$(jq -r '.body.references' "$file")
             check_field "references" "$references"
             ga_type=$(jq -r '.body.onChain.governanceActionType' "$file")
@@ -199,6 +203,13 @@ if [ -d "$input_path" ]; then
                 exit 1
             else
                 echo "Title does not contain the term 'ada'"
+            fi
+
+            if [[ "$abstract" == *".mark"* ]] || [[ "$motivation" == *".mark"* ]] || [[ "$rationale" == *".mark"* ]]; then
+                echo -e "${RED}Error: The term '.mark' is not allowed in the title or abstract!" >&2
+                exit 1
+            else
+                echo "no Marks !!!"
             fi
 
             # ensure that title is less than 81 characters
