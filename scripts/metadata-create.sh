@@ -352,7 +352,6 @@ echo -e "${CYAN}Cleaning up the formatting on the JSON output...${NC}"
 # Use jq to format the JSON output
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
 
-
 # Clean up for markdown formatting already present within the .docx file
 # replace \\*\\* with ** (remove escaped asterisks)
 perl -i -pe 's/\\\\\*\\\\\*/\*\*/g' "$FINAL_OUTPUT_JSON"

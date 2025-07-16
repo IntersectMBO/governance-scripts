@@ -77,7 +77,7 @@ We will pass `--no-author` as we know there is no author witness yet.
 We will pass `--no-ipfs` as we know we didn't put it on ipfs yet.
 
 ```shell
-./scripts/budget-metadata-validate.sh ./my-metadata-directory --no-author --no-ipfs --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
+./scripts/budget-metadata-validate.sh $a/EC --no-author --no-ipfs --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
 
 ### 6. Sign with author's key
