@@ -265,15 +265,19 @@ EOF
 
 # Main processing logic
 if [ -d "$input_path" ]; then
-    # If input is a directory: pin all .jsonld files
+    # If input is a directory: pin all .jsonld files (including subdirectories)
     echo -e " "
     echo -e "${CYAN}Processing directory: ${YELLOW}$input_path${NC}"
     
-    shopt -s nullglob
-    jsonld_files=("$input_path"/*.jsonld)
+    # Get all .jsonld files in the directory and subdirectories
+    jsonld_files=()
+    while IFS= read -r -d '' file; do
+        jsonld_files+=("$file")
+    done < <(find "$input_path" -type f -name "*.jsonld" -print0)
+    
     # check if any .jsonld files were found
     if [ ${#jsonld_files[@]} -eq 0 ]; then
-        echo -e "${RED}Error: No .jsonld files found in directory: ${YELLOW}$input_path${NC}" >&2
+        echo -e "${RED}Error: No .jsonld files found in directory (including subdirectories): ${YELLOW}$input_path${NC}" >&2
         exit 1
     fi
     

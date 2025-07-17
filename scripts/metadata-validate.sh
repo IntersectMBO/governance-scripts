@@ -26,6 +26,8 @@ if ! command -v ajv >/dev/null 2>&1; then
   exit 1
 fi
 
+set -euo pipefail
+
 # Usage message
 usage() {
     echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-treasury] [--schema URL] [--dict FILE]"
@@ -220,4 +222,4 @@ echo " "
 echo "Validation complete."
 echo " "
 
-exit 0
+exit $AJV_EXIT_CODE

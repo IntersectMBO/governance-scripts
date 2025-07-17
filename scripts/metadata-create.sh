@@ -284,21 +284,17 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
         "abstract": "CIP108:abstract",
         "motivation": "CIP108:motivation",
         "rationale": "CIP108:rationale",
-        "@context": {
-          "onChain": {
-            "@id": "intersectSpec:onChain",
-            "@context": {
-              "governanceActionType": "intersectSpec:governanceActionType",
-              "depositReturnAddress": "intersectSpec:depositReturnAddress",
+        "onChain": {
+          "@id": "intersectSpec:onChain",
+          "@context": {
+            "governanceActionType": "intersectSpec:governanceActionType",
+            "depositReturnAddress": "intersectSpec:depositReturnAddress",
+            "withdrawals": {
+              "@id": "intersectSpec:withdrawals",
+              "@container": "@set",
               "@context": {
-                "withdrawals": {
-                  "@id": "intersectSpec:withdrawals",
-                  "@container": "@set",
-                  "@context": {
-                    "withdrawalAddress": "intersectSpec:withdrawalAddress",
-                    "withdrawalAmount": "intersectSpec:withdrawalAmount"
-                  }
-                }
+                "withdrawalAddress": "intersectSpec:withdrawalAddress",
+                "withdrawalAmount": "intersectSpec:withdrawalAmount"
               }
             }
           }
