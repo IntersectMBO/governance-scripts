@@ -153,36 +153,66 @@ extract_references() {
   awk '
   BEGIN {
     in_refs = 0
-    label = ""
+    current_label = ""
     ref_count = 0
   }
 
   /^References$/ { in_refs = 1; next }
-  /^Authors$/ { in_refs = 0 }
+  /^Authors$/ { in_refs = 0; next }
 
   in_refs {
+    # Skip empty lines
     if ($0 ~ /^\s*$/) next
 
-    if ($0 ~ /^- \[/ || $0 ~ /^- ipfs:\/\//) {
+    # Check for reference lines (markdown links or direct URLs)
+    if ($0 ~ /^- \[.*\]\(.*\)/ || $0 ~ /^- ipfs:\/\// || $0 ~ /^- https?:\/\//) {
       uri = ""
+      label = current_label
 
-      if (index($0, "(") > 0 && index($0, ")") > 0) {
+      if ($0 ~ /^- \[.*\]\(.*\)/) {
+        # Extract label from markdown link [label](url)
+        link_label = $0
+        sub(/^- \[/, "", link_label)
+        sub(/\]\(.*\).*$/, "", link_label)
+        
         # Extract URL from markdown link
         uri = $0
         sub(/^.*\(/, "", uri)
         sub(/\).*$/, "", uri)
-      } else if ($0 ~ /- ipfs:\/\//) {
-        split($0, parts, "- ")
-        uri = parts[2]
+        
+        # Use the link label if we don t have a preceding label
+        if (current_label == "") {
+          label = link_label
+        }
+      } else if ($0 ~ /^- ipfs:\/\// || $0 ~ /^- https?:\/\//) {
+        # Direct URL reference
+        uri = $0
+        sub(/^- /, "", uri)
+        
+        # If no preceding label, use the URI as label
+        if (current_label == "") {
+          label = uri
+        }
       }
 
+      # Clean up quotes in label and URI
       gsub(/"/, "\\\"", label)
       gsub(/"/, "\\\"", uri)
 
-      refs[ref_count++] = "  {\"@type\": \"Other\", \"label\": \"" label "\", \"uri\": \"" uri "\"}"
-      label = ""
+      # Only add if we have a URI
+      if (uri != "") {
+        refs[ref_count++] = "  {\"@type\": \"Other\", \"label\": \"" label "\", \"uri\": \"" uri "\"}"
+      }
+      
+      # Reset current label after processing a reference
+      current_label = ""
     } else {
-      label = $0
+      # This line is part of a label - accumulate it
+      if (current_label == "") {
+        current_label = $0
+      } else {
+        current_label = current_label " " $0
+      }
     }
   }
 
@@ -201,7 +231,7 @@ extract_references() {
 # this search term can be changed to match the expected pattern
 extract_withdrawal_address() {
   local rationale_text="$1"
-  echo "$rationale_text" | jq -r . | grep -oE "With the confirmed withdrawal address being:[[:space:]]*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:[[:space:]]*//'
+  echo "$rationale_text" | jq -r . | grep -oE "With the confirmed treasury reserve contract address being:[[:space:]]*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:[[:space:]]*//'
 }
 
 # use helper functions to extract sections
@@ -254,21 +284,17 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
         "abstract": "CIP108:abstract",
         "motivation": "CIP108:motivation",
         "rationale": "CIP108:rationale",
-        "@context": {
-          "onChain": {
-            "@id": "intersectSpec:onChain",
-            "@context": {
-              "governanceActionType": "intersectSpec:governanceActionType",
-              "depositReturnAddress": "intersectSpec:depositReturnAddress",
+        "onChain": {
+          "@id": "intersectSpec:onChain",
+          "@context": {
+            "governanceActionType": "intersectSpec:governanceActionType",
+            "depositReturnAddress": "intersectSpec:depositReturnAddress",
+            "withdrawals": {
+              "@id": "intersectSpec:withdrawals",
+              "@container": "@set",
               "@context": {
-                "withdrawals": {
-                  "@id": "intersectSpec:withdrawals",
-                  "@container": "@set",
-                  "@context": {
-                    "withdrawalAddress": "intersectSpec:withdrawalAddress",
-                    "withdrawalAmount": "intersectSpec:withdrawalAmount"
-                  }
-                }
+                "withdrawalAddress": "intersectSpec:withdrawalAddress",
+                "withdrawalAmount": "intersectSpec:withdrawalAmount"
               }
             }
           }
@@ -316,6 +342,12 @@ EOF
 echo -e " "
 echo -e "${CYAN}Cleaning up the formatting on the JSON output...${NC}"
 
+# for debug
+# echo "$(cat $TEMP_OUTPUT_JSON)"
+
+# Use jq to format the JSON output
+jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
+
 # Clean up for markdown formatting already present within the .docx file
 # replace \\*\\* with ** (remove escaped asterisks)
 perl -i -pe 's/\\\\\*\\\\\*/\*\*/g' "$FINAL_OUTPUT_JSON"
@@ -332,11 +364,13 @@ perl -i -pe 's/\\\\\x27/\x27/g' "$FINAL_OUTPUT_JSON"
 # replace \' with '
 # give up on this one for now
 
-# for debug
-# echo "$(cat $TEMP_OUTPUT_JSON)"
+# remove any instances of \n\nReferences
+perl -i -pe 's/\\n\\nReferences//g' "$FINAL_OUTPUT_JSON"
 
-# Use jq to format the JSON output
-jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
+# replace **[Smart Contract Guide**](https://docs.intersectmbo.org/cardano-facilitation-services/cardano-budget/intersect-administration-services/smart-contracts-as-part-of-our-administration)
+# with **[Smart Contract Guide](https://docs.intersectmbo.org/cardano-facilitation-services/cardano-budget/intersect-administration-services/smart-contracts-as-part-of-our-administration)**
+# i know, i know, this is a bit of a hack, but it works
+perl -i -pe 's/\*\*\[Smart Contract Guide\*\*\]\(https:\/\/docs\.intersectmbo\.org\/cardano-facilitation-services\/cardano-budget\/intersect-administration-services\/smart-contracts-as-part-of-our-administration\)/\*\*\[Smart Contract Guide\]\(https:\/\/docs\.intersectmbo\.org\/cardano-facilitation-services\/cardano-budget\/intersect-administration-services\/smart-contracts-as-part-of-our-administration\)\*\*/g' "$FINAL_OUTPUT_JSON"
 
 # Clean up trailing \n\n from JSON string fields
 echo -e "${CYAN}Removing trailing newlines from JSON fields...${NC}"

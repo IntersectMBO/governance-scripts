@@ -3,7 +3,7 @@
 ##################################################
 
 # Default configuration values
-WITHDRAW_TO_SCRIPT="false"
+WITHDRAW_TO_SCRIPT="true"
 
 ##################################################
 
@@ -36,9 +36,9 @@ fi
 # Usage message
 
 usage() {
-    echo "Usage: $0 <jsonld-file|directory> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
+    echo "Usage: $0 <jsonld-file> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
-    echo "  <jsonld-file|directory>                          Path to the JSON-LD metadata file or directory containing metadata files"
+    echo "  <jsonld-file>                                    Path to the JSON-LD metadata file"
     echo "  --withdraw-to-script                             Check that the withdrawal address is a script-based address, exit otherwise"
     echo "  --deposit-return-addr <stake address>            Check that metadata deposit return address matches provided one (Bech32)"
     echo "  --withdrawal-addr <stake address>                Check that metadata withdrawal address matches provided one (Bech32)"
@@ -302,7 +302,7 @@ fi
 
 is_stake_address_delegated_to_abstain_or_null() {
     local address="$1"
-    vote_delegation=$(cardano-cli conway query stake-address-info --$protocol_magic --address "$address" | jq -r '.[0].voteDelegation')
+    vote_delegation=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].voteDelegation')
     if [ "$vote_delegation" = "alwaysAbstain" ] || [ "$vote_delegation" = "null" ] ; then
         return 0
     else

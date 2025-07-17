@@ -53,9 +53,24 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# If the argument is a directory, process each JSON-LD file
+# If the argument is a directory, process each JSON-LD file (including subdirectories)
 if [ -d "$1" ]; then
-    for jsonld_file in "$1"/*.jsonld; do
+    # Get all .jsonld files in the directory and subdirectories
+    jsonld_files=()
+    while IFS= read -r -d '' file; do
+        jsonld_files+=("$file")
+    done < <(find "$1" -type f -name "*.jsonld" -print0)
+    
+    # Check if any .jsonld files were found
+    if [ ${#jsonld_files[@]} -eq 0 ]; then
+        echo "Error: No .jsonld files found in directory (including subdirectories): $1"
+        exit 1
+    fi
+    
+    echo "Found ${#jsonld_files[@]} .jsonld files to process"
+    
+    # Process each .jsonld file
+    for jsonld_file in "${jsonld_files[@]}"; do
         extract_jsonld_data "$jsonld_file"
     done
 elif [ -f "$1" ]; then
