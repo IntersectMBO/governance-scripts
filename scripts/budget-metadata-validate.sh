@@ -213,7 +213,7 @@ if [ -d "$input_path" ]; then
             fi
 
             # ensure that title is less than 81 characters
-            if [ ${#title} -gt 81 ]; then
+            if [ ${#title} -gt 80 ]; then
                 echo -e "${RED}Error: Title is too long, must be less than 80 characters" >&2
                 exit 1
             else

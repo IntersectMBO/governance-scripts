@@ -48,9 +48,19 @@ echo -e " "
 # https://github.com/gitmachtl/cardano-signer?tab=readme-ov-file#verify-governance-metadata-and-the-authors-signatures
 verify_author_witness() {
     local file="$1"
-    cardano-signer verify --cip100 \
+    local output
+    output=$(cardano-signer verify --cip100 \
         --data-file "$file" \
-        --json-extended | jq '{workMode, result, errorMsg, authors, canonizedHash, fileHash}'
+        --json-extended | jq '{workMode, result, errorMsg, authors, canonizedHash, fileHash}')
+    
+    echo "$output"
+    
+    local result
+    result=$(echo "$output" | jq -r '.result')
+    if [ "$result" != "true" ]; then
+        echo -e "${RED}Error: Verification failed with result: ${YELLOW}$result${NC}" >&2
+        exit 1
+    fi
 }
 
 # Give the user a warning if the author isn't Intersect
