@@ -23,7 +23,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [ipfs-check.sh](./scripts/ipfs-check.sh)
   - Checks if a file is accessible via free IPFS gateways
 - [ipfs-pin.sh](./scripts/ipfs-pin.sh)
-  - Allows user to pin a file on a number of pinning services
+  - Allows user to pin JSONLD file(s) on a number of pinning services
   - Optionally allows the user to check file's discoverability first
 
 #### Governance (CIP-100+) Metadata Scripts
