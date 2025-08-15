@@ -8,7 +8,7 @@
 
 # Exit immediately if a command exits with a non-zero status,
 # treat unset variables as an error, and fail if any command in a pipeline fails
-set -euo pipefail
+# set -euo pipefail
 
 # Colors
 #BLACK='\033[0;30m'
