@@ -6,12 +6,13 @@ CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
+INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
 
 # Default schema values
 DEFAULT_USE_CIP_100="false"
 DEFAULT_USE_CIP_108="false"
 DEFAULT_USE_CIP_136="false"
-DEFAULT_USE_INTERSECT_TREASURY="true"
+DEFAULT_USE_INTERSECT="false"
 ##################################################
 
 # Check if cardano-signer is installed
@@ -30,12 +31,12 @@ set -euo pipefail
 
 # Usage message
 usage() {
-    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-treasury] [--schema URL] [--dict FILE]"
+    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-schema] [--schema URL] [--dict FILE]"
     echo "Options:"
-    echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
+    echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip136              Compare against CIP-136 schema (default: $DEFAULT_USE_CIP_136)"
-    echo "  --intersect-treasury  Compare against Intersect Treasury withdrawals schema (default: $DEFAULT_USE_INTERSECT_TREASURY)"
+    echo "  --intersect-schema    Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT_SCHEMA)"
     echo "  --schema <URL>        Compare against schema at URL"
     echo "  --dict <FILE>         Use custom aspell dictionary file (optional)"
     exit 1
@@ -46,7 +47,7 @@ input_file=""
 use_cip_108="$DEFAULT_USE_CIP_108"
 use_cip_100="$DEFAULT_USE_CIP_100"
 use_cip_136="$DEFAULT_USE_CIP_136"
-use_intersect_treasury="$DEFAULT_USE_INTERSECT_TREASURY"
+use_intersect_schema="$DEFAULT_USE_INTERSECT"
 user_schema_url=""
 user_schema="false"
 custom_dict_file=""
@@ -66,8 +67,8 @@ while [[ $# -gt 0 ]]; do
             use_cip_136="true"
             shift
             ;;
-        --intersect-treasury)
-            use_intersect_treasury="true"
+        --intersect-schema)
+            use_intersect_schema="true"
             shift
             ;;
         --schema)
@@ -124,6 +125,7 @@ if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
     exit 1
 fi
 
+# Create a temporary directory for schema(s)
 mkdir -p /tmp/schemas
 
 # Download the schemas as needed
@@ -145,10 +147,23 @@ if [ "$use_cip_136" = "true" ]; then
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
-if [ "$use_intersect_treasury" = "true" ]; then
-    echo "Downloading Intersect treasury withdrawal schema..."
-    TEMP_INT_TREASURY_SCHEMA="/tmp/schemas/intersect-treasury-withdrawal-schema.json"
-    curl -sSfSL "$INTERSECT_TREASURY_SCHEMA" -o "$TEMP_INT_TREASURY_SCHEMA"
+if [ "$use_intersect_schema" = "true" ]; then
+    echo "Determining which Intersect schema..."
+    governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
+    if [ "$governance_action_type" = "info" ]; then
+        echo "Detected governanceActionType: info"
+        INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
+    elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
+        echo "Detected governanceActionType: treasuryWithdrawals"
+        INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
+    else
+        echo "Error: Unknown governanceActionType '$governance_action_type' in '$JSON_FILE'."
+        [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
+        exit 1
+    fi
+    echo "Downloading Intersect schema..."
+    TEMP_INT_SCHEMA="/tmp/schemas/intersect-schema.json"
+    curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
 fi
 
 if [ "$user_schema" = "true" ]; then
