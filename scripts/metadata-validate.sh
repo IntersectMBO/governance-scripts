@@ -115,6 +115,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Welcome message
+echo -e " "
+echo -e "${YELLOW}Validating metadata file against Cardano governance metadata schemas${NC}"
+echo -e "${CYAN}This script validates JSON-LD metadata files against CIP standards and Intersect schemas${NC}"
+
 # If the file ends with .jsonld, create a temporary .json copy (overwrite if exists)
 TMP_JSON_FILE=""
 if [[ "$input_file" == *.jsonld ]]; then
@@ -142,6 +147,56 @@ if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
     [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
     exit 1
 fi
+
+# Basic spell check on key data fields (requires 'aspell' installed)
+echo -e " "
+echo -e "${CYAN}Applying spell check...${NC}"
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Determine which dictionary to use
+if [ -n "$custom_dict_file" ]; then
+    # User provided a custom dictionary
+    CARDANO_DICT="$custom_dict_file"
+    if [ ! -f "$CARDANO_DICT" ]; then
+        echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
+        exit 1
+    fi
+    echo -e "${BLUE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
+else
+    # Use default dictionary from script directory
+    echo -e "${BLUE}Using default spelling dictionary from script directory${NC}"
+    CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
+fi
+
+# Check if the dictionary file exists
+if [ ! -f "$CARDANO_DICT" ]; then
+    echo -e "${YELLOW}Warning: Cardano aspell dictionary not found at ${YELLOW}$CARDANO_DICT${NC}"
+    echo -e "${YELLOW}Using default aspell dictionary only.${NC}"
+    PERSONAL_DICT_ARG=""
+else
+    PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
+fi
+
+echo -e "${YELLOW}Possible misspellings:${NC}"
+# This hardcoded for CIP108
+# todo fix for other schemas
+for field in title abstract motivation rationale; do
+    # Extract field text
+    text=$(jq -r ".body.$field // empty" "$JSON_FILE")
+    if [ -n "$text" ]; then
+        # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
+        echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
+            if [ -n "$word" ]; then
+                echo -e "  ${BLUE}'$field': ${YELLOW}$word${NC}"
+            fi
+        done
+    fi
+done
+
+echo -e " "
+echo -e "${CYAN}Applying schema check(s)...${NC}"
 
 # Create a temporary directory for schema(s)
 mkdir -p /tmp/schemas
@@ -172,6 +227,7 @@ if [ "$use_cip_136" = "true" ]; then
 fi
 
 # Determine which Intersect schema to use based on governanceActionType property
+echo -e "${CYAN}Intersect schema chosen${NC}"
 if [ "$use_intersect_schema" = "true" ]; then
     echo -e "${CYAN}Determining which Intersect schema...${NC}"
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
@@ -196,52 +252,6 @@ if [ "$user_schema" = "true" ]; then
     TEMP_USER_SCHEMA="/tmp/schemas/user-schema.json"
     curl -sSfSL "$user_schema_url" -o "$TEMP_USER_SCHEMA"
 fi
-
-# Basic spell check on key data fields (requires 'aspell' installed)
-echo -e " "
-echo -e "${YELLOW}Spell check warnings:${NC}"
-
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Determine which dictionary to use
-if [ -n "$custom_dict_file" ]; then
-    # User provided a custom dictionary
-    CARDANO_DICT="$custom_dict_file"
-    if [ ! -f "$CARDANO_DICT" ]; then
-        echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
-        exit 1
-    fi
-    echo -e "${BLUE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
-else
-    # Use default dictionary from script directory
-    echo -e "${BLUE}Using default spelling dictionary in script directory${NC}"
-    CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
-fi
-
-# Check if the dictionary file exists
-if [ ! -f "$CARDANO_DICT" ]; then
-    echo -e "${YELLOW}Warning: Cardano aspell dictionary not found at ${YELLOW}$CARDANO_DICT${NC}"
-    echo -e "${YELLOW}Using default aspell dictionary only.${NC}"
-    PERSONAL_DICT_ARG=""
-else
-    PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
-fi
-
-# This hardcoded for CIP108
-# todo fix for other schemas
-for field in title abstract motivation rationale; do
-    # Extract field text
-    text=$(jq -r ".body.$field // empty" "$JSON_FILE")
-    if [ -n "$text" ]; then
-        # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
-        echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
-            if [ -n "$word" ]; then
-                echo -e "  ${YELLOW}Possible misspelling in '${YELLOW}$field${YELLOW}': ${YELLOW}$word${NC}"
-            fi
-        done
-    fi
-done
 
 # Validate the JSON file against the schemas
 schemas=(/tmp/schemas/*-schema.json)
