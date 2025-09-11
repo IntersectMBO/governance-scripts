@@ -1,6 +1,16 @@
 #!/bin/bash
 
 ##################################################
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BRIGHTWHITE='\033[0;37;1m'
+NC='\033[0m'
+
+##################################################
 # Default schema values
 CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0100/cip-0100.common.schema.json"
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
@@ -19,13 +29,13 @@ DEFAULT_USE_INTERSECT="false"
 
 # Check if cardano-signer is installed
 if ! command -v cardano-signer >/dev/null 2>&1; then
-  echo "Error: cardano-signer is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: cardano-signer is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
 # Check if ajv is installed
 if ! command -v ajv >/dev/null 2>&1; then
-  echo "Error: ajv is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: ajv is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
@@ -89,7 +99,7 @@ while [[ $# -gt 0 ]]; do
                 custom_dict_file="$2"
                 shift 2
             else
-                echo "Error: --dict requires a file path" >&2
+                echo -e "${RED}Error: --dict requires a file path${NC}" >&2
                 usage
             fi
             ;;
@@ -109,7 +119,7 @@ done
 TMP_JSON_FILE=""
 if [[ "$input_file" == *.jsonld ]]; then
     if [ ! -f "$input_file" ]; then
-        echo "Error: File '$input_file' does not exist."
+        echo -e "${RED}Error: File '${YELLOW}$input_file${RED}' does not exist.${NC}"
         exit 1
     fi
     TMP_JSON_FILE="/tmp/metadata.json"
@@ -121,14 +131,14 @@ fi
 
 # Check if the file exists
 if [ ! -f "$JSON_FILE" ]; then
-    echo "Error: File '$JSON_FILE' does not exist."
+    echo -e "${RED}Error: File '${YELLOW}$JSON_FILE${RED}' does not exist.${NC}"
     [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
     exit 1
 fi
 
 # Check if the file is valid JSON
 if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
-    echo "Error: '$JSON_FILE' is not valid JSON."
+    echo -e "${RED}Error: '${YELLOW}$JSON_FILE${RED}' is not valid JSON.${NC}"
     [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
     exit 1
 fi
@@ -138,57 +148,58 @@ mkdir -p /tmp/schemas
 
 # Download the schemas as needed
 if [ "$use_cip_100" = "true" ]; then
-    echo "Downloading CIP-100 schema..."
+    echo -e "${CYAN}Downloading CIP-100 schema...${NC}"
     TEMP_CIP_100_SCHEMA="/tmp/schemas/cip-100-schema.json"
     curl -sSfSL "$CIP_100_SCHEMA" -o "$TEMP_CIP_100_SCHEMA"
 fi
 
 if [ "$use_cip_108" = "true" ]; then
-    echo "Downloading CIP-108 schema..."
+    echo -e "${CYAN}Downloading CIP-108 schema...${NC}"
     TEMP_CIP_108_SCHEMA="/tmp/schemas/cip-108-schema.json"
     curl -sSfSL "$CIP_108_SCHEMA" -o "$TEMP_CIP_108_SCHEMA"
 fi
 
 if [ "$use_cip_119" = "true" ]; then
-    echo "Downloading CIP-119 schema..."
+    echo -e "${CYAN}Downloading CIP-119 schema...${NC}"
     TEMP_CIP_119_SCHEMA="/tmp/schemas/cip-119-schema.json"
     curl -sSfSL "$CIP_119_SCHEMA" -o "$TEMP_CIP_119_SCHEMA"
 fi
 
 if [ "$use_cip_136" = "true" ]; then
-    echo "Downloading CIP-136 schema..."
+    echo -e "${CYAN}Downloading CIP-136 schema...${NC}"
     TEMP_CIP_136_SCHEMA="/tmp/schemas/cip-136-schema.json"
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
+# Determine which Intersect schema to use based on governanceActionType property
 if [ "$use_intersect_schema" = "true" ]; then
-    echo "Determining which Intersect schema..."
+    echo -e "${CYAN}Determining which Intersect schema...${NC}"
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
     if [ "$governance_action_type" = "info" ]; then
-        echo "Detected governanceActionType: info"
+        echo -e "${BLUE}Detected governanceActionType: ${YELLOW}info${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
     elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        echo "Detected governanceActionType: treasuryWithdrawals"
+        echo -e "${BLUE}Detected governanceActionType: ${YELLOW}treasuryWithdrawals${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
     else
-        echo "Error: Unknown governanceActionType '$governance_action_type' in '$JSON_FILE'."
+        echo -e "${RED}Error: Unknown governanceActionType '${YELLOW}$governance_action_type${RED}' in '${YELLOW}$JSON_FILE${RED}'.${NC}"
         [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
         exit 1
     fi
-    echo "Downloading Intersect schema..."
+    echo -e "${CYAN}Downloading Intersect schema...${NC}"
     TEMP_INT_SCHEMA="/tmp/schemas/intersect-schema.json"
     curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
 fi
 
 if [ "$user_schema" = "true" ]; then
-    echo "Downloading schema from {$user_schema_url}..."
+    echo -e "${CYAN}Downloading schema from ${YELLOW}{$user_schema_url}${CYAN}...${NC}"
     TEMP_USER_SCHEMA="/tmp/schemas/user-schema.json"
     curl -sSfSL "$user_schema_url" -o "$TEMP_USER_SCHEMA"
 fi
 
 # Basic spell check on key data fields (requires 'aspell' installed)
-echo " "
-echo "Spell check warnings:"
+echo -e " "
+echo -e "${YELLOW}Spell check warnings:${NC}"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -198,20 +209,20 @@ if [ -n "$custom_dict_file" ]; then
     # User provided a custom dictionary
     CARDANO_DICT="$custom_dict_file"
     if [ ! -f "$CARDANO_DICT" ]; then
-        echo "Error: Custom dictionary file not found at $CARDANO_DICT" >&2
+        echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
         exit 1
     fi
-    echo "Using custom dictionary: $CARDANO_DICT"
+    echo -e "${BLUE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
 else
     # Use default dictionary from script directory
-    echo "Using default spelling dictionary in script directory"
+    echo -e "${BLUE}Using default spelling dictionary in script directory${NC}"
     CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
 fi
 
 # Check if the dictionary file exists
 if [ ! -f "$CARDANO_DICT" ]; then
-    echo "Warning: Cardano aspell dictionary not found at $CARDANO_DICT"
-    echo "Using default aspell dictionary only."
+    echo -e "${YELLOW}Warning: Cardano aspell dictionary not found at ${YELLOW}$CARDANO_DICT${NC}"
+    echo -e "${YELLOW}Using default aspell dictionary only.${NC}"
     PERSONAL_DICT_ARG=""
 else
     PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
@@ -226,7 +237,7 @@ for field in title abstract motivation rationale; do
         # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
         echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
             if [ -n "$word" ]; then
-                echo "  Possible misspelling in '$field': $word"
+                echo -e "  ${YELLOW}Possible misspelling in '${YELLOW}$field${YELLOW}': ${YELLOW}$word${NC}"
             fi
         done
     fi
@@ -235,8 +246,8 @@ done
 # Validate the JSON file against the schemas
 schemas=(/tmp/schemas/*-schema.json)
 for schema in "${schemas[@]}"; do
-    echo " "
-    echo "Validating against schema: $schema"
+    echo -e " "
+    echo -e "${CYAN}Validating against schema: ${YELLOW}$schema${NC}"
     if [ -f "$schema" ]; then
         ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=true
         AJV_EXIT_CODE=$?
@@ -247,8 +258,8 @@ done
 rm -f "$TMP_JSON_FILE"
 rm -f /tmp/schemas/*
 
-echo " "
-echo "Validation complete."
-echo " "
+echo -e " "
+echo -e "${GREEN}Validation complete.${NC}"
+echo -e " "
 
 # exit $AJV_EXIT_CODE
