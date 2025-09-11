@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
+WHITE='\033[0;37m'
 NC='\033[0m'
 
 ##################################################
@@ -163,10 +163,10 @@ if [ -n "$custom_dict_file" ]; then
         echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
         exit 1
     fi
-    echo -e "${BLUE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
+    echo -e "${WHITE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
 else
     # Use default dictionary from script directory
-    echo -e "${BLUE}Using default spelling dictionary from script directory${NC}"
+    echo -e "${WHITE}Using default spelling dictionary from script directory${NC}"
     CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
 fi
 
@@ -203,52 +203,51 @@ mkdir -p /tmp/schemas
 
 # Download the schemas as needed
 if [ "$use_cip_100" = "true" ]; then
-    echo -e "${CYAN}Downloading CIP-100 schema...${NC}"
+    echo -e "${WHITE}Downloading CIP-100 schema...${NC}"
     TEMP_CIP_100_SCHEMA="/tmp/schemas/cip-100-schema.json"
     curl -sSfSL "$CIP_100_SCHEMA" -o "$TEMP_CIP_100_SCHEMA"
 fi
 
 if [ "$use_cip_108" = "true" ]; then
-    echo -e "${CYAN}Downloading CIP-108 schema...${NC}"
+    echo -e "${WHITE}Downloading CIP-108 schema...${NC}"
     TEMP_CIP_108_SCHEMA="/tmp/schemas/cip-108-schema.json"
     curl -sSfSL "$CIP_108_SCHEMA" -o "$TEMP_CIP_108_SCHEMA"
 fi
 
 if [ "$use_cip_119" = "true" ]; then
-    echo -e "${CYAN}Downloading CIP-119 schema...${NC}"
+    echo -e "${WHITE}Downloading CIP-119 schema...${NC}"
     TEMP_CIP_119_SCHEMA="/tmp/schemas/cip-119-schema.json"
     curl -sSfSL "$CIP_119_SCHEMA" -o "$TEMP_CIP_119_SCHEMA"
 fi
 
 if [ "$use_cip_136" = "true" ]; then
-    echo -e "${CYAN}Downloading CIP-136 schema...${NC}"
+    echo -e "${WHITE}Downloading CIP-136 schema...${NC}"
     TEMP_CIP_136_SCHEMA="/tmp/schemas/cip-136-schema.json"
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
 # Determine which Intersect schema to use based on governanceActionType property
-echo -e "${CYAN}Intersect schema chosen${NC}"
 if [ "$use_intersect_schema" = "true" ]; then
-    echo -e "${CYAN}Determining which Intersect schema...${NC}"
+    echo -e "${WHITE}Determining which Intersect schema...${NC}"
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
     if [ "$governance_action_type" = "info" ]; then
-        echo -e "${BLUE}Detected governanceActionType: ${YELLOW}info${NC}"
+        echo -e "${WHITE}Detected Intersect: ${YELLOW}info${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
     elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        echo -e "${BLUE}Detected governanceActionType: ${YELLOW}treasuryWithdrawals${NC}"
+        echo -e "${WHITE}Detected Intersect: ${YELLOW}treasuryWithdrawals${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
     else
         echo -e "${RED}Error: Unknown governanceActionType '${YELLOW}$governance_action_type${RED}' in '${YELLOW}$JSON_FILE${RED}'.${NC}"
         [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
         exit 1
     fi
-    echo -e "${CYAN}Downloading Intersect schema...${NC}"
+    echo -e "${WHITE}Downloading Intersect schema...${NC}"
     TEMP_INT_SCHEMA="/tmp/schemas/intersect-schema.json"
     curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
 fi
 
 if [ "$user_schema" = "true" ]; then
-    echo -e "${CYAN}Downloading schema from ${YELLOW}{$user_schema_url}${CYAN}...${NC}"
+    echo -e "${WHITE}Downloading schema from ${YELLOW}{$user_schema_url}${WHITE}...${NC}"
     TEMP_USER_SCHEMA="/tmp/schemas/user-schema.json"
     curl -sSfSL "$user_schema_url" -o "$TEMP_USER_SCHEMA"
 fi
