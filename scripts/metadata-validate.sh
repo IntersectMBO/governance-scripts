@@ -4,6 +4,7 @@
 # Default schema values
 CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0100/cip-0100.common.schema.json"
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
+CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
@@ -11,6 +12,7 @@ INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance
 # Default schema values
 DEFAULT_USE_CIP_100="false"
 DEFAULT_USE_CIP_108="false"
+DEFAULT_USE_CIP_119="false"
 DEFAULT_USE_CIP_136="false"
 DEFAULT_USE_INTERSECT="false"
 ##################################################
@@ -34,8 +36,9 @@ usage() {
     echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-schema] [--schema URL] [--dict FILE]"
     echo "Options:"
     echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
-    echo "  --cip108              Compare against CIP-108 schema (default: $DEFAULT_USE_CIP_108)"
-    echo "  --cip136              Compare against CIP-136 schema (default: $DEFAULT_USE_CIP_136)"
+    echo "  --cip108              Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
+    echo "  --cip119              Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
+    echo "  --cip136              Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
     echo "  --intersect-schema    Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT_SCHEMA)"
     echo "  --schema <URL>        Compare against schema at URL"
     echo "  --dict <FILE>         Use custom aspell dictionary file (optional)"
@@ -46,6 +49,7 @@ usage() {
 input_file=""
 use_cip_108="$DEFAULT_USE_CIP_108"
 use_cip_100="$DEFAULT_USE_CIP_100"
+use_cip_119="$DEFAULT_USE_CIP_119"
 use_cip_136="$DEFAULT_USE_CIP_136"
 use_intersect_schema="$DEFAULT_USE_INTERSECT"
 user_schema_url=""
@@ -61,6 +65,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --cip100)
             use_cip_100="true"
+            shift
+            ;;
+        --cip119)
+            use_cip_119="true"
             shift
             ;;
         --cip136)
@@ -139,6 +147,12 @@ if [ "$use_cip_108" = "true" ]; then
     echo "Downloading CIP-108 schema..."
     TEMP_CIP_108_SCHEMA="/tmp/schemas/cip-108-schema.json"
     curl -sSfSL "$CIP_108_SCHEMA" -o "$TEMP_CIP_108_SCHEMA"
+fi
+
+if [ "$use_cip_119" = "true" ]; then
+    echo "Downloading CIP-119 schema..."
+    TEMP_CIP_119_SCHEMA="/tmp/schemas/cip-119-schema.json"
+    curl -sSfSL "$CIP_119_SCHEMA" -o "$TEMP_CIP_119_SCHEMA"
 fi
 
 if [ "$use_cip_136" = "true" ]; then
