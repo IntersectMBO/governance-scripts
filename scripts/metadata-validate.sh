@@ -41,6 +41,25 @@ fi
 
 set -euo pipefail
 
+# Global variables for cleanup
+TMP_JSON_FILE=""
+TMP_SCHEMAS_DIR="/tmp/schemas"
+
+# Cleanup function
+cleanup() {
+    # Clean up temporary JSON file if it exists
+    if [ -n "$TMP_JSON_FILE" ] && [ -f "$TMP_JSON_FILE" ]; then
+        rm -f "$TMP_JSON_FILE" 2>/dev/null || true
+    fi
+    # Clean up temporary schemas directory if it exists
+    if [ -d "$TMP_SCHEMAS_DIR" ]; then
+        rm -rf "$TMP_SCHEMAS_DIR" 2>/dev/null || true
+    fi
+}
+
+# Set up trap to ensure cleanup on exit
+trap cleanup EXIT INT TERM
+
 # Usage message
 usage() {
     echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-schema] [--schema URL] [--dict FILE]"
@@ -117,11 +136,10 @@ done
 
 # Welcome message
 echo -e " "
-echo -e "${YELLOW}Validating metadata file against Cardano governance metadata schemas${NC}"
-echo -e "${CYAN}This script validates JSON-LD metadata files against CIP standards and Intersect schemas${NC}"
+echo -e "${YELLOW}Governance Metadata Validation Script${NC}"
+echo -e "${CYAN}This script validates JSON-LD governance metadata files against CIP standards and or Intersect schemas${NC}"
 
 # If the file ends with .jsonld, create a temporary .json copy (overwrite if exists)
-TMP_JSON_FILE=""
 if [[ "$input_file" == *.jsonld ]]; then
     if [ ! -f "$input_file" ]; then
         echo -e "${RED}Error: File '${YELLOW}$input_file${RED}' does not exist.${NC}"
@@ -137,14 +155,12 @@ fi
 # Check if the file exists
 if [ ! -f "$JSON_FILE" ]; then
     echo -e "${RED}Error: File '${YELLOW}$JSON_FILE${RED}' does not exist.${NC}"
-    [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
     exit 1
 fi
 
 # Check if the file is valid JSON
 if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
     echo -e "${RED}Error: '${YELLOW}$JSON_FILE${RED}' is not valid JSON.${NC}"
-    [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
     exit 1
 fi
 
@@ -199,61 +215,58 @@ echo -e " "
 echo -e "${CYAN}Applying schema check(s)...${NC}"
 
 # Create a temporary directory for schema(s)
-mkdir -p /tmp/schemas
+mkdir -p "$TMP_SCHEMAS_DIR"
 
 # Download the schemas as needed
 if [ "$use_cip_100" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-100 schema...${NC}"
-    TEMP_CIP_100_SCHEMA="/tmp/schemas/cip-100-schema.json"
+    echo -e "${WHITE}Downloading CIP-100 Governance Metadata schema...${NC}"
+    TEMP_CIP_100_SCHEMA="$TMP_SCHEMAS_DIR/cip-100-schema.json"
     curl -sSfSL "$CIP_100_SCHEMA" -o "$TEMP_CIP_100_SCHEMA"
 fi
 
 if [ "$use_cip_108" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-108 schema...${NC}"
-    TEMP_CIP_108_SCHEMA="/tmp/schemas/cip-108-schema.json"
+    echo -e "${WHITE}Downloading CIP-108 Governance Actions schema...${NC}"
+    TEMP_CIP_108_SCHEMA="$TMP_SCHEMAS_DIR/cip-108-schema.json"
     curl -sSfSL "$CIP_108_SCHEMA" -o "$TEMP_CIP_108_SCHEMA"
 fi
 
 if [ "$use_cip_119" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-119 schema...${NC}"
-    TEMP_CIP_119_SCHEMA="/tmp/schemas/cip-119-schema.json"
+    echo -e "${WHITE}Downloading CIP-119 DRep schema...${NC}"
+    TEMP_CIP_119_SCHEMA="$TMP_SCHEMAS_DIR/cip-119-schema.json"
     curl -sSfSL "$CIP_119_SCHEMA" -o "$TEMP_CIP_119_SCHEMA"
 fi
 
 if [ "$use_cip_136" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-136 schema...${NC}"
-    TEMP_CIP_136_SCHEMA="/tmp/schemas/cip-136-schema.json"
+    echo -e "${WHITE}Downloading CIP-136 Constitutional Committee Vote schema...${NC}"
+    TEMP_CIP_136_SCHEMA="$TMP_SCHEMAS_DIR/cip-136-schema.json"
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
 # Determine which Intersect schema to use based on governanceActionType property
 if [ "$use_intersect_schema" = "true" ]; then
-    echo -e "${WHITE}Determining which Intersect schema...${NC}"
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
     if [ "$governance_action_type" = "info" ]; then
-        echo -e "${WHITE}Detected Intersect: ${YELLOW}info${NC}"
+        echo -e "${WHITE}Downloading Intersect ${YELLOW}info${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
     elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        echo -e "${WHITE}Detected Intersect: ${YELLOW}treasuryWithdrawals${NC}"
+        echo -e "${WHITE}Downloading Intersect ${YELLOW}treasuryWithdrawals${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
     else
         echo -e "${RED}Error: Unknown governanceActionType '${YELLOW}$governance_action_type${RED}' in '${YELLOW}$JSON_FILE${RED}'.${NC}"
-        [ -n "$TMP_JSON_FILE" ] && rm -f "$TMP_JSON_FILE"
         exit 1
     fi
-    echo -e "${WHITE}Downloading Intersect schema...${NC}"
-    TEMP_INT_SCHEMA="/tmp/schemas/intersect-schema.json"
+    TEMP_INT_SCHEMA="$TMP_SCHEMAS_DIR/intersect-schema.json"
     curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
 fi
 
 if [ "$user_schema" = "true" ]; then
     echo -e "${WHITE}Downloading schema from ${YELLOW}{$user_schema_url}${WHITE}...${NC}"
-    TEMP_USER_SCHEMA="/tmp/schemas/user-schema.json"
+    TEMP_USER_SCHEMA="$TMP_SCHEMAS_DIR/user-schema.json"
     curl -sSfSL "$user_schema_url" -o "$TEMP_USER_SCHEMA"
 fi
 
 # Validate the JSON file against the schemas
-schemas=(/tmp/schemas/*-schema.json)
+schemas=("$TMP_SCHEMAS_DIR"/*-schema.json)
 for schema in "${schemas[@]}"; do
     echo -e " "
     echo -e "${CYAN}Validating against schema: ${YELLOW}$schema${NC}"
@@ -262,10 +275,6 @@ for schema in "${schemas[@]}"; do
         AJV_EXIT_CODE=$?
     fi
 done
-
-# Clean up temporary files
-rm -f "$TMP_JSON_FILE"
-rm -f /tmp/schemas/*
 
 echo -e " "
 echo -e "${GREEN}Validation complete.${NC}"
