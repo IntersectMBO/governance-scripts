@@ -17,6 +17,10 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 #### Governance Action Scripts
 
+- [action-create-info.sh](./scripts/action-create-info.sh)
+  - Creates a info governance action from a Intersect metadata
+  - Uses a local cardano node socket file
+
 - [action-create-tw.sh](./scripts/action-create-tw.sh)
   - Creates a treasury withdrawal governance action from a Intersect metadata
   - Uses a local cardano node socket file
