@@ -11,7 +11,7 @@ WHITE='\033[0;37m'
 NC='\033[0m'
 
 ##################################################
-# Default schema values
+# Default schema URLs
 CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0100/cip-0100.common.schema.json"
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
 CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
@@ -267,17 +267,25 @@ fi
 
 # Validate the JSON file against the schemas
 schemas=("$TMP_SCHEMAS_DIR"/*-schema.json)
+VALIDATION_FAILED=0
 for schema in "${schemas[@]}"; do
     echo -e " "
     echo -e "${CYAN}Validating against schema: ${YELLOW}$schema${NC}"
     if [ -f "$schema" ]; then
         ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=true
-        AJV_EXIT_CODE=$?
+        if [ $? -ne 0 ]; then
+            VALIDATION_FAILED=1
+        fi
     fi
 done
 
-echo -e " "
-echo -e "${GREEN}Validation complete.${NC}"
-echo -e " "
-
-# exit $AJV_EXIT_CODE
+# Final result
+if [ "$VALIDATION_FAILED" -ne 0 ]; then
+    echo -e " "
+    echo -e "${RED}One or more validation errors were found.${NC}"
+    exit 1
+else
+    echo -e " "
+    echo -e "${GREEN}No validation errors found.${NC}"
+    exit 0
+fi
