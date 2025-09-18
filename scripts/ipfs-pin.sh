@@ -6,6 +6,7 @@
 
 # Default behavior is to not check if file is discoverable on IPFS
 CHECK_TOO="false"
+JUST_JSONLD="false"
 
 # Pinning services to host the file on IPFS
 DEFAULT_HOST_ON_LOCAL_NODE="true"
@@ -41,11 +42,12 @@ fi
 # Usage message
 usage() {
     echo -e "${YELLOW}Usage: $0 <file|directory> [--check-too] [--no-local] [--no-pinata] [--no-blockfrost] [--no-nmkr]${NC}"
-    echo -e "${CYAN}Pin a file or directory of .jsonld files to local IPFS node and pin via Blockfrost, NMKR and Pinata.${NC}"
+    echo -e "${CYAN}Pin a files or contents of a directory of files to local IPFS node and pin via Blockfrost, NMKR and Pinata.${NC}"
     echo -e "${CYAN}Optionally check if file is already discoverable on IPFS.${NC}"
     echo -e " "
     echo -e "Options:"
-    echo -e "  <file|directory>        Path to your file or directory containing .jsonld files."
+    echo -e "  <file|directory>        Path to your file or directory containing files."
+    echo -e "  --just-jsonld           If a directory is provided, only .jsonld files will be processed. (default: ${YELLOW}$JUST_JSONLD${NC})"
     echo -e "  --check-too             Run a check if file is discoverable on ipfs, only pin if not discoverable (default: ${YELLOW}$CHECK_TOO${NC})"
     echo -e "  --no-local              Don't try to pin file on local ipfs node (default: ${YELLOW}$DEFAULT_HOST_ON_LOCAL_NODE${NC})"
     echo -e "  --no-pinata             Don't try to pin file on pinata service (default: ${YELLOW}$DEFAULT_HOST_ON_PINATA${NC})"
@@ -58,6 +60,7 @@ usage() {
 # Initialize variables with defaults
 input_path=""
 check_discoverable="$CHECK_TOO"
+just_jsonld="$JUST_JSONLD"
 local_host="$DEFAULT_HOST_ON_LOCAL_NODE"
 pinata_host="$DEFAULT_HOST_ON_PINATA"
 blockfrost_host="$DEFAULT_HOST_ON_BLOCKFROST"
@@ -68,6 +71,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --check-too)
             check_discoverable="true"
+            shift
+            ;;
+        --just-jsonld)
+            just_jsonld="true"
             shift
             ;;
         --no-local)
@@ -265,29 +272,41 @@ EOF
 
 # Main processing logic
 if [ -d "$input_path" ]; then
-    # If input is a directory: pin all .jsonld files (including subdirectories)
+    # If input is a directory: pin files (optionally only .jsonld files) including subdirectories
     echo -e " "
     echo -e "${CYAN}Processing directory: ${YELLOW}$input_path${NC}"
     
-    # Get all .jsonld files in the directory and subdirectories
-    jsonld_files=()
-    while IFS= read -r -d '' file; do
-        jsonld_files+=("$file")
-    done < <(find "$input_path" -type f -name "*.jsonld" -print0)
+    # if just jsonld is true, only process .jsonld files
+    files_to_process=()
+    if [ "$just_jsonld" = "true" ]; then
+        # Only .jsonld files
+        while IFS= read -r -d '' file; do
+            files_to_process+=("$file")
+        done < <(find "$input_path" -type f -name "*.jsonld" -print0)
+    else
+        # else do all files
+        while IFS= read -r -d '' file; do
+            files_to_process+=("$file")
+        done < <(find "$input_path" -type f -print0)
+    fi
     
-    # check if any .jsonld files were found
-    if [ ${#jsonld_files[@]} -eq 0 ]; then
-        echo -e "${RED}Error: No .jsonld files found in directory (including subdirectories): ${YELLOW}$input_path${NC}" >&2
+    # check if any files were found
+    if [ ${#files_to_process[@]} -eq 0 ]; then
+        if [ "$just_jsonld" = "true" ]; then
+            echo -e "${RED}Error: No .jsonld files found in directory (including subdirectories): ${YELLOW}$input_path${NC}" >&2
+        else
+            echo -e "${RED}Error: No files found in directory (including subdirectories): ${YELLOW}$input_path${NC}" >&2
+        fi
         exit 1
     fi
     
-    echo -e "${CYAN}Found ${YELLOW}${#jsonld_files[@]}${NC}${CYAN} .jsonld files to process${NC}"
+    echo -e "${CYAN}Found ${YELLOW}${#files_to_process[@]}${NC}${CYAN} files to process${NC}"
     
-    # for each .jsonld file in the directory, pin it
-    for file in "${jsonld_files[@]}"; do
+    # for each file in the directory, pin it
+    for file in "${files_to_process[@]}"; do
         # ask user if they want to continue with the next file
         # skip for the first file
-        if [ "$file" != "${jsonld_files[0]}" ]; then
+        if [ "$file" != "${files_to_process[0]}" ]; then
             echo -e " "
             echo -e "${CYAN}The next file is: ${YELLOW}$file${NC}"
             read -p "Do you want to continue with the next file? (y/n): " choice

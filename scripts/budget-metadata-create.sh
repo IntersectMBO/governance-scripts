@@ -243,14 +243,14 @@ MOTIVATION=$(get_section "Motivation" "Rationale")
 RATIONALE=$(get_section_last "Rationale")
 REFERENCES=$(extract_references)
 
-echo -e "Extracting withdrawal amount from the title"
-WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
-# Remove commas and add 6 zeros (convert to lovelace)
-WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
+# echo -e "Extracting withdrawal amount from the title"
+# WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
+# # Remove commas and add 6 zeros (convert to lovelace)
+# WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
 
-# Extract withdrawal address from the rationale section
-echo -e "Extracting withdrawal address from the rationale"
-WITHDRAWAL_ADDR=$(extract_withdrawal_address "$RATIONALE")
+# # Extract withdrawal address from the rationale section
+# echo -e "Extracting withdrawal address from the rationale"
+# WITHDRAWAL_ADDR=$(extract_withdrawal_address "$RATIONALE")
 
 cat <<EOF > "$TEMP_OUTPUT_JSON"
 {
@@ -327,13 +327,7 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
     "references": $REFERENCES,
     "onChain": {
       "governanceActionType": "treasuryWithdrawals",
-      "depositReturnAddress": "$deposit_return_address",
-      "withdrawals": [
-        {
-          "withdrawalAddress": "$WITHDRAWAL_ADDR",
-          "withdrawalAmount": $WITHDRAWAL_AMOUNT
-        }
-      ]
+      "depositReturnAddress": "$deposit_return_address"
     }
   }
 }
@@ -343,7 +337,7 @@ echo -e " "
 echo -e "${CYAN}Cleaning up the formatting on the JSON output...${NC}"
 
 # for debug
-# echo "$(cat $TEMP_OUTPUT_JSON)"
+echo "$(cat $TEMP_OUTPUT_JSON)"
 
 # Use jq to format the JSON output
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
