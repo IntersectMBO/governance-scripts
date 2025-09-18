@@ -6,15 +6,6 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 ### Scripts
 
-#### 2025 Budget Scripts
-
-- [budget-metadata-validate.sh](./scripts/budget-metadata-validate.sh)
-  - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
-  - Uses a combination of the other scripts
-- [budget-metadata-create.sh](./scripts/budget-metadata-create.sh)
-  - Creates Intersect budget metadata file from a `.docx`
-  - This expects certain structure within the `.docx`
-
 #### Governance Action Scripts
 
 - [action-create-info.sh](./scripts/action-create-info.sh)
@@ -50,6 +41,17 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Adds an author witness to CIP100/CIP108 metadata
 - [author-validate.sh](./scripts/author-validate.sh)
   - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
+
+#### 2025 Budget Scripts
+
+Note: These are really only useful for archival reasons.
+
+- [budget-metadata-validate.sh](./scripts/budget-metadata-validate.sh)
+  - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
+  - Uses a combination of the other scripts
+- [budget-metadata-create.sh](./scripts/budget-metadata-create.sh)
+  - Creates Intersect budget metadata file from a `.docx`
+  - This expects certain structure within the `.docx`
 
 #### Other Scripts
 
