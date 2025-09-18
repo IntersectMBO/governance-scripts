@@ -324,17 +324,7 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
     "abstract": $ABSTRACT,
     "motivation": $MOTIVATION,
     "rationale": $RATIONALE,
-    "references": $REFERENCES,
-    "onChain": {
-      "governanceActionType": "treasuryWithdrawals",
-      "depositReturnAddress": "$deposit_return_address",
-      "withdrawals": [
-        {
-          "withdrawalAddress": "$WITHDRAWAL_ADDR",
-          "withdrawalAmount": $WITHDRAWAL_AMOUNT
-        }
-      ]
-    }
+    "references": $REFERENCES
   }
 }
 EOF
