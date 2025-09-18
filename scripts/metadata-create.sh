@@ -198,48 +198,6 @@ extract_references() {
   ' "$TEMP_MD"
 }
 
-# Extract authors from Authors section
-extract_authors() {
-  awk '
-  BEGIN {
-    in_authors = 0
-    author_count = 0
-  }
-
-  /^### Authors$/ { in_authors = 1; next }
-  /^$/ && in_authors { in_authors = 0; next }
-
-  in_authors {
-    # Skip empty lines
-    if ($0 ~ /^\s*$/) next
-
-    # Check for author lines (starting with * or -)
-    if ($0 ~ /^[\*\-] /) {
-      author_name = $0
-      sub(/^[\*\-] /, "", author_name)
-      
-      # Clean up quotes in author name
-      gsub(/"/, "\\\"", author_name)
-
-      # Only add if we have a name
-      if (author_name != "") {
-        authors[author_count++] = "  {\"name\": \"" author_name "\"}"
-      }
-    }
-  }
-
-  END {
-    print "["
-    for (i = 0; i < author_count; i++) {
-      printf "%s", authors[i]
-      if (i < author_count - 1) print ","
-      else print ""
-    }
-    print "\n]"
-  }
-  ' "$TEMP_MD"
-}
-
 # Generate onChain property for info governance action
 generate_info_onchain() {
   cat <<EOF
@@ -280,7 +238,6 @@ TITLE=$(get_section "## Title" "## Abstract")
 ABSTRACT=$(get_section "## Abstract" "## Motivation")
 MOTIVATION=$(get_section "## Motivation" "## Rationale")
 RATIONALE=$(get_section_last "## Rationale")
-AUTHORS=$(extract_authors)
 
 # Generate onChain property based on governance action type
 echo -e "Generating onChain property for $governance_action_type"
@@ -354,7 +311,7 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
       }
     }
   },
-  "authors": $AUTHORS,
+  "authors": [],
   "hashAlgorithm": "blake2b-256",
   "body": {
     "title": $TITLE,
