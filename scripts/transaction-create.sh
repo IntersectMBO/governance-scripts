@@ -70,8 +70,8 @@ while [[ $# -gt 0 ]]; do
             usage
             ;;
         *)
-            if [ -z "$input_file" ]; then
-                input_file="$1"
+            if [ -z "$input_action_file" ]; then
+                input_action_file="$1"
             else
                 echo -e "${RED}Error: Input file already specified. Unexpected argument: $1${NC}" >&2
                 usage
@@ -109,11 +109,44 @@ fi
 
 # checks to do:
 
+echo -e " "
+echo -e "${CYAN}Performing checks${NC}"
+
 # check that payment address is right network
 # check that payment address has enough funds to cover deposit + fees
 
 # check that deposit return address is right network
 # check that deposit return address matches metadata if provided
 
+echo -e " "
+echo -e "${GREEN}Validation Checks passed!${NC}"
 
+# Give the user all the info and make them confirm
+# give user the action type, title, deposit amount, deposit return address, withdrawal address, payment address
 
+# main logic
+echo -e " "
+echo -e "${CYAN}Processing action file: ${YELLOW}$input_action_file${NC}"
+
+# Query payment wallet UTxOs
+echo -e "${CYAN}Querying UTxOs for payment address: ${YELLOW}$PAYMENT_ADDR${NC}"
+
+payment_utxos=$(cardano-cli conway query utxo \
+  --address "$PAYMENT_ADDR" \
+  --out-file  /dev/stdout)
+
+# Allow user to select UTxOs to use for the transaction
+selected_utxos=()
+while IFS= read -r utxo; do
+    echo -e "${YELLOW}Found UTxO: $utxo${NC}"
+    read -p "Include this UTxO in the transaction? (y/n) " include_utxo
+    if [[ "$include_utxo" == "y" ]]; then
+        selected_utxos+=("$utxo")
+    fi
+done <<< "$payment_utxos"
+
+cardano-cli conway transaction build \
+ --tx-in "${selected_utxos[@]}" \
+ --change-address "$PAYMENT_ADDR" \
+ --proposal-file $input_action_file \
+ --out-file $input_action_file.unsigned
