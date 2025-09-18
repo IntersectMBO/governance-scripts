@@ -240,10 +240,20 @@ extract_authors() {
   ' "$TEMP_MD"
 }
 
-# this search term can be changed to match the expected pattern
-extract_withdrawal_address() {
-  local rationale_text="$1"
-  echo "$rationale_text" | jq -r . | grep -oE "With the confirmed treasury reserve contract address being:[[:space:]]*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:[[:space:]]*//'
+# Generate onChain property for info governance action
+generate_info_onchain() {
+  cat <<EOF
+{
+  "governanceActionType": "info",
+  "depositReturnAddress": "$deposit_return_address"
+}
+EOF
+}
+
+# Generate onChain property for treasury governance action
+generate_treasury_onchain() {
+  # TODO: Implement treasury withdrawal onChain property
+  echo "null"
 }
 
 # Generate onChain property based on governance action type
@@ -252,16 +262,10 @@ generate_onchain_property() {
   
   case "$action_type" in
     "info")
-      cat <<EOF
-{
-  "governanceActionType": "info",
-  "depositReturnAddress": "$deposit_return_address"
-}
-EOF
+      generate_info_onchain
       ;;
     "treasury")
-      # TODO: Implement treasury withdrawal onChain property
-      echo "null"
+      generate_treasury_onchain
       ;;
     *)
       echo "null"
