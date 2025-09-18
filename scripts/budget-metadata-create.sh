@@ -234,7 +234,7 @@ extract_withdrawal_address() {
   echo "$rationale_text" | jq -r . | grep -oE "With the confirmed treasury reserve contract address being:[[:space:]]*(stake_test1[a-zA-Z0-9]{53}|stake1[a-zA-Z0-9]{53})" | sed -E 's/.*being:[[:space:]]*//'
 }
 
-# use helper functions to extract sections
+# use helper functions to extract sections
 echo -e "Extracting sections from Markdown"
 
 TITLE=$(get_section "Title" "Abstract")
@@ -243,14 +243,14 @@ MOTIVATION=$(get_section "Motivation" "Rationale")
 RATIONALE=$(get_section_last "Rationale")
 REFERENCES=$(extract_references)
 
-# echo -e "Extracting withdrawal amount from the title"
-# WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
-# # Remove commas and add 6 zeros (convert to lovelace)
-# WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
+echo -e "Extracting withdrawal amount from the title"
+WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
+# Remove commas and add 6 zeros (convert to lovelace)
+WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
 
-# # Extract withdrawal address from the rationale section
-# echo -e "Extracting withdrawal address from the rationale"
-# WITHDRAWAL_ADDR=$(extract_withdrawal_address "$RATIONALE")
+# Extract withdrawal address from the rationale section
+echo -e "Extracting withdrawal address from the rationale"
+WITHDRAWAL_ADDR=$(extract_withdrawal_address "$RATIONALE")
 
 cat <<EOF > "$TEMP_OUTPUT_JSON"
 {
@@ -327,7 +327,13 @@ cat <<EOF > "$TEMP_OUTPUT_JSON"
     "references": $REFERENCES,
     "onChain": {
       "governanceActionType": "treasuryWithdrawals",
-      "depositReturnAddress": "$deposit_return_address"
+      "depositReturnAddress": "$deposit_return_address",
+      "withdrawals": [
+        {
+          "withdrawalAddress": "$WITHDRAWAL_ADDR",
+          "withdrawalAmount": $WITHDRAWAL_AMOUNT
+        }
+      ]
     }
   }
 }
@@ -337,17 +343,17 @@ echo -e " "
 echo -e "${CYAN}Cleaning up the formatting on the JSON output...${NC}"
 
 # for debug
-echo "$(cat $TEMP_OUTPUT_JSON)"
+# echo "$(cat $TEMP_OUTPUT_JSON)"
 
 # Use jq to format the JSON output
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
 
 # Clean up for markdown formatting already present within the .docx file
-# replace \\*\\* with ** (remove escaped asterisks)
+# replace \\*\\* with ** (remove escaped asterisks)
 perl -i -pe 's/\\\\\*\\\\\*/\*\*/g' "$FINAL_OUTPUT_JSON"
 # replace \\\" with "
 perl -i -pe 's/\\\\\"/\"/g' "$FINAL_OUTPUT_JSON"
-# replace \\\" with "
+# replace \\\" with "
 perl -i -pe 's/\\\\\"/\"/g' "$FINAL_OUTPUT_JSON"
 # replace \\* with *
 perl -i -pe 's/\\\\\*/\*/g' "$FINAL_OUTPUT_JSON"
@@ -358,7 +364,7 @@ perl -i -pe 's/\\\\\x27/\x27/g' "$FINAL_OUTPUT_JSON"
 # replace \' with '
 # give up on this one for now
 
-# remove any instances of \n\nReferences
+# remove any instances of \n\nReferences
 perl -i -pe 's/\\n\\nReferences//g' "$FINAL_OUTPUT_JSON"
 
 # replace **[Smart Contract Guide**](https://docs.intersectmbo.org/cardano-facilitation-services/cardano-budget/intersect-administration-services/smart-contracts-as-part-of-our-administration)
