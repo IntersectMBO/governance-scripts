@@ -134,27 +134,19 @@ sed -E -i '' 's/\\\*([^*])/\*\1/g' "$TEMP_MD"
 extract_section() {
   local start="$1"
   local next="$2"
-  awk "/^${start}\$/,/^${next}\$/" "$TEMP_MD" | sed "1d;\$d" | sed '/^$/d'
+  awk "/^${start}\$/,/^${next}\$/" "$TEMP_MD" | sed "1d;\$d"
 }
 
 get_section() {
   local label="$1"
   local next="$2"
   extract_section "$label" "$next" \
-    | awk -v ORS="" '
-      NF { print $0 "\n" }
-      !NF { print "\n" }
-    ' \
-    | awk '{ printf "%s\n\n", $0 }' \
-    | sed -E 's/\n+$//' \
     | jq -Rs .
 }
 
 get_section_last() {
   local label="$1"
-  awk "/^${label}\$/,/^## References\$/" "$TEMP_MD" | sed "1d" \
-    | awk 'BEGIN{ORS=""; RS=""} {gsub(/\n/, " "); print $0 "\n\n"}' \
-    | sed 's/[[:space:]]\+$//' \
+  awk "/^${label}\$/,/^### References\$/" "$TEMP_MD" | sed "1d" \
     | jq -Rs .
 }
 
@@ -376,6 +368,15 @@ echo -e "${CYAN}Formatting JSON output...${NC}"
 
 # Use jq to format the JSON output
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
+
+# Clean up extra newlines at start and end of string fields
+echo -e "${CYAN}Cleaning up extra newlines...${NC}"
+jq '
+  .body.title = (.body.title | gsub("^\\n+"; "") | gsub("\\n+$"; "")) |
+  .body.abstract = (.body.abstract | gsub("^\\n+"; "") | gsub("\\n+$"; "")) |
+  .body.motivation = (.body.motivation | gsub("^\\n+"; "") | gsub("\\n+$"; "")) |
+  .body.rationale = (.body.rationale | gsub("^\\n+"; "") | gsub("\\n+$"; ""))
+' "$FINAL_OUTPUT_JSON" > "$TEMP_OUTPUT_JSON" && mv "$TEMP_OUTPUT_JSON" "$FINAL_OUTPUT_JSON"
 
 echo " "
 echo -e "${GREEN}JSONLD metadata successfully created! Output: $FINAL_OUTPUT_JSON ${NC}"
