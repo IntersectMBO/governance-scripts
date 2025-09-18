@@ -92,9 +92,9 @@ probably more I have missed...
 
 ### Cardano Node
 
-The only script that uses secrets is `action-create-tw.sh`.
+The scripts that uses node variables are `action-create-xxx.sh`.
 
-This expects `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
+These expect `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
 So you'll need a local cardano node socket path.
 
 ### Secrets
