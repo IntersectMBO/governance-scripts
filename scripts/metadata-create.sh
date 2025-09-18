@@ -8,7 +8,7 @@
 
 # Exit immediately if a command exits with a non-zero status,
 # treat unset variables as an error, and fail if any command in a pipeline fails
-# set -euo pipefail
+set -euo pipefail
 
 # Colors
 #BLACK='\033[0;30m'
@@ -109,13 +109,27 @@ input_name="${input_basename%.*}"
 FINAL_OUTPUT_JSON="$input_dir/$input_name.jsonld"
 
 echo " "
-echo -e "${CYAN}Converting $input_basename to CIP108 metadata...${NC}"
-
-echo " "
-echo -e "Processing $input_basename markdown file"
+echo -e "${CYAN}Converting $input_basename to CIP108+ (Intersect schema) metadata...${NC}"
 
 # Copy the markdown file to temp location for processing
 cp "$input_file" "$TEMP_MD"
+
+# Clean up escaped characters in markdown
+# Remove extra backslashes before special characters that don't need escaping in JSON
+sed -E -i '' 's/\\-/-/g' "$TEMP_MD"
+sed -E -i '' 's/\\_/_/g' "$TEMP_MD"
+sed -E -i '' 's/\\\./\./g' "$TEMP_MD"
+sed -E -i '' 's/\\\?/\?/g' "$TEMP_MD"
+sed -E -i '' 's/\\\+/\+/g' "$TEMP_MD"
+sed -E -i '' 's/\\\^/\^/g' "$TEMP_MD"
+sed -E -i '' 's/\\\$/\\$/g' "$TEMP_MD"
+# Fix common markdown escaping issues
+sed -E -i '' 's/\\\&/\&/g' "$TEMP_MD"
+sed -E -i '' 's/\\\#/#/g' "$TEMP_MD"
+sed -E -i '' 's/\\\:/:/g' "$TEMP_MD"
+sed -E -i '' 's/\\\;/\;/g' "$TEMP_MD"
+# Handle asterisks - only remove backslash if not part of markdown formatting
+sed -E -i '' 's/\\\*([^*])/\*\1/g' "$TEMP_MD"
 
 extract_section() {
   local start="$1"
@@ -246,29 +260,16 @@ generate_onchain_property() {
   
   case "$action_type" in
     "info")
-      echo "null"
-      ;;
-    "treasury")
-      # Extract withdrawal amount from the title
-      WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | sed -n 's/.*₳\([0-9,]*\).*/\1/p' | tr -d '"')
-      # Remove commas and add 6 zeros (convert to lovelace)
-      WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
-      
-      # Extract withdrawal address from the rationale section
-      WITHDRAWAL_ADDR=$(extract_withdrawal_address "$RATIONALE")
-      
       cat <<EOF
 {
-  "governanceActionType": "treasuryWithdrawals",
-  "depositReturnAddress": "$deposit_return_address",
-  "withdrawals": [
-    {
-      "withdrawalAddress": "$WITHDRAWAL_ADDR",
-      "withdrawalAmount": $WITHDRAWAL_AMOUNT
-    }
-  ]
+  "governanceActionType": "info",
+  "depositReturnAddress": "$deposit_return_address"
 }
 EOF
+      ;;
+    "treasury")
+      # TODO: Implement treasury withdrawal onChain property
+      echo "null"
       ;;
     *)
       echo "null"
@@ -376,4 +377,6 @@ echo -e "${CYAN}Formatting JSON output...${NC}"
 # Use jq to format the JSON output
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
 
-echo -e "${GREEN}JSONLD saved to $FINAL_OUTPUT_JSON${NC}"
+echo " "
+echo -e "${GREEN}JSONLD metadata successfully created! Output: $FINAL_OUTPUT_JSON ${NC}"
+echo " "
