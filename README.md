@@ -6,6 +6,21 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 ### Scripts
 
+#### Governance (CIP-100+) Metadata Scripts
+
+- [metadata-create.sh](./scripts/metadata-create.sh)
+  - Creates governance action CIP-108+ (including [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)) JSONLD file
+  - Takes an inputted markdown file in expected shape
+
+- [metadata-validate.sh](./scripts/metadata-validate.sh)
+  - Compares governance metadata against the established schema(s)
+  - Supports CIP100, CIP108, CIP119, CIP136 and [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
+  - Applies a spell check to CIP108 metadata fields
+
+- [metadata-canonize.sh](./scripts/metadata-canonize.sh)
+  - Uses cardano-singer to produce a blake2b-256 hash digest of a given metadata canonized body
+  - This is useful when trying to create author signatures
+
 #### Governance Action Scripts
 
 - [action-create-info.sh](./scripts/action-create-info.sh)
@@ -23,12 +38,6 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [ipfs-pin.sh](./scripts/ipfs-pin.sh)
   - Allows user to pin JSONLD file(s) on a number of pinning services
   - Optionally allows the user to check file's discoverability first
-
-#### Governance (CIP-100+) Metadata Scripts
-
-- [metadata-validate.sh](./scripts/metadata-validate.sh)
-  - Compares governance metadata against the established schema(s)
-  - Applies a spell check to CIP108 metadata fields
 
 #### CIP-108 Scripts
 
