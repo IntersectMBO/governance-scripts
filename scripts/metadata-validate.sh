@@ -68,7 +68,7 @@ usage() {
     echo "  --cip108              Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
     echo "  --cip119              Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
     echo "  --cip136              Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
-    echo "  --intersect-schema    Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT_SCHEMA)"
+    echo "  --intersect-schema    Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
     echo "  --schema <URL>        Compare against schema at URL"
     echo "  --dict <FILE>         Use custom aspell dictionary file (optional)"
     exit 1

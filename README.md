@@ -6,14 +6,20 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 ### Scripts
 
-#### 2025 Budget Scripts
+#### Governance (CIP-100+) Metadata Scripts
 
-- [budget-metadata-validate.sh](./scripts/budget-metadata-validate.sh)
-  - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
-  - Uses a combination of the other scripts
-- [budget-metadata-create.sh](./scripts/budget-metadata-create.sh)
-  - Creates Intersect budget metadata file from a `.docx`
-  - This expects certain structure within the `.docx`
+- [metadata-create.sh](./scripts/metadata-create.sh)
+  - Creates governance action CIP-108+ (including [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)) JSONLD file
+  - Takes an inputted markdown file in expected shape
+
+- [metadata-validate.sh](./scripts/metadata-validate.sh)
+  - Compares governance metadata against the established schema(s)
+  - Supports CIP100, CIP108, CIP119, CIP136 and [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
+  - Applies a spell check to CIP108 metadata fields
+
+- [metadata-canonize.sh](./scripts/metadata-canonize.sh)
+  - Uses cardano-singer to produce a blake2b-256 hash digest of a given metadata canonized body
+  - This is useful when trying to create author signatures
 
 #### Governance Action Scripts
 
@@ -33,12 +39,6 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Allows user to pin JSONLD file(s) on a number of pinning services
   - Optionally allows the user to check file's discoverability first
 
-#### Governance (CIP-100+) Metadata Scripts
-
-- [metadata-validate.sh](./scripts/metadata-validate.sh)
-  - Compares governance metadata against the established schema(s)
-  - Applies a spell check to CIP108 metadata fields
-
 #### CIP-108 Scripts
 
 - [cip-108-create-human-readable.sh](./scripts/cip-108-create-human-readable.sh)
@@ -50,6 +50,17 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Adds an author witness to CIP100/CIP108 metadata
 - [author-validate.sh](./scripts/author-validate.sh)
   - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
+
+#### 2025 Budget Scripts
+
+Note: These are really only useful for archival reasons.
+
+- [budget-metadata-validate.sh](./scripts/budget-metadata-validate.sh)
+  - Runs correctness and validity checks for budget treasury withdrawal CIP108 metadata.
+  - Uses a combination of the other scripts
+- [budget-metadata-create.sh](./scripts/budget-metadata-create.sh)
+  - Creates Intersect budget metadata file from a `.docx`
+  - This expects certain structure within the `.docx`
 
 #### Other Scripts
 
@@ -81,9 +92,9 @@ probably more I have missed...
 
 ### Cardano Node
 
-The only script that uses secrets is `action-create-tw.sh`.
+The scripts that uses node variables are `action-create-xxx.sh`.
 
-This expects `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
+These expect `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
 So you'll need a local cardano node socket path.
 
 ### Secrets
