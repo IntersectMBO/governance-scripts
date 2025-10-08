@@ -59,17 +59,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check correct number of arguments using original argument count
-if [ -z "$input_path" ]; then
-    echo -e "${RED}Error: Not enough arguments provided.${NC}" >&2
-    usage
-elif [ -z "$public_key_file_path" ]; then
-    echo -e "${BLUE}You are checking with INTERSECT key ${NC}" >&2
-    is_default_value=true
-else
-    echo -e "${BLUE}You are checking with provided key ${NC}" >&2   
-fi
-
 # Check if the key input file exists
 if [ ! -f "$input_path" ]; then
     echo -e "${RED}Error: JSON file '${YELLOW}$input_path${RED}' not found!${NC}"
@@ -83,12 +72,16 @@ fi
 
 author_key=""
 
+echo -e " "
+echo -e "${YELLOW}Validating the authors within given governance metadata${NC}"
+
 # Get Intersect author public key
 if [ ! -f "$public_key_file_path" ]; then
+    echo -e " "
+    echo -e "${CYAN}No public key file provided, using Intersect's known public key${NC}"
     echo -e "${CYAN}Fetching Intersect author public key from ${YELLOW}$INTERSECT_AUTHOR_PATH${NC}"
     author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey')
     echo -e "Intersect author public key: ${YELLOW}$author_key${NC}"
-    echo -e " "
 else
     if [ -f "$public_key_file_path" ]; then
         # If it's a file, read the public key from the file
@@ -105,13 +98,27 @@ fi
 # https://github.com/gitmachtl/cardano-signer?tab=readme-ov-file#verify-governance-metadata-and-the-authors-signatures
 verify_author_witness() {
     local file="$1"
-    local output
-    output=$(cardano-signer verify --cip100 \
+    local raw_output
+
+    raw_output=$(cardano-signer verify --cip100 \
         --data-file "$file" \
-        --json-extended | jq '{workMode, result, errorMsg, authors, canonizedHash, fileHash}')
+        --json-extended)
+
+    # read exit code of last command
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Error: cardano-signer command failed while verifying file '${YELLOW}$file${RED}'.${NC}" >&2
+        exit 1
+    fi
     
-    echo "$output"
-    
+    local output
+    output=$(echo "$raw_output" | jq '{result, errorMsg, authors, canonizedHash, fileHash}')
+
+    echo -e "${CYAN}Result: ${NC}$(echo "$output" | jq -r '.result')"
+    echo -e "${CYAN}Error Messages: ${NC}$(echo "$output" | jq -r '.errorMsg')"
+    echo -e "${CYAN}Authors: ${NC}$(echo "$output" | jq -r '.authors')"
+    echo -e "${CYAN}Canonized Hash: ${NC}$(echo "$output" | jq -r '.canonizedHash')"
+    echo -e "${CYAN}File Hash: ${NC}$(echo "$output" | jq -r '.fileHash')"
+
     local result
     result=$(echo "$output" | jq -r '.result')
     if [ "$result" != "true" ]; then
@@ -129,7 +136,7 @@ check_if_correct_author() {
     for i in $(seq 0 $(($author_count - 1))); do
         file_author_key=$(jq -r ".authors[$i].witness.publicKey" "$file")
         echo " "
-        echo -e "${BLUE}Checking author public key against expected public key ->${NC}"
+        echo -e "${BLUE}Checking author public key against expected public key${NC}"
         
         if [ "$file_author_key" == "$author_key" ]; then
             if [ $is_default_value ]; then
