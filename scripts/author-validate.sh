@@ -26,7 +26,7 @@ usage() {
     echo ""
     echo -e "${CYAN}Verify metadata files with author witness using cardano-signer${NC}"
     echo -e "Options:"
-    echo -e "${CYAN}If [public-key] is not provided, Intersect's public key will be used by default.${NC}"
+    echo -e "  --public-key <file|string>   Specify the Cardano cli public key file path (default: ${YELLOW}Intersect's public key${NC})"
     exit 1
 }
 
@@ -86,7 +86,7 @@ author_key=""
 # Get Intersect author public key
 if [ ! -f "$public_key_file_path" ]; then
     echo -e "${CYAN}Fetching Intersect author public key from ${YELLOW}$INTERSECT_AUTHOR_PATH${NC}"
-    author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey' | cut -c5-)
+    author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey')
     echo -e "Intersect author public key: ${YELLOW}$author_key${NC}"
     echo -e " "
 else
@@ -132,7 +132,7 @@ check_if_correct_author() {
         echo -e "${BLUE}Checking author public key against expected public key ->${NC}"
         
         if [ "$file_author_key" == "$author_key" ]; then
-            if [ $default ]; then
+            if [ $is_default_value ]; then
                 echo -e "${GREEN}Author public key matches Intersect's known public key.${NC}"
             else
                 echo -e "${GREEN}Author public key matches provided public key.${NC}"
@@ -170,11 +170,7 @@ if [ -d "$input_path" ]; then
     for file in "${jsonld_files[@]}"; do
         echo -e "${BLUE} Verifying provided signature on file is valid:${NC}"
         verify_author_witness "$file"
-        if [ $is_default_value ]; then
-            check_if_correct_author "$file"
-        else
-            show_author_info "$file"
-        fi
+        check_if_correct_author "$file"
     done
 elif [ -f "$input_path" ]; then
     # Input is a single file
