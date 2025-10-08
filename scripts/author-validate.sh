@@ -121,17 +121,24 @@ check_if_correct_author() {
     for i in $(seq 0 $(($author_count - 1))); do
         file_author_key=$(jq -r ".authors[$i].witness.publicKey" "$file")
         echo " "
-        echo -e "${CYAN}Checking author public key against expected public key${NC}"
+        echo -e "${CYAN}Checking author index $i public key against Intersect's keys${NC}"
         
+        # if author's public key matches Intersect's public key
         if [ "$file_author_key" == "$author_key" ]; then
-            echo -e "${GREEN}Author public key matches Intersect's known public key.${NC}"
+            # and if author name is intersect
+            if [ "$(jq -r ".authors[$i].name" "$file")" == "Intersect" ]; then
+                echo -e "${GREEN}Author pub key and name is correctly set to 'Intersect'.${NC}"
+            else
+                echo -e "${RED}Warning: Author name is NOT set to 'Intersect' but public key matches Intersect's key.${NC}"
+                echo -e "Author name: ${YELLOW}$(jq -r ".authors[$i].name" "$file")${NC}"
+                echo -e "Author public key: ${YELLOW}$file_author_key${NC}"
+            fi
+            
         else
-            echo -e " "
-            echo -e "${RED}Warning: Author public key does NOT match the Intersect key.${NC}"
+            echo -e "${RED}Warning: Author public key is not Intersect's key.${NC}"
+            echo -e "Author name: ${YELLOW}$(jq -r ".authors[$i].name" "$file")${NC}"
             echo -e "Author public key: ${YELLOW}$file_author_key${NC}"
-            echo -e "Expected public key: ${YELLOW}$author_key${NC}"
         fi
-        echo -e " "
     done
 }
 
