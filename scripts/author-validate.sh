@@ -22,16 +22,53 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <jsonld-file|directory>"
+    echo -e "${YELLOW}Usage: $0 <jsonld-file|directory> [--public-key <file|string>]${NC}"
+    echo ""
+    echo -e "${CYAN}Verify metadata files with author witness using cardano-signer${NC}"
+    echo -e "Options:"
+    echo -e "${CYAN}If [public-key] is not provided, Intersect's public key will be used by default.${NC}"
     exit 1
 }
 
-# Check correct number of arguments
-if [ "$#" -lt 1 ]; then
-    usage
-fi
+is_default_value_value=false
 
-input_path="$1"
+# Parse command line arguments
+input_path=""
+options_list=""
+public_key_file_path=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --public-key)
+            public_key_file_path="$2"
+            options_list+=" --public-key"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            if [ -z "$input_path" ]; then
+                input_path="$1"
+                shift
+            else
+                echo -e "${RED}Error: Unknown argument: $1${NC}" >&2
+                usage
+            fi
+            ;;
+    esac
+done
+
+# Check correct number of arguments using original argument count
+if [ -z "$input_path" ]; then
+    echo -e "${RED}Error: Not enough arguments provided.${NC}" >&2
+    usage
+elif [ -z "$public_key_file_path" ]; then
+    echo -e "${BLUE}You are checking with INTERSECT key ${NC}" >&2
+    is_default_value=true
+else
+    echo -e "${BLUE}You are checking with provided key ${NC}" >&2   
+fi
 
 # Check if the key input file exists
 if [ ! -f "$input_path" ]; then
@@ -39,10 +76,28 @@ if [ ! -f "$input_path" ]; then
     exit 1
 fi
 
+if [ ! -f "$public_key_file_path" ] && [[ $options_list == *"--public-key"* ]]; then
+    echo -e "${RED}Error: Public key file '${YELLOW}$public_key_file_path${RED}' not found!${NC}"
+    exit 1
+fi
+
+author_key=""
+
 # Get Intersect author public key
-echo -e "${CYAN}Fetching Intersect author public key from ${YELLOW}$INTERSECT_AUTHOR_PATH${NC}"
-intersect_author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey')
-echo -e " "
+if [ ! -f "$public_key_file_path" ]; then
+    echo -e "${CYAN}Fetching Intersect author public key from ${YELLOW}$INTERSECT_AUTHOR_PATH${NC}"
+    author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey' | cut -c5-)
+    echo -e "Intersect author public key: ${YELLOW}$author_key${NC}"
+    echo -e " "
+else
+    if [ -f "$public_key_file_path" ]; then
+        # If it's a file, read the public key from the file
+        author_key=$(cat "$public_key_file_path" | jq -r '.cborHex' | cut -c5-)
+    else
+        # Otherwise, treat the input as the public key string itself
+        author_key="$public_key_file_path"
+    fi
+fi
 
 # Use cardano-signer to verify author witnesses
 # https://github.com/gitmachtl/cardano-signer?tab=readme-ov-file#verify-governance-metadata-and-the-authors-signatures
@@ -64,24 +119,40 @@ verify_author_witness() {
 }
 
 # Give the user a warning if the author isn't Intersect
-check_if_intersect_author() {
+check_if_correct_author() {
     local file="$1"
     author_count=$(jq '.authors | length' "$file")
     
     # Iterate over all author pubkeys present
     for i in $(seq 0 $(($author_count - 1))); do
-        author_key=$(jq -r ".authors[$i].witness.publicKey" "$file")
+        file_author_key=$(jq -r ".authors[$i].witness.publicKey" "$file")
+        echo " "
+        echo -e "${BLUE}Checking author public key against expected public key ->${NC}"
         
-        if [ "$author_key" == "$intersect_author_key" ]; then
-            echo -e "${GREEN}Author public key matches Intersect's known public key.${NC}"
+        if [ "$file_author_key" == "$author_key" ]; then
+            if [ $default ]; then
+                echo -e "${GREEN}Author public key matches Intersect's known public key.${NC}"
+            else
+                echo -e "${GREEN}Author public key matches provided public key.${NC}"
+            fi
         else
             echo -e " "
-            echo -e "${RED}Warning: Author public key does NOT match Intersect's known public key.${NC}"
-            echo -e "Author public key: ${YELLOW}$author_key${NC}"
-            echo -e "Intersect's known public key: ${YELLOW}$intersect_author_key${NC}"
+            if [ "$is_default_value" = true ]; then
+                echo -e "${RED}Warning: Author public key does NOT match Intersect's known public key.${NC}"
+            else
+                echo -e "${RED}Warning: Author public key does NOT match the provided key.${NC}"
+            fi
+            echo -e "Author public key: ${YELLOW}$file_author_key${NC}"
+            echo -e "Expected public key: ${YELLOW}$author_key${NC}"
         fi
         echo -e " "
     done
+}
+
+show_author_info() {
+    local file="$1"
+    author_details=$(jq -r '.authors[] | "Author Name: \(.name)\nPublic Key: \(.witness.publicKey)\nSignature: \(.witness.signature)\n"' "$file")
+    echo -e "$author_details"
 }
 
 if [ -d "$input_path" ]; then
@@ -95,13 +166,20 @@ if [ -d "$input_path" ]; then
     fi
     # for each .jsonld file in the directory, go over it
     for file in "${jsonld_files[@]}"; do
+        echo -e "${BLUE} Verifying provided signature on file is valid:${NC}"
         verify_author_witness "$file"
-        check_if_intersect_author "$file"
+        if [ $is_default_value ]; then
+            check_if_correct_author "$file"
+        else
+            show_author_info "$file"
+        fi
     done
 elif [ -f "$input_path" ]; then
     # Input is a single file
+    echo -e "${BLUE}Verifyng provided signature on file is valid:${NC}"
     verify_author_witness "$input_path"
-    check_if_intersect_author "$input_path"
+    check_if_correct_author "$input_path"
+    
 else
     echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is not a valid file or directory.${NC}"
     exit 1
