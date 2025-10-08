@@ -30,7 +30,7 @@ usage() {
     exit 1
 }
 
-is_default_value_value=false
+is_default_value=false
 
 # Parse command line arguments
 input_path=""
@@ -97,6 +97,8 @@ else
         # Otherwise, treat the input as the public key string itself
         author_key="$public_key_file_path"
     fi
+    echo -e "Provided author public key: ${YELLOW}$author_key${NC}"
+    echo -e " "
 fi
 
 # Use cardano-signer to verify author witnesses
@@ -137,7 +139,7 @@ check_if_correct_author() {
             fi
         else
             echo -e " "
-            if [ "$is_default_value" = true ]; then
+            if [ $is_default_value ]; then
                 echo -e "${RED}Warning: Author public key does NOT match Intersect's known public key.${NC}"
             else
                 echo -e "${RED}Warning: Author public key does NOT match the provided key.${NC}"
