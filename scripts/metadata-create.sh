@@ -92,11 +92,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo -e " "
-echo -e "${YELLOW}Creating a governance action metadata file from a markdown file${NC}"
-echo -e "${CYAN}This script assumes a basic structure for the markdown file${NC}"
-echo -e "${CYAN}This script uses Intersect's governance action schemas (extended CIP108)${NC}"
-
 # If no input file provided, show usage
 if [ -z "$input_file" ]; then
   echo -e "${RED}Error: No input file specified${NC}" >&2
@@ -108,6 +103,11 @@ if [ -z "$governance_action_type" ]; then
   echo -e "${RED}Error: --governance-action-type is required${NC}" >&2
   usage
 fi
+
+echo -e " "
+echo -e "${YELLOW}Creating a governance action metadata file from a markdown file${NC}"
+echo -e "${CYAN}This script assumes a basic structure for the markdown file${NC}"
+echo -e "${CYAN}This script uses Intersect's governance action schemas (extended CIP108)${NC}"
 
 # Generate output filename: same directory and name as input, but with .jsonld extension
 input_dir=$(dirname "$input_file")
