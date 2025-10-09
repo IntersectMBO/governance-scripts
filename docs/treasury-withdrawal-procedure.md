@@ -58,11 +58,11 @@ and manually compare against the `.docx`.
 We can then run our validation script to check
 
 - compliance with CIP schema(s)
-- compliance with Intersect schemas
-- spelling check
+- compliance with Intersect schemas (runs by default)
+- spelling check on CIP108 sections
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108 --intersect-schema
+./scripts/metadata-validate.sh ./my-metadata-directory --cip108
 ```
 
 ### 7. Add author witness(es)
@@ -86,11 +86,11 @@ Check the author witnesses were added correctly.
 Just to double check that all is good now.
 
 - compliance with CIP schema(s)
-- compliance with Intersect schemas
+- compliance with Intersect schemas (runs by default)
 - spelling check
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108 --intersect-schema
+./scripts/metadata-validate.sh ./my-metadata-directory --cip108
 ```
 
 ### 9. Host on IPFS
@@ -98,7 +98,7 @@ Just to double check that all is good now.
 Pin the metadata to different IPFS pinning services.
 
 ```shell
-./scripts/ipfs-pin.sh ./my-metadata-directory --only-ipfs
+./scripts/ipfs-pin.sh ./my-metadata-directory
 ```
 
 ### 10. Verify IPFS hosting
