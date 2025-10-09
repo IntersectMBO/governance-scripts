@@ -212,13 +212,41 @@ EOF
 
 # Generate onChain property for treasury governance action
 generate_treasury_onchain() {
+  # Extract withdrawal amount from the title
+  WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | jq -r . | tr -d '\n' | sed -n 's/.*₳\([0-9,]*\).*/\1/p')  
+  # If no amount found, prompt user
+  if [ -z "$WITHDRAWAL_AMOUNT_RAW" ]; then
+    read -p "No withdrawal amount found in title. Please enter amount in ADA: " WITHDRAWAL_AMOUNT_RAW
+  fi
+
+  # Remove commas and add 6 zeros (convert to lovelace)
+  WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
   
-  # ask user for destination address
-  read -rp "Enter the stake address for destination return (bech32): " withdrawal_address
+  # Validate withdrawal amount
+  if [[ ! "$WITHDRAWAL_AMOUNT" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid withdrawal amount: $WITHDRAWAL_AMOUNT${NC}" >&2
+    exit 1
+  fi
+  
+  # Prompt user for withdrawal address
+  echo -e "Withdrawal amount detected: ${YELLOW}₳$WITHDRAWAL_AMOUNT_RAW${NC}"
+  read -p "Please enter the desired withdrawal address (bech32): " withdrawal_address
+  
+  # Validate the withdrawal address format
+  if [[ ! "$withdrawal_address" =~ ^(stake1|stake_test1)[a-zA-Z0-9]{50,60}$ ]]; then
+    echo -e "${RED}Error: Invalid bech32 stake address format${NC}" >&2
+    exit 1
+  fi
+  
+  echo -e "Withdrawal address: ${YELLOW}$withdrawal_address${NC}"
+  echo -e "Withdrawal amount: ${YELLOW}₳$WITHDRAWAL_AMOUNT_RAW${NC} (${WITHDRAWAL_AMOUNT} lovelace)"
 
-  # ask user for withdrawal amount
-  read -rp "Enter the withdrawal amount (in lovelace): " withdrawal_amount
-
+  read -p "Do you want to proceed with this withdrawal address and amount? (yes/no): " confirm_withdrawal
+  if [ "$confirm_withdrawal" != "yes" ]; then
+    echo -e "${RED}Withdrawal address and amount not confirmed by user, exiting.${NC}"
+    exit 1
+  fi
+  
   cat <<EOF
 {
   "governanceActionType": "treasuryWithdrawals",
@@ -226,7 +254,7 @@ generate_treasury_onchain() {
   "withdrawals": [
     {
       "withdrawalAddress": "$withdrawal_address",
-      "withdrawalAmount": $withdrawal_amount
+      "withdrawalAmount": $WITHDRAWAL_AMOUNT
     }
   ]
 }
