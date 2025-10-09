@@ -39,7 +39,7 @@ usage() {
     echo "Usage: $0 <jsonld-file> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
     echo "  <jsonld-file>                                    Path to the JSON-LD metadata file"
-    echo "  --withdraw-to-script                             Check that the withdrawal address is a script-based address, exit otherwise"
+    echo "  --withdraw-to-key                                Allow withdrawal address to be key-based (default is script-based)"
     echo "  --deposit-return-addr <stake address>            Check that metadata deposit return address matches provided one (Bech32)"
     echo "  --withdrawal-addr <stake address>                Check that metadata withdrawal address matches provided one (Bech32)"
     echo "  -h, --help                                       Show this help message and exit"
@@ -59,8 +59,8 @@ withdrawal_address_input=""
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --withdraw-to-script)
-            withdraw_to_script="true"
+        --withdraw-to-key)
+            withdraw_to_script="false"
             shift
             ;;
         --deposit-return-addr)
@@ -266,13 +266,19 @@ is_stake_address_script() {
     fi
 }
 
-if [ "$withdraw_to_script" = "true" ]; then
-    if is_stake_address_script "$withdrawal_address"; then
-        echo -e "Withdrawal address is script-based"
+withdraw_addr_script_check=$(is_stake_address_script "$withdrawal_address" && echo "true" || echo "false")
+
+if [ "$withdraw_addr_script_check" = "$withdraw_to_script" ]; then
+    if [ "$withdraw_to_script" = "true" ]; then
+        echo -e "Withdrawal address is script-based, as expected"
     else
-        echo -e "${RED}Withdrawal address is not script-based as requested, exiting.${NC}"
-        exit 1
+        echo -e "Withdrawal address is key-based, as expected"
     fi
+else
+    expected_type="script-based"
+    [ "$withdraw_to_script" = "false" ] && expected_type="key-based"
+    echo -e "${RED}Withdrawal address type does not match expectation ($expected_type), exiting.${NC}"
+    exit 1
 fi
 
 is_stake_address_registered(){

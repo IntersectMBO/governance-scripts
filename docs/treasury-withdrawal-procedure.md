@@ -116,5 +116,5 @@ This will now additionally check that the file is accessible via IPFS and that a
 Now we can create an Info governance action file from our metadata.
 
 ```shell
-./scripts/action-create-info.sh my-metadata.jsonld --deposit-return-addr $DEPOSIT_RETURN_ADDR
+./scripts/action-create-tw.sh my-metadata.jsonld --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
