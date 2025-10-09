@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
         --withdraw-to-script)
             withdraw_to_script="true"
             shift
-            ;;    
+            ;;
         --deposit-return-addr)
             if [ -n "${2:-}" ]; then
                 deposit_return_address_input="$2"
