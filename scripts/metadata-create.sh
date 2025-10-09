@@ -3,6 +3,7 @@
 ##################################################
 
 # Default configuration values
+METADATA_COMMON_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/common.jsonld"
 
 ##################################################
 
@@ -45,10 +46,11 @@ deposit_return_address=""
 # Create temporary files in /tmp/
 TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
 TEMP_OUTPUT_JSON=$(mktemp /tmp/metadata_create_temp.XXXXXX)
+TEMP_CONTEXT=$(mktemp /tmp/metadata_create_context.XXXXXX)
 
 # Cleanup function to remove temporary files
 cleanup() {
-  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON"
+  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" "$TEMP_CONTEXT"
 }
 
 # Set trap to cleanup on any script
@@ -210,8 +212,25 @@ EOF
 
 # Generate onChain property for treasury governance action
 generate_treasury_onchain() {
-  # TODO: Implement treasury withdrawal onChain property
-  echo "null"
+  
+  # ask user for destination address
+  read -rp "Enter the stake address for destination return (bech32): " withdrawal_address
+
+  # ask user for withdrawal amount
+  read -rp "Enter the withdrawal amount (in lovelace): " withdrawal_amount
+
+  cat <<EOF
+{
+  "governanceActionType": "treasuryWithdrawals",
+  "depositReturnAddress": "$deposit_return_address",
+  "withdrawals": [
+    {
+      "withdrawalAddress": "$withdrawal_address",
+      "withdrawalAmount": $withdrawal_amount
+    }
+  ]
+}
+EOF
 }
 
 # Generate onChain property based on governance action type
@@ -246,83 +265,33 @@ ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
-cat <<EOF > "$TEMP_OUTPUT_JSON"
-{
-  "@context": {
-    "@language": "en",
-    "CIP100": "https://github.com/cardano-foundation/CIPs/blob/master/CIP-0100/README.md#",
-    "CIP108": "https://github.com/cardano-foundation/CIPs/blob/master/CIP-0108/README.md#",
-    "intersectSpec": "https://github.com/IntersectMBO/governance-actions/blob/main/schemas/specification.md#",
-    "hashAlgorithm": "CIP100:hashAlgorithm",
-    "body": {
-      "@id": "CIP108:body",
-      "@context": {
-        "references": {
-          "@id": "CIP108:references",
-          "@container": "@set",
-          "@context": {
-            "GovernanceMetadata": "CIP100:GovernanceMetadataReference",
-            "Other": "CIP100:OtherReference",
-            "label": "CIP100:reference-label",
-            "uri": "CIP100:reference-uri",
-            "referenceHash": {
-              "@id": "CIP108:referenceHash",
-              "@context": {
-                "hashDigest": "CIP108:hashDigest",
-                "hashAlgorithm": "CIP100:hashAlgorithm"
-              }
-            }
-          }
-        },
-        "title": "CIP108:title",
-        "abstract": "CIP108:abstract",
-        "motivation": "CIP108:motivation",
-        "rationale": "CIP108:rationale",
-        "onChain": {
-          "@id": "intersectSpec:onChain",
-          "@context": {
-            "governanceActionType": "intersectSpec:governanceActionType",
-            "depositReturnAddress": "intersectSpec:depositReturnAddress",
-            "withdrawals": {
-              "@id": "intersectSpec:withdrawals",
-              "@container": "@set",
-              "@context": {
-                "withdrawalAddress": "intersectSpec:withdrawalAddress",
-                "withdrawalAmount": "intersectSpec:withdrawalAmount"
-              }
-            }
-          }
-        }
-      }
-    },
-    "authors": {
-      "@id": "CIP100:authors",
-      "@container": "@set",
-      "@context": {
-        "name": "http://xmlns.com/foaf/0.1/name",
-        "witness": {
-          "@id": "CIP100:witness",
-          "@context": {
-            "witnessAlgorithm": "CIP100:witnessAlgorithm",
-            "publicKey": "CIP100:publicKey",
-            "signature": "CIP100:signature"
-          }
-        }
-      }
-    }
-  },
-  "authors": [],
-  "hashAlgorithm": "blake2b-256",
-  "body": {
-    "title": $TITLE,
-    "abstract": $ABSTRACT,
-    "motivation": $MOTIVATION,
-    "rationale": $RATIONALE,
-    "references": $REFERENCES_JSON,
-    "onChain": $ONCHAIN_PROPERTY
-  }
-}
-EOF
+# Replace the cat <<EOF section (around line 249) with:
+echo -e "${CYAN}Downloading context from $METADATA_COMMON_URL...${NC}"
+if ! curl -sSfL "$METADATA_COMMON_URL" -o "$TEMP_CONTEXT"; then
+    echo -e "${RED}Error: Failed to download context from $METADATA_COMMON_URL${NC}" >&2
+    exit 1
+fi
+
+jq --argjson context "$(cat "$TEMP_CONTEXT")" \
+   --argjson title "$TITLE" \
+   --argjson abstract "$ABSTRACT" \
+   --argjson motivation "$MOTIVATION" \
+   --argjson rationale "$RATIONALE" \
+   --argjson references "$REFERENCES_JSON" \
+   --argjson onchain "$ONCHAIN_PROPERTY" \
+   '{
+     "@context": $context,
+     "authors": [],
+     "hashAlgorithm": "blake2b-256",
+     "body": {
+       "title": $title,
+       "abstract": $abstract,
+       "motivation": $motivation,
+       "rationale": $rationale,
+       "references": $references,
+       "onChain": $onchain
+     }
+   }' <<< '{}' > "$TEMP_OUTPUT_JSON"
 
 echo -e " "
 echo -e "${CYAN}Formatting JSON output...${NC}"
