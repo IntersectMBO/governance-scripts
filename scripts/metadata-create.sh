@@ -29,11 +29,12 @@ fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <.md-file> --governance-action-type <type> [--deposit-return-addr <stake-address>]"
+    echo " "
+    echo "Usage: $0 <.md-file> --governance-action-type <info|treasury> --deposit-return-addr <stake-address>"
     echo "Options:"
     echo "  <.md-file>                                    Path to the .md file as input"
     echo "  --governance-action-type <info|treasury>      Type of governance action (info, treasury, etc.)"
-    echo "  --deposit-return-addr <stake-address>         Stake address for deposit return (bech32) - required for treasuryWithdrawals"
+    echo "  --deposit-return-addr <stake-address>         Stake address for deposit return (bech32)"
     echo "  -h, --help                                    Show this help message and exit"
     exit 1
 }
@@ -101,6 +102,12 @@ fi
 # If no governance action type provided, show usage
 if [ -z "$governance_action_type" ]; then
   echo -e "${RED}Error: --governance-action-type is required${NC}" >&2
+  usage
+fi
+
+# If no deposit return address provided, show usage
+if [ -z "$deposit_return_address" ]; then
+  echo -e "${RED}Error: --deposit-return-addr is required for treasuryWithdrawals${NC}" >&2
   usage
 fi
 
