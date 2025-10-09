@@ -246,15 +246,15 @@ fi
 # Determine which Intersect schema to use based on governanceActionType property
 if [ "$use_intersect_schema" = "true" ]; then
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
+
     if [ "$governance_action_type" = "info" ]; then
         echo -e "${WHITE}Downloading Intersect ${YELLOW}info${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
+
     elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
         echo -e "${WHITE}Downloading Intersect ${YELLOW}treasuryWithdrawals${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
-    elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        echo -e "${WHITE}Downloading Intersect ${YELLOW}treasuryWithdrawals${WHITE} schema...${NC}"
-        INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
+
     elif [ "$governance_action_type" = "protocolParameterChanges" ]; then
         echo -e "${WHITE}Downloading Intersect ${YELLOW}parameterChanges${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
