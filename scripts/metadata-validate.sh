@@ -18,6 +18,7 @@ CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
+INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
 
 # Default schema values
 DEFAULT_USE_CIP_100="false"
@@ -251,6 +252,12 @@ if [ "$use_intersect_schema" = "true" ]; then
     elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
         echo -e "${WHITE}Downloading Intersect ${YELLOW}treasuryWithdrawals${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
+    elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
+        echo -e "${WHITE}Downloading Intersect ${YELLOW}treasuryWithdrawals${WHITE} schema...${NC}"
+        INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
+    elif [ "$governance_action_type" = "protocolParameterChanges" ]; then
+        echo -e "${WHITE}Downloading Intersect ${YELLOW}parameterChanges${WHITE} schema...${NC}"
+        INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
     else
         echo -e "${RED}Error: Unknown governanceActionType '${YELLOW}$governance_action_type${RED}' in '${YELLOW}$JSON_FILE${RED}'.${NC}"
         exit 1
