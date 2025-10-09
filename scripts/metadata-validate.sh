@@ -104,7 +104,7 @@ while [[ $# -gt 0 ]]; do
             use_cip_136="true"
             shift
             ;;
-        --intersect-schema)
+        --no-intersect-schema)
             use_intersect_schema="false"
             shift
             ;;
