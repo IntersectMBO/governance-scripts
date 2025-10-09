@@ -101,13 +101,13 @@ if [ -z "$input_file" ]; then
     usage
 fi
 
-# If no governance action type provided, show usage
+# If deposit return addr is not provided, show usage
 if [ -z "$deposit_return_address_input" ]; then
   echo -e "${RED}Error: --deposit-return-addr is required${NC}" >&2
   usage
 fi
 
-# If withdrawal addr return address provided, show usage
+# If withdrawal addr is not provided, show usage
 if [ -z "$withdrawal_address_input" ]; then
   echo -e "${RED}Error: --withdrawal-addr is required${NC}" >&2
   usage
