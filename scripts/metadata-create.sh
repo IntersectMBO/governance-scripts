@@ -33,7 +33,7 @@ usage() {
     echo "Usage: $0 <.md-file> --governance-action-type <info|treasury> --deposit-return-addr <stake-address>"
     echo "Options:"
     echo "  <.md-file>                                    Path to the .md file as input"
-    echo "  --governance-action-type <info|treasury>      Type of governance action (info, treasury, etc.)"
+    echo "  --governance-action-type <info|treasury|ppu>  Type of governance action (info, treasury, protocol param update, etc.)"
     echo "  --deposit-return-addr <stake-address>         Stake address for deposit return (bech32)"
     echo "  -h, --help                                    Show this help message and exit"
     exit 1
@@ -219,6 +219,19 @@ generate_info_onchain() {
 EOF
 }
 
+# Generate onChain property for ppu governance action
+generate_ppu_onchain() {
+
+  # todo, improve this
+
+  cat <<EOF
+{
+  "governanceActionType": "protocolParameterChanges",
+  "depositReturnAddress": "$deposit_return_address"
+}
+EOF
+}
+
 treasury_collect_inputs() {
   # Prompt & read address from the TTY
   echo -n "Please enter withdrawal address: " >&2
@@ -320,6 +333,9 @@ generate_onchain_property() {
       ;;
     "treasury")
       generate_treasury_onchain
+      ;;
+    "ppu")
+      generate_ppu_onchain
       ;;
     *)
       echo "null"
