@@ -107,13 +107,13 @@ fi
 
 # If no deposit return address provided, show usage
 if [ -z "$deposit_return_address" ]; then
-  echo -e "${RED}Error: --deposit-return-addr is required for treasuryWithdrawals${NC}" >&2
+  echo -e "${RED}Error: --deposit-return-addr is required${NC}" >&2
   usage
 fi
 
 echo -e " "
 echo -e "${YELLOW}Creating a governance action metadata file from a markdown file${NC}"
-echo -e "${CYAN}This script assumes a basic structure for the markdown file${NC}"
+echo -e "${CYAN}This script assumes a basic structure for the markdown file, using H2 headers${NC}"
 echo -e "${CYAN}This script uses Intersect's governance action schemas (extended CIP108)${NC}"
 
 # Generate output filename: same directory and name as input, but with .jsonld extension
@@ -121,9 +121,6 @@ input_dir=$(dirname "$input_file")
 input_basename=$(basename "$input_file")
 input_name="${input_basename%.*}"
 FINAL_OUTPUT_JSON="$input_dir/$input_name.jsonld"
-
-echo " "
-echo -e "${CYAN}Converting $input_basename to CIP108+ (Intersect schema) metadata...${NC}"
 
 # Copy the markdown file to temp location for processing
 cp "$input_file" "$TEMP_MD"
@@ -222,51 +219,91 @@ generate_info_onchain() {
 EOF
 }
 
-# Generate onChain property for treasury governance action
-generate_treasury_onchain() {
-  # Extract withdrawal amount from the title
-  WITHDRAWAL_AMOUNT_RAW=$(echo "$TITLE" | jq -r . | tr -d '\n' | sed -n 's/.*₳\([0-9,]*\).*/\1/p')  
-  # If no amount found, prompt user
-  if [ -z "$WITHDRAWAL_AMOUNT_RAW" ]; then
-    read -p "No withdrawal amount found in title. Please enter amount in ADA: " WITHDRAWAL_AMOUNT_RAW
-  fi
+treasury_collect_inputs() {
+  # Prompt & read address from the TTY
+  echo -n "Please enter withdrawal address: " >&2
+  IFS= read -r T_WITHDRAWAL_ADDRESS </dev/tty
 
-  # Remove commas and add 6 zeros (convert to lovelace)
-  WITHDRAWAL_AMOUNT=$(echo "$WITHDRAWAL_AMOUNT_RAW" | tr -d ',' | sed 's/$/000000/')
-  
-  # Validate withdrawal amount
-  if [[ ! "$WITHDRAWAL_AMOUNT" =~ ^[0-9]+$ ]]; then
-    echo -e "${RED}Error: Invalid withdrawal amount: $WITHDRAWAL_AMOUNT${NC}" >&2
+  # Validate address
+  if [ -z "$T_WITHDRAWAL_ADDRESS" ]; then
+    echo -e "${RED}Error: Withdrawal address cannot be empty${NC}" >&2
     exit 1
   fi
-  
-  # Prompt user for withdrawal address
-  echo -e "Withdrawal amount detected: ${YELLOW}₳$WITHDRAWAL_AMOUNT_RAW${NC}"
-  read -p "Please enter the desired withdrawal address (bech32): " withdrawal_address
-  
-  # Validate the withdrawal address format
-  if [[ ! "$withdrawal_address" =~ ^(stake1|stake_test1)[a-zA-Z0-9]{50,60}$ ]]; then
+  if [[ ! "$T_WITHDRAWAL_ADDRESS" =~ ^(stake1|stake_test1)[a-zA-Z0-9]{50,60}$ ]]; then
     echo -e "${RED}Error: Invalid bech32 stake address format${NC}" >&2
     exit 1
   fi
-  
-  echo -e "Withdrawal address: ${YELLOW}$withdrawal_address${NC}"
-  echo -e "Withdrawal amount: ${YELLOW}₳$WITHDRAWAL_AMOUNT_RAW${NC} (${WITHDRAWAL_AMOUNT} lovelace)"
+  echo -e "${GREEN}Withdrawal address valid format!${NC}" >&2
 
-  read -p "Do you want to proceed with this withdrawal address and amount? (yes/no): " confirm_withdrawal
-  if [ "$confirm_withdrawal" != "yes" ]; then
-    echo -e "${RED}Withdrawal address and amount not confirmed by user, exiting.${NC}"
+  # Try to extract amount from TITLE
+  echo " " >&2
+  echo "Attempting to extract withdrawal amount from metadata title..." >&2
+  local _title
+  _title=$(echo "$TITLE" | jq -r . | tr -d '\n')
+
+  T_RAW_ADA=$(echo "$_title" | sed -n -E 's/.*[₳]([0-9,]+).*/\1/p')
+  if [ -z "$T_RAW_ADA" ]; then
+    T_RAW_ADA=$(echo "$_title" | sed -n -E 's/.* ([0-9,]+) ADA.*/\1/p')
+  fi
+  if [ -z "$T_RAW_ADA" ]; then
+    T_RAW_ADA=$(echo "$_title" | sed -n -E 's/.* ([0-9,]+) ada.*/\1/p')
+  fi
+
+  # If amount not found in title ask the user
+  if [ -z "$T_RAW_ADA" ]; then
+    echo -e "${YELLOW}No withdrawal amount found in title.${NC}" >&2
+    echo -n "Please enter withdrawal amount in ada: " >&2
+    IFS= read -r T_RAW_ADA </dev/tty
+  fi
+
+  if [ -z "$T_RAW_ADA" ]; then
+    echo -e "${RED}Error: Withdrawal amount cannot be empty${NC}" >&2
     exit 1
   fi
-  
+
+  # Convert ADA -> lovelace
+  local _lovelace
+  _lovelace=$(echo "$T_RAW_ADA" | tr -d ',' | awk '
+    BEGIN{ ok=1 }
+    {
+      if ($0 !~ /^[0-9]*\.?[0-9]+$/) ok=0;
+      amt=$0+0;
+      if (amt<=0) ok=0;
+      if (ok==1) printf("%.0f", amt*1000000);
+    }
+    END{ if (ok==0) exit 1 }')
+  if [ $? -ne 0 ] || [ -z "$_lovelace" ] || [[ ! "$_lovelace" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid withdrawal amount: ${T_RAW_ADA}${NC}" >&2
+    exit 1
+  fi
+  T_LOVELACE="$_lovelace"
+
+  echo "Final confirmation:" >&2
+  echo -e "  Amount: ${YELLOW}₳$T_RAW_ADA${NC} (${T_LOVELACE} lovelace)" >&2
+  echo -e "  Address: ${YELLOW}$T_WITHDRAWAL_ADDRESS${NC}" >&2
+
+  # confirm with user
+  echo -n "Is this correct? (y/n): " >&2
+  IFS= read -r confirm </dev/tty
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "${RED}Aborted by user.${NC}" >&2
+    exit 1
+  fi
+}
+
+generate_treasury_onchain() {
+  # Collect inputs and log to stderr
+  treasury_collect_inputs
+
+  # Emit ONLY JSON to stdout
   cat <<EOF
 {
   "governanceActionType": "treasuryWithdrawals",
   "depositReturnAddress": "$deposit_return_address",
   "withdrawals": [
     {
-      "withdrawalAddress": "$withdrawal_address",
-      "withdrawalAmount": $WITHDRAWAL_AMOUNT
+      "withdrawalAddress": "$T_WITHDRAWAL_ADDRESS",
+      "withdrawalAmount": $T_LOVELACE
     }
   ]
 }
@@ -291,14 +328,21 @@ generate_onchain_property() {
 }
 
 # use helper functions to extract sections
+echo " "
 echo -e "Extracting sections from Markdown"
 
 TITLE=$(get_section "## Title" "## Abstract")
+
+# clean newlines from title
+TITLE=$(echo "$TITLE" | jq -r . | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -Rs .)
+echo -e "Title extracted: ${YELLOW}$TITLE${NC}"
+
 ABSTRACT=$(get_section "## Abstract" "## Motivation")
 MOTIVATION=$(get_section "## Motivation" "## Rationale")
 RATIONALE=$(get_section_last "## Rationale")
 
 # Generate onChain property based on governance action type
+echo -e " "
 echo -e "Generating onChain property for $governance_action_type"
 ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 
@@ -306,6 +350,7 @@ ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 REFERENCES_JSON=$(extract_references)
 
 # Replace the cat <<EOF section (around line 249) with:
+echo -e " "
 echo -e "${CYAN}Downloading context from $METADATA_COMMON_URL...${NC}"
 if ! curl -sSfL "$METADATA_COMMON_URL" -o "$TEMP_CONTEXT"; then
     echo -e "${RED}Error: Failed to download context from $METADATA_COMMON_URL${NC}" >&2
@@ -333,7 +378,6 @@ jq --argjson context "$(cat "$TEMP_CONTEXT")" \
      }
    }' <<< '{}' > "$TEMP_OUTPUT_JSON"
 
-echo -e " "
 echo -e "${CYAN}Formatting JSON output...${NC}"
 
 # Use jq to format the JSON output
@@ -350,4 +394,5 @@ jq '
 
 echo " "
 echo -e "${GREEN}JSONLD metadata successfully created! Output: $FINAL_OUTPUT_JSON ${NC}"
+echo -e "${GREEN}Output: $FINAL_OUTPUT_JSON ${NC}"
 echo " "
