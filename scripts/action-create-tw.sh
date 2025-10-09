@@ -36,6 +36,7 @@ fi
 # Usage message
 
 usage() {
+    echo " "
     echo "Usage: $0 <jsonld-file> [--withdraw-to-script] [--deposit-return-addr <stake address>] [--withdrawal-addr <stake address>]"
     echo "Options:"
     echo "  <jsonld-file>                                    Path to the JSON-LD metadata file"
@@ -53,8 +54,6 @@ input_file=""
 withdraw_to_script="$WITHDRAW_TO_SCRIPT"
 deposit_return_address_input=""
 withdrawal_address_input=""
-
-# todo check all the inputs work
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -102,10 +101,16 @@ if [ -z "$input_file" ]; then
     usage
 fi
 
-# Check if input file exists
-if [ ! -f "$input_file" ]; then
-    echo -e "${RED}Error: Input file not found: $input_file${NC}" >&2
-    exit 1
+# If no governance action type provided, show usage
+if [ -z "$deposit_return_address_input" ]; then
+  echo -e "${RED}Error: --deposit-return-addr is required${NC}" >&2
+  usage
+fi
+
+# If withdrawal addr return address provided, show usage
+if [ -z "$withdrawal_address_input" ]; then
+  echo -e "${RED}Error: --withdrawal-addr is required${NC}" >&2
+  usage
 fi
 
 echo -e " "
