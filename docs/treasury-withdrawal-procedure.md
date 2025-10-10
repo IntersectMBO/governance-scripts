@@ -71,7 +71,7 @@ If metadata passes all the above validations.
 We can sign it with author key(s).
 
 You can either pass the `my-metadata.jsonld` to authors to sign, using something like `./scripts/author-create.sh`.
-Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash.
+Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash to sign via standard cardano wallets.
 
 ### 7. Verify the author's witness(es)
 
@@ -83,7 +83,7 @@ Check the author witnesses were added correctly.
 
 ### 8. Final validation
 
-Just to double check that all is good now.
+Just to double check that all is good now, with author.
 
 - compliance with CIP schema(s)
 - compliance with Intersect schemas (runs by default)
@@ -92,6 +92,8 @@ Just to double check that all is good now.
 ```shell
 ./scripts/metadata-validate.sh ./my-metadata-directory --cip108
 ```
+
+If running with Intersect schema this will give us an error for missing author, this is okay.
 
 ### 9. Host on IPFS
 
@@ -103,9 +105,7 @@ Pin the metadata to different IPFS pinning services.
 
 ### 10. Verify IPFS hosting
 
-We can use `budget-metadata-validate.sh` now without the `--no-ipfs` flag
-
-This will now additionally check that the file is accessible via IPFS and that all the references (if they are using IPFS) are also accessible.
+This will now additionally check that the file is accessible via IPFS.
 
 ```shell
 ./scripts/ipfs-check.sh my-metadata.jsonld
@@ -113,7 +113,7 @@ This will now additionally check that the file is accessible via IPFS and that a
 
 ### 11. Create the action file
 
-Now we can create an Info governance action file from our metadata.
+Now we can create an treasury withdrawal governance action file from our metadata.
 
 ```shell
 ./scripts/action-create-tw.sh my-metadata.jsonld --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
