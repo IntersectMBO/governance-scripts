@@ -22,13 +22,14 @@ Set secrets, you can use the `.env` file for this.
 source ./scripts/.env
 ```
 
-Set some useful variables that we can reuse
+Optionally you can some variables to be reused.
 
 ```shell
 export DEPOSIT_RETURN_ADDR="my-address"
 ```
 
 Make sure that `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` are set.
+These are needed to build the governance action file.
 
 ### 4. Create the metadata document
 
@@ -42,7 +43,7 @@ With the `metadata-create` script taking the data from the doc and creating a `.
 
 ### 5. Sanity check the metadata
 
-Generate a markdown representation from the created `.jsonld`
+Generate a(nother) markdown representation from the created `.jsonld`
 and manually compare against the `.docx`.
 
 ```shell
@@ -58,8 +59,10 @@ We can then run our validation script to check
 - spelling check
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108 --intersect-schema
+./scripts/metadata-validate.sh ./my-metadata-directory --cip108
 ```
+
+If running with Intersect schema this will give us an error for missing author, this is okay.
 
 ### 7. Add author witness(es)
 
@@ -67,11 +70,11 @@ If metadata passes all the above validations.
 We can sign it with author key(s).
 
 You can either pass the `my-metadata.jsonld` to authors to sign, using something like `./scripts/author-create.sh`.
-Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash.
+Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash to sign via standard cardano wallets.
 
 ### 7. Verify the author's witness(es)
 
-Check the author witnesses were added correctly.
+Just to double check that all is good now, with author.
 
 ```shell
 ./scripts/author-validate.sh my-metadata.jsonld
@@ -99,9 +102,7 @@ Pin the metadata to different IPFS pinning services.
 
 ### 10. Verify IPFS hosting
 
-We can use `budget-metadata-validate.sh` now without the `--no-ipfs` flag
-
-This will now additionally check that the file is accessible via IPFS and that all the references (if they are using IPFS) are also accessible.
+This will now additionally check that the file is accessible via IPFS.
 
 ```shell
 ./scripts/ipfs-check.sh my-metadata.jsonld
