@@ -1,6 +1,6 @@
 # Info Action Procedure
 
-Here we intend to document the script and steps within to build a new Info action.
+Here we intend to document the script and steps within to build a new Info action and submit it in a transaction.
 
 ## Steps
 
@@ -69,8 +69,9 @@ If running with Intersect schema this will give us an error for missing author, 
 If metadata passes all the above validations.
 We can sign it with author key(s).
 
-You can either pass the `my-metadata.jsonld` to authors to sign, using something like `./scripts/author-create.sh`.
-Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash to sign via standard cardano wallets.
+You can either pass the `my-metadata.jsonld` to authors to sign, using something like `./scripts/author-create.sh`. 
+Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash to sign via standard cardano wallets. In that case, HWW are supported too, but you need to change the witnessAlgorithm from `ed25519` to `CIP-0008` for those authors that do.
+If you are not sure how your author key signs, CIP-8 signing produces a significantly longer (214 byte) signature string than ed25519 signing (62 bytes). 
 
 ### 7. Verify the author's witness(es)
 
@@ -110,8 +111,39 @@ This will now additionally check that the file is accessible via IPFS.
 
 ### 11. Create the action file
 
-Now we can create an Info governance action file from our metadata.
+Now we can create an Info governance action file from our metadata. The stake key must be registered via a registration certificate (auto done by e.g. pool delegations) and the deposit will eventually appear as staking reward. 
 
 ```shell
 ./scripts/action-create-info.sh my-metadata.jsonld --deposit-return-addr $DEPOSIT_RETURN_ADDR
+```
+
+### 12. Create transaction 
+
+We can now include this .action file in a transaction. 
+Note that the GA deposit is balanced out across all inputs, as if we were to create a new UTXO, and we can spend multiple inputs to get to the deposit. Thus, the below example with only one `--tx-in` consumes a UTXO that must contain 100k ada + fees. 
+
+```shell
+cardano-cli latest transaction build \
+  --tx-in "$(cardano-cli query utxo --address "$(< payment.addr)" --output-json | jq -r 'keys[0]')" \
+  --change-address $(< payment.addr) \
+  --proposal-file info.action \
+  --out-file tx.raw
+```
+### 13. Sign transaction
+
+We copy the contents of `tx.raw` to wherever the key is that contains the input we spend. No other signatures are required. 
+Depending on the setup, e.g. for testnets, copying the raw CBOR could be used to import the tx in certain GUI wallets and sign via those. However, at the moment (Q4 2025), only the Keystone HWW supports signing Governance Actions.  
+
+```shell
+cardano-cli latest transaction sign \
+  --tx-body-file tx.raw \
+  --signing-key-file payment.skey \
+  --out-file tx.signed
+```
+
+### 14. Submit 
+E.g.: through CLI
+```shell
+cardano-cli latest transaction submit \
+  --tx-file tx.signed
 ```
