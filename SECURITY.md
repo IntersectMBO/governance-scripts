@@ -90,7 +90,9 @@ report security vulnerabilities to us.
 ## Contact Information
 
 To report a security vulnerability, please use [GitHub
-form]((add project github form for your project)). Should you experience any issues reporting via GitHub or have other questions, Please contact [Security](security@intersectmbo.org).
+form]((add project github form for your project)).
+Should you experience any issues reporting via GitHub or have other questions,
+please contact [security@intersectmbo.org](mailto:security@intersectmbo.org).
 
 ## Revision of Policy
 
