@@ -288,3 +288,6 @@ KYC
 memecoin
 memecoins
 Snek's
+ICANN
+gTLDs
+gTLD
