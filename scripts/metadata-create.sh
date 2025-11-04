@@ -157,7 +157,7 @@ get_section() {
 
 get_section_last() {
   local label="$1"
-  awk "/^${label}\$/,/^### References\$/" "$TEMP_MD" | sed "1d" \
+  awk "/^${label}\$/,/^## References\$/" "$TEMP_MD" | sed "1d" \
     | jq -Rs .
 }
 
