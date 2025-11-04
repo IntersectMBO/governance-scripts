@@ -157,7 +157,7 @@ get_section() {
 
 get_section_last() {
   local label="$1"
-  awk "/^${label}\$/,/^### References\$/" "$TEMP_MD" | sed "1d" \
+  awk "/^${label}\$/,/^## References\$/" "$TEMP_MD" | sed "1d" \
     | jq -Rs .
 }
 
@@ -169,8 +169,8 @@ extract_references() {
     ref_count = 0
   }
 
-  /^### References$/ { in_refs = 1; next }
-  /^### Authors$/ { in_refs = 0; next }
+  /^## References$/ { in_refs = 1; next }
+  /^## Authors$/ { in_refs = 0; next }
 
   in_refs {
     # Skip empty lines
