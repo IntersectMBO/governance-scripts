@@ -10,6 +10,7 @@ extract_jsonld_data() {
     local motivation=$(jq -r '.body.motivation // empty' "$jsonld_file")
     local rationale=$(jq -r '.body.rationale // empty' "$jsonld_file")
     local authors=$(jq '.authors[] // empty' "$jsonld_file")
+    local onchain=$(jq '.body.onChain // empty' "$jsonld_file")
 
     # Extract the references and format them
     local references=$(jq -r '.body.references[] | "- [\(.label)](\(.uri))" // empty' "$jsonld_file")
@@ -44,6 +45,10 @@ $references
 ## Authors
 
 $authors
+
+## Onchain
+
+$onchain
 EOF
 
     echo "Markdown file generated: $output_file"
