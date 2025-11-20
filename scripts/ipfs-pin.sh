@@ -112,8 +112,36 @@ if [ -z "$input_path" ]; then
 fi
 
 echo -e " "
-echo -e "${YELLOW}IPFS File Pinning Service${NC}"
+echo -e "${CYAN}IPFS File Pinning Service${NC}"
 echo -e "${CYAN}This script pins files to IPFS using multiple pinning services${NC}"
+
+# if pinata is enabled ensure the API key is set
+if [ "$pinata_host" = "true" ]; then
+    if [ -z "${PINATA_API_KEY:-}" ]; then
+        echo -e "${RED}Error: PINATA_API_KEY environment variable is not set, but pinning to Pinata is enabled.${NC}" >&2
+        exit 1
+    fi
+fi
+
+# if blockfrost is enabled ensure the API key is set
+if [ "$blockfrost_host" = "true" ]; then
+    if [ -z "${BLOCKFROST_API_KEY:-}" ]; then
+        echo -e "${RED}Error: BLOCKFROST_API_KEY environment variable is not set, but pinning to Blockfrost is enabled.${NC}" >&2
+        exit 1
+    fi
+fi
+    
+# if nmkr is enabled ensure the API key and user id is set
+if [ "$nmkr_host" = "true" ]; then
+    if [ -z "${NMKR_API_KEY:-}" ]; then
+        echo -e "${RED}Error: NMKR_API_KEY environment variable is not set, but pinning to NMKR is enabled.${NC}" >&2
+        exit 1
+    fi
+    if [ -z "${NMKR_USER_ID:-}" ]; then
+        echo -e "${RED}Error: NMKR_USER_ID environment variable is not set, but pinning to NMKR is enabled.${NC}" >&2
+        exit 1
+    fi
+fi
 
 # Function to pin a single file
 pin_single_file() {
@@ -268,6 +296,7 @@ EOF
     
     echo -e " "
     echo -e "${GREEN}File pinning completed: ${YELLOW}$file${NC}"
+    echo -e "CID: ${YELLOW}$ipfs_cid${NC}"
 }
 
 # Main processing logic
