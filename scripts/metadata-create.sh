@@ -169,8 +169,8 @@ extract_references() {
     ref_count = 0
   }
 
-  /^### References$/ { in_refs = 1; next }
-  /^### Authors$/ { in_refs = 0; next }
+  /^## References$/ { in_refs = 1; next }
+  /^## Authors$/ { in_refs = 0; next }
 
   in_refs {
     # Skip empty lines
