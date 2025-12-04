@@ -127,5 +127,6 @@ infra/terraform/.terraform*
 .envrc
 
 test/
+artifacts/
 
 ./scripts/.env

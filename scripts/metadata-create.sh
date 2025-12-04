@@ -40,9 +40,9 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Create JSON-LD metadata from a Markdown file${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<.md-file> --governance-action-type ${NC}<info|treasury|ppu> ${GREEN}--deposit-return-addr ${NC}<stake-address>"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<.md-file> --governance-action-type ${NC}<info|treasury|update-committee|ppu> ${GREEN}--deposit-return-addr ${NC}<stake-address>"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<.md-file>" "- Path to the .md file as input"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--governance-action-type <info|treasury|ppu>" "- Type of governance action"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--governance-action-type <info|treasury|update-committee|ppu>" "- Type of governance action"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--deposit-return-addr <stake-address>" "- Stake address for deposit return (bech32)"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
@@ -95,6 +95,9 @@ query_governance_deposit() {
 }
 
 query_governance_state_prev_actions() {
+  
+  ga_type="$1"
+
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
     echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
@@ -127,7 +130,7 @@ query_governance_state_prev_actions() {
   # Query previous governance state
   local gov_state
 
-  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds."'$ga_type'" // empty' 2>/dev/null)
 
   if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
     echo -e "${YELLOW}Warning: Could not query governance state from chain.${NC}" >&2
@@ -261,96 +264,6 @@ get_section_last() {
 
 }
 
-# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
-# Returns the deposit amount in lovelace, or "null" if query fails
-query_governance_deposit() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query deposit amount
-  local deposit
-  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
-
-  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  echo "$deposit"
-  return 0
-}
-
-query_governance_state_prev_actions() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query previous governance state
-  local gov_state
-
-  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
-
-  if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query governance state from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  echo "$gov_state"
-  return 0
-}
 # Extract references from References section
 extract_references() {
   awk '
@@ -443,7 +356,7 @@ generate_ppu_onchain() {
   # This is a placeholder - full implementation would require protocol parameter update details
   cat <<EOF
 {
-  "deposit": $deposit_json,
+  "deposit": "$deposit_json",
   "reward_account": "$deposit_return_address",
   "gov_action": {
     "tag": "parameter_change_action",
@@ -543,7 +456,7 @@ generate_treasury_onchain() {
 
   # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
   # Convert withdrawals to rewards array with key-value pairs
-  cat <<EOF
+   cat <<EOF
 {
   "deposit": "$deposit_json",
   "reward_account": "$deposit_return_address",
@@ -560,6 +473,224 @@ generate_treasury_onchain() {
 EOF
 }
 
+collect_remove_committee_credentials() {
+  echo " " >&2
+  echo -e "${YELLOW}Collecting credentials to REMOVE from committee...${NC}" >&2
+  
+  echo -n "How many credentials do you want to remove? (0 if none): " >&2
+  IFS= read -r remove_count </dev/tty
+  
+  # Validate input is a number
+  if ! [[ "$remove_count" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid number${NC}" >&2
+    exit 1
+  fi
+  
+  local remove_credentials="[]"
+  
+  if [ "$remove_count" -gt 0 ]; then
+    local creds="["
+    for ((i=1; i<=remove_count; i++)); do
+      echo " " >&2
+      echo -e "${CYAN}Credential $i to remove:${NC}" >&2
+      
+      # Ask for credential type
+      echo -n "  Type (script/key): " >&2
+      IFS= read -r cred_type </dev/tty
+      
+      # Validate credential type
+      if [[ ! "$cred_type" =~ ^(script|key)$ ]]; then
+        echo -e "${RED}Error: Type must be 'script' or 'key'${NC}" >&2
+        exit 1
+      fi
+      
+      # Ask for credential hash
+      echo -n "  Hash: " >&2
+      IFS= read -r cred_hash </dev/tty
+      
+      # Validate hash (basic validation - should be hex string)
+      if [[ ! "$cred_hash" =~ ^[a-fA-F0-9]+$ ]]; then
+        echo -e "${RED}Error: Hash must be a hexadecimal string${NC}" >&2
+        exit 1
+      fi
+      
+      # Convert type to tag format
+      local tag
+      if [ "$cred_type" = "key" ]; then
+        tag="pubkey_hash"
+      else
+        tag="script_hash"
+      fi
+      
+      # Add to credentials array
+      if [ $i -gt 1 ]; then
+        creds+=","
+      fi
+      creds+="{\"tag\":\"$tag\",\"value\":\"$cred_hash\"}"
+    done
+    creds+="]"
+    remove_credentials="$creds"
+  fi
+  
+  echo "$remove_credentials"
+}
+
+collect_add_committee_credentials() {
+  echo " " >&2
+  echo -e "${YELLOW}Collecting credentials to ADD to committee...${NC}" >&2
+  
+  echo -n "How many credentials do you want to add? (0 if none): " >&2
+  IFS= read -r add_count </dev/tty
+  
+  # Validate input is a number
+  if ! [[ "$add_count" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid number${NC}" >&2
+    exit 1
+  fi
+  
+  local add_credentials="[]"
+  
+  if [ "$add_count" -gt 0 ]; then
+    local creds="["
+    for ((i=1; i<=add_count; i++)); do
+      echo " " >&2
+      echo -e "${CYAN}Credential $i to add:${NC}" >&2
+      
+      # Ask for credential type
+      echo -n "  Type (script/key): " >&2
+      IFS= read -r cred_type </dev/tty
+      
+      # Validate credential type
+      if [[ ! "$cred_type" =~ ^(script|key)$ ]]; then
+        echo -e "${RED}Error: Type must be 'script' or 'key'${NC}" >&2
+        exit 1
+      fi
+      
+      # Ask for credential hash
+      echo -n "  Hash: " >&2
+      IFS= read -r cred_hash </dev/tty
+      
+      # Validate hash (basic validation - should be hex string)
+      if [[ ! "$cred_hash" =~ ^[a-fA-F0-9]+$ ]]; then
+        echo -e "${RED}Error: Hash must be a hexadecimal string${NC}" >&2
+        exit 1
+      fi
+      
+      # Ask for epoch expiry
+      echo -n "  Epoch expiry: " >&2
+      IFS= read -r epoch_expiry </dev/tty
+      
+      # Validate epoch is a number
+      if ! [[ "$epoch_expiry" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Error: Epoch must be a number${NC}" >&2
+        exit 1
+      fi
+      
+      # Convert type to tag format
+      local tag
+      if [ "$cred_type" = "key" ]; then
+        tag="pubkey_hash"
+      else
+        tag="script_hash"
+      fi
+      
+      # Add to credentials array
+      if [ $i -gt 1 ]; then
+        creds+=","
+      fi
+      creds+="{\"key\":{\"tag\":\"$tag\",\"value\":\"$cred_hash\"},\"value\":\"$epoch_expiry\"}"
+    done
+    creds+="]"
+    add_credentials="$creds"
+  fi
+  
+  echo "$add_credentials"
+}
+
+generate_update_committee_onchain() {
+  # Collect credentials to remove and add
+  local remove_creds=$(collect_remove_committee_credentials)
+  local add_creds=$(collect_add_committee_credentials)
+  local deposit_amount=$(query_governance_deposit)
+  local prev_gov_actions=$(query_governance_state_prev_actions 'Committee')
+  local gov_action_index=$(echo "$prev_gov_actions" | jq -r '.govActionIx')
+  local transaction_id=$(echo "$prev_gov_actions" | jq -r '.txId')
+
+  echo "$prev_gov_actions" >&2
+  
+  # Collect signature threshold
+  echo " " >&2
+  echo -e "${YELLOW}Collecting signature threshold...${NC}" >&2
+  echo -n "Threshold numerator: " >&2
+  IFS= read -r threshold_num </dev/tty
+  
+  # Validate numerator is a number
+  if ! [[ "$threshold_num" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Numerator must be a number${NC}" >&2
+    exit 1
+  fi
+  
+  echo -n "Threshold denominator: " >&2
+  IFS= read -r threshold_denom </dev/tty
+  
+  # Validate denominator is a number
+  if ! [[ "$threshold_denom" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Denominator must be a number${NC}" >&2
+    exit 1
+  fi
+  
+  # Validate that denominator is not zero
+  if [ "$threshold_denom" -eq 0 ]; then
+    echo -e "${RED}Error: Denominator cannot be zero${NC}" >&2
+    exit 1
+  fi
+  
+  # Display summary
+  echo " " >&2
+  echo -e "${GREEN}Committee changes summary:${NC}" >&2
+  echo -e "  Credentials to remove: $remove_creds" >&2
+  echo -e "  Credentials to add: $add_creds" >&2
+  echo -e "  Signature threshold: $threshold_num/$threshold_denom" >&2
+  
+  # Confirm with user
+  echo -n "Is this correct? (y/n): " >&2
+  IFS= read -r confirm </dev/tty
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "${RED}Aborted by user.${NC}" >&2
+    exit 1
+  fi
+
+  local committee_changes=""
+  
+   # Add gov_action_id if available
+  if [ -n "$transaction_id" ] && [ "$transaction_id" != "null" ]; then
+    committee_changes+="\"gov_action_id\": {\"transaction_id\": \"$transaction_id\", \"gov_action_index\": $gov_action_index},"
+  fi
+  
+  # Check if remove_creds is not empty
+  if [ "$remove_creds" != "[]" ]; then
+    committee_changes+="\"members_to_remove\": $remove_creds,"
+  fi
+
+   # Check if add_creds is not empty
+  if [ "$add_creds" != "[]" ]; then
+    committee_changes+="\"committee\": $add_creds,"
+  fi
+
+  committee_changes+="\"signature_threshold\": {\"numerator\": \"$threshold_num\", \"denominator\": \"$threshold_denom\"}"
+
+  cat <<EOF
+{ 
+  "deposit": "$deposit_amount",
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+    "tag": "update_committee",
+    $committee_changes
+  }
+}
+EOF
+}
+
 # Generate onChain property based on governance action type
 generate_onchain_property() {
   local action_type="$1"
@@ -570,6 +701,9 @@ generate_onchain_property() {
       ;;
     "treasury")
       generate_treasury_onchain
+      ;;
+    "update-committee")
+      generate_update_committee_onchain
       ;;
     "ppu")
       generate_ppu_onchain
@@ -599,6 +733,13 @@ echo -e " "
 echo -e "Generating onChain property for $governance_action_type"
 ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 
+# Validate the generated JSON
+if ! echo "$ONCHAIN_PROPERTY" | jq empty 2>/dev/null; then
+  echo -e "${RED}Error: Generated onChain property is not valid JSON${NC}" >&2
+  echo -e "${RED}Content: $ONCHAIN_PROPERTY${NC}" >&2
+  exit 1
+fi
+
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
@@ -620,10 +761,6 @@ if ! curl -sSfL "$METADATA_169_COMMON_URL" -o "$TEMP_CIP169"; then
     exit 1
 fi
 
-# echo -e "${CYAN}Merging CIP-108 and CIP-169 contexts...${NC}"
-# Merge contexts: use CIP-108 as base and add/update with contents from CIP-169
-# jq -s '.[0] * .[1]' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
-
 # Build gov_action context based on governance action type
 if [ "$governance_action_type" = "info" ]; then
   GOV_ACTION_CONTEXT='{
@@ -633,7 +770,6 @@ if [ "$governance_action_type" = "info" ]; then
     }
   }'
 elif [ "$governance_action_type" = "treasury" ]; then
-  echo "hello"
   GOV_ACTION_CONTEXT='{
     "@id": "CIP116:GovAction",
     "@context": {
@@ -652,14 +788,51 @@ elif [ "$governance_action_type" = "treasury" ]; then
       }
     }      
   }'
+elif [ "$governance_action_type" = "update-committee" ]; then
+  GOV_ACTION_CONTEXT='{
+    "@id": "CIP116:GovAction",
+    "@context": {
+      "tag": "CIP116:update_committee",
+      "gov_action_id": {
+        "@id": "CIP116:gov_action_id",
+        "@context": {
+          "transaction_id": "CIP116:transaction_id",
+          "gov_action_index": "CIP116:gov_action_index"
+        }
+      },
+      "members_to_remove": {
+        "@id": "CIP116:members_to_remove",
+        "@container": "@set"
+      },
+      "committee": {
+        "@id": "CIP116:committee",
+        "@container": "@set"
+      },
+      "key": {
+        "@id": "CIP116:credential"
+      },
+      "value": {
+        "@id": "CIP116:epoch",
+        "@type": "CIP116:UInt64"
+      },
+      "signature_threshold": {
+        "@id": "CIP116:signature_threshold",
+        "@context": {
+          "numerator": "CIP116:threshold_numerator",
+          "denominator": "CIP116:threshold_denominator"
+        }
+      }
+    }
+  }'
 else 
   GOV_ACTION_CONTEXT='{
     "@id": "CIP116:GovAction"
   }'
 fi
 
-jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" '{
+jq -s --argjson gov_action_ctx "$(echo "$GOV_ACTION_CONTEXT" | jq -c .)" '{
   "@context": {
+    "@language": "en",
     CIP100: .[0]["@context"].CIP100,
     CIP108: .[0]["@context"].CIP108,
     CIP116: .[1]["@context"].CIP116,
