@@ -543,7 +543,7 @@ generate_treasury_onchain() {
 
   # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
   # Convert withdrawals to rewards array with key-value pairs
-  cat <<EOF
+   cat <<EOF
 {
   "deposit": "$deposit_json",
   "reward_account": "$deposit_return_address",
@@ -560,6 +560,16 @@ generate_treasury_onchain() {
 EOF
 }
 
+generate_update_committee_onchain() {
+
+  cat <<EOF
+{
+  "governanceActionType": "updateCommittee",
+  "depositReturnAddress": "$deposit_return_address"
+}
+EOF
+}
+
 # Generate onChain property based on governance action type
 generate_onchain_property() {
   local action_type="$1"
@@ -570,6 +580,9 @@ generate_onchain_property() {
       ;;
     "treasury")
       generate_treasury_onchain
+      ;;
+    "update-committee")
+      generate_update_committee_onchain
       ;;
     "ppu")
       generate_ppu_onchain
