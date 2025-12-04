@@ -33,7 +33,7 @@ usage() {
     echo "Usage: $0 <.md-file> --governance-action-type <info|treasury> --deposit-return-addr <stake-address>"
     echo "Options:"
     echo "  <.md-file>                                    Path to the .md file as input"
-    echo "  --governance-action-type <info|treasury|ppu>  Type of governance action (info, treasury, protocol param update, etc.)"
+    echo "  --governance-action-type <info|treasury|ppu|update-committee>  Type of governance action (info, treasury, protocol param update, etc.)"
     echo "  --deposit-return-addr <stake-address>         Stake address for deposit return (bech32)"
     echo "  -h, --help                                    Show this help message and exit"
     exit 1
@@ -323,6 +323,16 @@ generate_treasury_onchain() {
 EOF
 }
 
+generate_update_committee_onchain() {
+
+  cat <<EOF
+{
+  "governanceActionType": "updateCommittee",
+  "depositReturnAddress": "$deposit_return_address"
+}
+EOF
+}
+
 # Generate onChain property based on governance action type
 generate_onchain_property() {
   local action_type="$1"
@@ -333,6 +343,9 @@ generate_onchain_property() {
       ;;
     "treasury")
       generate_treasury_onchain
+      ;;
+    "update-committee")
+      generate_update_committee_onchain
       ;;
     "ppu")
       generate_ppu_onchain
