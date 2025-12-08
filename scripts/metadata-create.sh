@@ -323,12 +323,152 @@ generate_treasury_onchain() {
 EOF
 }
 
-generate_update_committee_onchain() {
+collect_remove_committee_credentials() {
+  echo " " >&2
+  echo -e "${YELLOW}Collecting credentials to REMOVE from committee...${NC}" >&2
+  
+  echo -n "How many credentials do you want to remove? (0 if none): " >&2
+  IFS= read -r remove_count </dev/tty
+  
+  # Validate input is a number
+  if ! [[ "$remove_count" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid number${NC}" >&2
+    exit 1
+  fi
+  
+  local remove_credentials="[]"
+  
+  if [ "$remove_count" -gt 0 ]; then
+    local creds="["
+    for ((i=1; i<=remove_count; i++)); do
+      echo " " >&2
+      echo -e "${CYAN}Credential $i to remove:${NC}" >&2
+      
+      # Ask for credential type
+      echo -n "  Type (script/key): " >&2
+      IFS= read -r cred_type </dev/tty
+      
+      # Validate credential type
+      if [[ ! "$cred_type" =~ ^(script|key)$ ]]; then
+        echo -e "${RED}Error: Type must be 'script' or 'key'${NC}" >&2
+        exit 1
+      fi
+      
+      # Ask for credential hash
+      echo -n "  Hash: " >&2
+      IFS= read -r cred_hash </dev/tty
+      
+      # Validate hash (basic validation - should be hex string)
+      if [[ ! "$cred_hash" =~ ^[a-fA-F0-9]+$ ]]; then
+        echo -e "${RED}Error: Hash must be a hexadecimal string${NC}" >&2
+        exit 1
+      fi
+      
+      # Add to credentials array
+      if [ $i -gt 1 ]; then
+        creds+=","
+      fi
+      creds+="{\"type\":\"$cred_type\",\"hash\":\"$cred_hash\"}"
+    done
+    creds+="]"
+    remove_credentials="$creds"
+  fi
+  
+  echo "$remove_credentials"
+}
 
+collect_add_committee_credentials() {
+  echo " " >&2
+  echo -e "${YELLOW}Collecting credentials to ADD to committee...${NC}" >&2
+  
+  echo -n "How many credentials do you want to add? (0 if none): " >&2
+  IFS= read -r add_count </dev/tty
+  
+  # Validate input is a number
+  if ! [[ "$add_count" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid number${NC}" >&2
+    exit 1
+  fi
+  
+  local add_credentials="[]"
+  
+  if [ "$add_count" -gt 0 ]; then
+    local creds="["
+    for ((i=1; i<=add_count; i++)); do
+      echo " " >&2
+      echo -e "${CYAN}Credential $i to add:${NC}" >&2
+      
+      # Ask for credential type
+      echo -n "  Type (script/key): " >&2
+      IFS= read -r cred_type </dev/tty
+      
+      # Validate credential type
+      if [[ ! "$cred_type" =~ ^(script|key)$ ]]; then
+        echo -e "${RED}Error: Type must be 'script' or 'key'${NC}" >&2
+        exit 1
+      fi
+      
+      # Ask for credential hash
+      echo -n "  Hash: " >&2
+      IFS= read -r cred_hash </dev/tty
+      
+      # Validate hash (basic validation - should be hex string)
+      if [[ ! "$cred_hash" =~ ^[a-fA-F0-9]+$ ]]; then
+        echo -e "${RED}Error: Hash must be a hexadecimal string${NC}" >&2
+        exit 1
+      fi
+      
+      # Ask for epoch expiry
+      echo -n "  Epoch expiry: " >&2
+      IFS= read -r epoch_expiry </dev/tty
+      
+      # Validate epoch is a number
+      if ! [[ "$epoch_expiry" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Error: Epoch must be a number${NC}" >&2
+        exit 1
+      fi
+      
+      # Add to credentials array
+      if [ $i -gt 1 ]; then
+        creds+=","
+      fi
+      creds+="{\"type\":\"$cred_type\",\"hash\":\"$cred_hash\",\"epochExpiry\":$epoch_expiry}"
+    done
+    creds+="]"
+    add_credentials="$creds"
+  fi
+  
+  echo "$add_credentials"
+}
+
+generate_update_committee_onchain() {
+  # Collect credentials to remove and add
+  local remove_creds=$(collect_remove_committee_credentials)
+  local add_creds=$(collect_add_committee_credentials)
+  
+  # Display summary
+  echo " " >&2
+  echo -e "${GREEN}Committee changes summary:${NC}" >&2
+  echo -e "  Credentials to remove: $remove_creds" >&2
+  echo -e "  Credentials to add: $add_creds" >&2
+  
+  # Confirm with user
+  echo -n "Is this correct? (y/n): " >&2
+  IFS= read -r confirm </dev/tty
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "${RED}Aborted by user.${NC}" >&2
+    exit 1
+  fi
+
+  # Generate JSON output
   cat <<EOF
 {
   "governanceActionType": "updateCommittee",
-  "depositReturnAddress": "$deposit_return_address"
+  "depositReturnAddress": "$deposit_return_address",
+  "committeeChanges": {
+    "addCommitteeCredentials": $add_creds,
+    "removeCommitteeCredentials": $remove_creds
+  }
 }
 EOF
 }
