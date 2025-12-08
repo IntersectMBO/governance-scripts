@@ -460,15 +460,31 @@ generate_update_committee_onchain() {
     exit 1
   fi
 
+  # Build committeeChanges object dynamically, excluding empty arrays
+  local committee_changes="{"
+  
+  # Check if add_creds is not empty
+  if [ "$add_creds" != "[]" ]; then
+    committee_changes+="\"addCommitteeCredentials\": $add_creds"
+  fi
+  
+  # Check if remove_creds is not empty
+  if [ "$remove_creds" != "[]" ]; then
+    # Add comma if add_creds was added
+    if [ "$add_creds" != "[]" ]; then
+      committee_changes+=","
+    fi
+    committee_changes+="\"removeCommitteeCredentials\": $remove_creds"
+  fi
+  
+  committee_changes+="}"
+
   # Generate JSON output
   cat <<EOF
 {
   "governanceActionType": "updateCommittee",
   "depositReturnAddress": "$deposit_return_address",
-  "committeeChanges": {
-    "addCommitteeCredentials": $add_creds,
-    "removeCommitteeCredentials": $remove_creds
-  }
+  "committeeChanges": $committee_changes
 }
 EOF
 }
