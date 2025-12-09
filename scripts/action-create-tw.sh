@@ -389,8 +389,8 @@ echo -e " "
 echo -e "${CYAN}Creating action file...${NC}"
 
 cardano-cli conway governance action create-treasury-withdrawal \
-  --$protocol_magic \
-  --governance-action-deposit $(cardano-cli conway query gov-state --$protocol_magic | jq -r '.currentPParams.govActionDeposit') \
+  --$protocol_magic_name \
+  --governance-action-deposit $(cardano-cli conway query gov-state --$protocol_magic_name | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
