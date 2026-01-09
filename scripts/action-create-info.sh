@@ -236,7 +236,9 @@ is_stake_address_script() {
 
 is_stake_address_registered(){
     local address="$1"
+    echo -e "Checking if stake address $address is registered on-chain..."
     stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].stakeRegistrationDeposit')
+    
     if [ "$stake_address_deposit" != "null" ]; then
         return 0
     else
