@@ -219,7 +219,7 @@ is_stake_address_registered(){
     echo -e "Checking if stake address $address is registered on-chain..."
     which cardano-cli
     cardano-cli conway query stake-address-info --address "$address" 
-    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].delegationDeposit')
+    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].stakeRegistrationDeposit')
     
     if [ "$stake_address_deposit" != "null" ]; then
         return 0
