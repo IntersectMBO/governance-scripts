@@ -3,7 +3,7 @@
 ######################################################
 # using permalink to reduce likelihood of breakage, or ability for it to change
 INTERSECT_AUTHOR_PATH="https://raw.githubusercontent.com/IntersectMBO/governance-actions/b1c5603fb306623e0261c234312eb7e011ac3d38/intersect-author.json"
-CHECK_INTERSECT_AUTHOR="false"
+CHECK_INTERSECT_AUTHOR="true"
 ######################################################
 
 set -euo pipefail
@@ -25,11 +25,11 @@ fi
 
 # Usage message
 usage() {
-    echo -e "${YELLOW}Usage: $0 <jsonld-file|directory> [--check-intersect]${NC}"
+    echo -e "${YELLOW}Usage: $0 <jsonld-file|directory> [--no-intersect]${NC}"
     echo ""
     echo -e "${CYAN}Verify metadata files with author witness using cardano-signer${NC}"
     echo -e "Options:"
-    echo -e "  --check-intersect  Compares author's to Intersect's known pub author key"
+    echo -e "  --no-intersect  Choose not to compare author's public key against Intersect's known public key."
     exit 1
 }
 
@@ -44,8 +44,8 @@ check_intersect="$CHECK_INTERSECT_AUTHOR"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --check-intersect)
-            check_intersect="true"
+        --no-intersect)
+            check_intersect="false"
             shift
             ;;
         -h|--help)
