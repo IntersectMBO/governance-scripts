@@ -157,8 +157,8 @@ get_section() {
 
 get_section_last() {
   local label="$1"
-  awk "/^${label}\$/,/^### References\$/" "$TEMP_MD" | sed "1d" \
-    | jq -Rs .
+  awk "/^${label}\$/ {found=1; next} /^## References$/ {found=0} found" "$TEMP_MD" | jq -Rs .
+
 }
 
 # Extract references from References section
