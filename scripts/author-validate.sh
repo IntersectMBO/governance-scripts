@@ -33,6 +33,11 @@ usage() {
     exit 1
 }
 
+# Check correct number of arguments
+if [ "$#" -lt 1 ]; then
+    usage
+fi
+
 # Parse command line arguments
 input_path=""
 check_intersect="$CHECK_INTERSECT_AUTHOR"
