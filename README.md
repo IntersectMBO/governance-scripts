@@ -78,34 +78,123 @@ Note: These are really only useful for archival reasons.
 
 ## Dependencies
 
-In order to run all of these scripts you will need
+In order to run all of these scripts you will need the following binaries/packages installed:
 
-- [ajv-cli](https://www.npmjs.com/package/ajv-cli)
-- aspell
-- b2sum
-- cardano-cli
-- [cardano-signer](https://github.com/gitmachtl/cardano-signer)
-- [ipfs](https://docs.ipfs.eth.link/install/command-line/)
-- jq
+### Required Binaries/Packages
 
-probably more I have missed...
+#### Core Dependencies
+- **[ajv-cli](https://www.npmjs.com/package/ajv-cli)** (`ajv`)
+  - Used by: `metadata-validate.sh`
+  - JSON schema validation
+
+- **aspell**
+  - Used by: `metadata-validate.sh`
+  - Spell checking for metadata fields
+
+- **b2sum**
+  - Used by: `action-create-info.sh`, `action-create-tw.sh`, `hash.sh`
+  - BLAKE2b-256 hashing
+
+- **cardano-cli**
+  - Used by: `action-create-info.sh`, `action-create-tw.sh`, `author-create.sh`, `hash.sh`, `budget-action-create.sh`, `budget-metadata-validate.sh`
+  - Cardano CLI tools for governance actions and address operations
+
+- **[cardano-signer](https://github.com/gitmachtl/cardano-signer)**
+  - Used by: `metadata-canonize.sh`, `metadata-validate.sh`, `author-create.sh`, `author-validate.sh`
+  - Canonization and signing of governance metadata
+
+- **curl**
+  - Used by: `metadata-create.sh`, `metadata-validate.sh`, `ipfs-check.sh`, `ipfs-pin.sh`, `author-validate.sh`, `query-live-actions.sh`
+  - HTTP requests for downloading schemas and API calls
+
+- **[ipfs](https://docs.ipfs.eth.link/install/command-line/)**
+  - Used by: `action-create-info.sh`, `action-create-tw.sh`, `ipfs-check.sh`, `ipfs-pin.sh`, `budget-action-create.sh`
+  - IPFS file operations (adding, pinning, checking)
+
+- **jq**
+  - Used by: Most scripts
+  - JSON processing and manipulation
+
+- **[pandoc](https://pandoc.org/)**
+  - Used by: `metadata-create.sh`, `budget-metadata-create.sh`
+  - Document conversion (DOCX to Markdown, Markdown processing)
+
+#### Optional/Additional Dependencies
+- **perl**
+  - Used by: `budget-metadata-create.sh`
+  - Text processing and regex operations
+
+- **qpdf**
+  - Used by: `pdf-remove-metadata.sh`
+  - PDF manipulation and linearization
+
+- **exiftool**
+  - Used by: `pdf-remove-metadata.sh`
+  - PDF metadata removal
+
+- **bc**
+  - Used by: `action-create-tw.sh`
+  - Arithmetic calculations (ADA amount formatting)
+
+- **base64**
+  - Used by: `ipfs-pin.sh`
+  - Base64 encoding for NMKR API
+
+- **awk**, **sed** (standard Unix utilities)
+  - Used by: Multiple scripts
+  - Text processing
 
 ## Environment Variables
 
-### Cardano Node
+### Cardano Node Configuration
 
-The scripts that uses node variables are `action-create-xxx.sh`.
+The following scripts require a local Cardano node connection:
+- `action-create-info.sh`
+- `action-create-tw.sh`
+- `budget-action-create.sh`
 
-These expect `CARDANO_NODE_NETWORK_ID` and `CARDANO_NODE_SOCKET_PATH` to be set.
-So you'll need a local cardano node socket path.
+**Required Variables:**
+- **`CARDANO_NODE_SOCKET_PATH`**
+  - Path to the Cardano node socket file
+  - Example: `/path/to/cardano-node.socket` or `./node.socket`
+  - Used for querying governance state and creating governance actions
 
-### Secrets
+- **`CARDANO_NODE_NETWORK_ID`**
+  - Network identifier for the Cardano network
+  - Values: `764824073` or `mainnet` for mainnet, or testnet identifier for testnet
+  - Used to determine network type (mainnet vs testnet)
 
-The only script that uses secrets is `ipfs-pin.sh`.
+**Note:** The scripts check that these variables are set and will exit with an error if they are missing.
 
-Secrets can be stored via `./scripts/.env` and based on `./scripts/.env.example`.
+### IPFS Pinning Service Secrets
 
-This is setup so you can run:
+The `ipfs-pin.sh` script supports multiple IPFS pinning services. The following environment variables are required only if you want to use the corresponding service:
+
+- **`PINATA_API_KEY`**
+  - Required if using Pinata pinning service
+  - Get your API key from [Pinata](https://www.pinata.cloud/)
+
+- **`BLOCKFROST_API_KEY`**
+  - Required if using Blockfrost pinning service
+  - Get your API key from [Blockfrost](https://blockfrost.io/)
+
+- **`NMKR_API_KEY`**
+  - Required if using NMKR pinning service
+  - Get your API key from [NMKR](https://nmkr.io/)
+
+- **`NMKR_USER_ID`**
+  - Required if using NMKR pinning service
+  - Your NMKR user ID
+
+### Optional Environment Variables
+
+- **`IPFS_GATEWAY_URI`**
+  - Mentioned in script comments but not currently used in the code
+  - May be used in future versions for custom IPFS gateway configuration
+
+### Setting Environment Variables
+
+Create a `.env` file in the `scripts/` directory, based on [example](./scripts/.env.example) and source it:
 
 ```shell
 source ./scripts/.env
