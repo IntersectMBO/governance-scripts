@@ -32,6 +32,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 # check if user has ipfs cli installed
 if ! command -v ipfs >/dev/null 2>&1; then
@@ -41,19 +44,18 @@ fi
 
 # Usage message
 usage() {
-    echo -e "${YELLOW}Usage: $0 <file|directory> [--check-too] [--no-local] [--no-pinata] [--no-blockfrost] [--no-nmkr]${NC}"
-    echo -e "${CYAN}Pin a files or contents of a directory of files to local IPFS node and pin via Blockfrost, NMKR and Pinata.${NC}"
-    echo -e "${CYAN}Optionally check if file is already discoverable on IPFS.${NC}"
-    echo -e " "
-    echo -e "Options:"
-    echo -e "  <file|directory>        Path to your file or directory containing files."
-    echo -e "  --just-jsonld           If a directory is provided, only .jsonld files will be processed. (default: ${YELLOW}$JUST_JSONLD${NC})"
-    echo -e "  --check-too             Run a check if file is discoverable on ipfs, only pin if not discoverable (default: ${YELLOW}$CHECK_TOO${NC})"
-    echo -e "  --no-local              Don't try to pin file on local ipfs node (default: ${YELLOW}$DEFAULT_HOST_ON_LOCAL_NODE${NC})"
-    echo -e "  --no-pinata             Don't try to pin file on pinata service (default: ${YELLOW}$DEFAULT_HOST_ON_PINATA${NC})"
-    echo -e "  --no-blockfrost         Don't try to pin file on blockfrost service (default: ${YELLOW}$DEFAULT_HOST_ON_BLOCKFROST${NC})"
-    echo -e "  --no-nmkr               Don't try to pin file on NMKR service (default: ${YELLOW}$DEFAULT_HOST_ON_NMKR${NC})"
-    echo -e "  -h, --help              Show this help message and exit"
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Pin files to local IPFS node and via Blockfrost, NMKR and Pinata${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC} [${GREEN}--check-too${NC}] [${GREEN}--no-local${NC}] [${GREEN}--no-pinata${NC}] [${GREEN}--no-blockfrost${NC}] [${GREEN}--no-nmkr${NC}]"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<file|directory>" "- Path to your file or directory containing files"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--just-jsonld]" "- If a directory is provided, only .jsonld files will be processed (default: $JUST_JSONLD)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--check-too]" "- Run a check if file is discoverable on ipfs, only pin if not discoverable (default: $CHECK_TOO)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-local]" "- Don't try to pin file on local ipfs node (default: $DEFAULT_HOST_ON_LOCAL_NODE)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-pinata]" "- Don't try to pin file on pinata service (default: $DEFAULT_HOST_ON_PINATA)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-blockfrost]" "- Don't try to pin file on blockfrost service (default: $DEFAULT_HOST_ON_BLOCKFROST)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-nmkr]" "- Don't try to pin file on NMKR service (default: $DEFAULT_HOST_ON_NMKR)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 

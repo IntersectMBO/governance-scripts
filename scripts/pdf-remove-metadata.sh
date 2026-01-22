@@ -8,26 +8,39 @@ DEFAULT_NEW_FILE="false" # default to false, to the script overwrites the input 
 # treat unset variables as an error, and fail if any command in a pipeline fails
 set -euo pipefail
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BRIGHTWHITE='\033[0;37;1m'
+NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
+
 # check if user has exiftool cli installed
 if ! command -v exiftool >/dev/null 2>&1; then
-  echo "Error: exiftool cli is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: exiftool cli is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
 # check if user has qpdf cli installed
 if ! command -v qpdf >/dev/null 2>&1; then
-  echo "Error: qpdf cli is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: qpdf cli is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
 # Usage message
 usage() {
-    echo "Usage: $0 <pdf-file> [--new-file]"
-    echo "Remove all metadata from a PDF file and set the Title metadata to the filename."
-    echo "  "
-    echo "Options:"
-    echo "  <pdf-file>            Path to your PDF file."
-    echo "  --new-file            Create a new file with the signed metadata (default: $DEFAULT_NEW_FILE)"
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Remove all metadata from a PDF file and set the Title metadata to the filename${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<pdf-file>${NC} [${GREEN}--new-file${NC}]"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<pdf-file>" "- Path to your PDF file"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--new-file]" "- Create a new file with the signed metadata (default: $DEFAULT_NEW_FILE)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 

@@ -1,8 +1,31 @@
 #!/bin/bash
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BRIGHTWHITE='\033[0;37;1m'
+NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
+
+# Usage message
+usage() {
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Generate BLAKE2b-256 hash of a file${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file>${NC}"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the file to hash"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    exit 1
+}
+
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <jsonld-file>"
+    usage
     exit 1
 fi
 

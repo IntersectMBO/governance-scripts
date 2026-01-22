@@ -22,6 +22,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 # Gateways to check if file is already hosted on IPFS
 DEFAULT_GATEWAY_1="https://ipfs.io/ipfs/"
@@ -43,12 +46,14 @@ if ! command -v ipfs >/dev/null 2>&1; then
 fi
 
 # Usage message
+
 usage() {
-    echo "Usage: $0 <file|CID>"
-    echo "Check if a file or IPFS CIDv1 is discoverable via free IPFS gateways"
-    echo "  "
-    echo "Options:"
-    echo "  <file|CID>                  Path to your file."
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Check if a file or IPFS CIDv1 is discoverable via free IPFS gateways${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|CID>${NC}"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<file|CID>" "- Path to your file or IPFS CIDv1"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 

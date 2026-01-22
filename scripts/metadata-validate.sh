@@ -2,13 +2,17 @@
 
 ##################################################
 # Colors
+#BLACK='\033[0;30m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-WHITE='\033[0;37m'
+BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 ##################################################
 # Default schema URLs
@@ -62,16 +66,21 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Usage message
+
 usage() {
-    echo "Usage: $0 <jsonld-file> [--cip108] [--cip100] [--cip136] [--intersect-schema] [--schema URL] [--dict FILE]"
-    echo "Options:"
-    echo "  --cip100              Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
-    echo "  --cip108              Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
-    echo "  --cip119              Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
-    echo "  --cip136              Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
-    echo "  --no-intersect-schema Don't compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
-    echo "  --schema <URL>        Compare against schema at URL"
-    echo "  --dict <FILE>         Use custom aspell dictionary file (optional)"
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Validate a JSON-LD metadata file${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--dict ${NC}FILE]"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip100]" "- Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip108]" "- Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip119]" "- Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip136]" "- Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-intersect-schema]" "- Don't compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--schema URL]" "- Compare against schema at URL"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--dict FILE]" "- Use custom aspell dictionary file (optional)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 
@@ -143,7 +152,8 @@ echo -e "${CYAN}This script validates JSON-LD governance metadata files against 
 # If the file ends with .jsonld, create a temporary .json copy (overwrite if exists)
 if [[ "$input_file" == *.jsonld ]]; then
     if [ ! -f "$input_file" ]; then
-        echo -e "${RED}Error: File '${YELLOW}$input_file${RED}' does not exist.${NC}"
+        echo -e "${RED}Error: File '${YELLOW}$input_file${RED}' does not exist.${NC}">&2
+        usage
         exit 1
     fi
     TMP_JSON_FILE="/tmp/metadata.json"
@@ -155,7 +165,8 @@ fi
 
 # Check if the file exists
 if [ ! -f "$JSON_FILE" ]; then
-    echo -e "${RED}Error: File '${YELLOW}$JSON_FILE${RED}' does not exist.${NC}"
+    echo -e "${RED}Error: File '${YELLOW}$JSON_FILE${RED}' does not exist.${NC}">&2
+    usage
     exit 1
 fi
 
