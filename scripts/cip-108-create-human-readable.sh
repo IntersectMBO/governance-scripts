@@ -1,5 +1,28 @@
 #!/bin/bash
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BRIGHTWHITE='\033[0;37;1m'
+NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
+
+# Usage message
+usage() {
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Create a human-readable Markdown representation of JSON-LD metadata${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC}"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<file|directory>" "- Path to JSON-LD file or directory"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    exit 1
+}
+
 # Function to extract fields from the JSON-LD file
 extract_jsonld_data() {
     local jsonld_file=$1
@@ -56,8 +79,12 @@ EOF
 
 # Check if a file or directory is passed as an argument
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <file or directory>"
-    exit 1
+    usage
+fi
+
+# Handle help flag
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    usage
 fi
 
 # If the argument is a directory, process each JSON-LD file (including subdirectories)

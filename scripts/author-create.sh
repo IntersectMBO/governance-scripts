@@ -26,6 +26,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 # Check if cardano-signer is installed
 if ! command -v cardano-signer >/dev/null 2>&1; then
@@ -35,14 +38,16 @@ fi
 
 # Usage message
 usage() {
-    echo -e "${YELLOW}Usage: $0 <jsonld-file|directory> <signing-key> [--author-name NAME] [--use-cip8] [--new-file]${NC}"
-    echo -e "${CYAN}Sign metadata files with author witness using cardano-signer${NC}"
-    echo -e " "
-    echo -e "Options:"
-    echo -e "  --author-name NAME    Specify the author name (default: ${YELLOW}$DEFAULT_AUTHOR_NAME${NC})"
-    echo -e "  --new-file            Create a new file with the signed metadata (default: ${YELLOW}$DEFAULT_NEW_FILE${NC})"
-    echo -e "  --use-cip8            Use CIP-8 signing algorithm (default: ${YELLOW}$DEFAULT_USE_CIP8${NC})"
-    echo -e "  -h, --help            Show this help message and exit"
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Sign metadata files with author witness using cardano-signer${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file|directory> <signing-key>${NC} [${GREEN}--author-name${NC} NAME] [${GREEN}--use-cip8${NC}] [${GREEN}--new-file${NC}]"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file|directory>" "- Path to JSON-LD file or directory to sign"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<signing-key>" "- Path to the signing key"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--author-name NAME]" "- Specify the author name (default: $DEFAULT_AUTHOR_NAME)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--use-cip8]" "- Use CIP-8 signing algorithm (default: $DEFAULT_USE_CIP8)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--new-file]" "- Create a new file with the signed metadata (default: $DEFAULT_NEW_FILE)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 

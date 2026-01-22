@@ -20,22 +20,26 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 # Check if pandoc cli is installed
 if ! command -v pandoc >/dev/null 2>&1; then
-  echo "Error: pandoc is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: pandoc is not installed or not in your PATH.${NC}" >&2
   exit 1
 fi
 
 # Usage message
 usage() {
-    echo " "
-    echo "Usage: $0 <.md-file> --governance-action-type <info|treasury> --deposit-return-addr <stake-address>"
-    echo "Options:"
-    echo "  <.md-file>                                    Path to the .md file as input"
-    echo "  --governance-action-type <info|treasury|ppu>  Type of governance action (info, treasury, protocol param update, etc.)"
-    echo "  --deposit-return-addr <stake-address>         Stake address for deposit return (bech32)"
-    echo "  -h, --help                                    Show this help message and exit"
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Create JSON-LD metadata from a Markdown file${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<.md-file> --governance-action-type ${NC}<info|treasury|ppu> ${GREEN}--deposit-return-addr ${NC}<stake-address>"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<.md-file>" "- Path to the .md file as input"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--governance-action-type <info|treasury|ppu>" "- Type of governance action"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--deposit-return-addr <stake-address>" "- Stake address for deposit return (bech32)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 

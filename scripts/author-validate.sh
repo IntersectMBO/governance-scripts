@@ -16,6 +16,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 # Check if cardano-signer is installed
 if ! command -v cardano-signer >/dev/null 2>&1; then
@@ -25,11 +28,13 @@ fi
 
 # Usage message
 usage() {
-    echo -e "${YELLOW}Usage: $0 <jsonld-file|directory> [--no-intersect]${NC}"
-    echo ""
-    echo -e "${CYAN}Verify metadata files with author witness using cardano-signer${NC}"
-    echo -e "Options:"
-    echo -e "  --no-intersect  Choose not to compare author's public key against Intersect's known public key."
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Verify metadata files with author witness using cardano-signer${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file|directory>${NC} [${GREEN}--no-intersect${NC}]"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file|directory>" "- Path to JSON-LD file or directory to verify"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-intersect]" "- Don't compare author's public key against Intersect's known key"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 

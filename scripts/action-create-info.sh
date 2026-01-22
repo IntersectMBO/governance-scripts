@@ -19,27 +19,33 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BRIGHTWHITE='\033[0;37;1m'
 NC='\033[0m'
+UNDERLINE='\033[4m'
+BOLD='\033[1m'
+GRAY='\033[0;90m'
 
 # Check if cardano-cli is installed
 if ! command -v cardano-cli >/dev/null 2>&1; then
-  echo "Error: cardano-cli is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: cardano-cli is not installed or not in your PATH." >&2
   exit 1
 fi
 
 # Check if ipfs cli is installed
 if ! command -v ipfs >/dev/null 2>&1; then
-  echo "Error: ipfs cli is not installed or not in your PATH." >&2
+  echo -e "${RED}Error: ipfs cli is not installed or not in your PATH." >&2
   exit 1
 fi
 
 # Usage message
 
 usage() {
-    echo "Usage: $0 <jsonld-file> [--deposit-return-addr <stake address>]"
-    echo "Options:"
-    echo "  <jsonld-file>                                    Path to the JSON-LD metadata file"
-    echo "  --deposit-return-addr <stake address>            Check that metadata deposit return address matches provided one (Bech32)"
-    echo "  -h, --help                                       Show this help message and exit"
+    local col=50
+    echo -e "${UNDERLINE}${BOLD}Create an Info action from a given JSON-LD metadata file${NC}"
+    echo -e "\n"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--deposit-return-addr ${NC}<stake address>]"
+    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--deposit-return-addr <stake address>]" "- Optional check that metadata deposit return address"
+    printf "  %-*s${GRAY}%s${NC}\n" $col "" "matches provided one (Bech32)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
 
@@ -57,7 +63,7 @@ while [[ $# -gt 0 ]]; do
                 deposit_return_address_input="$2"
                 shift 2
             else
-                echo -e "${RED}Error: --deposit-return-addr requires a value${NC}" >&2
+                echo -e "\n${RED}Error: --deposit-return-addr requires a value${NC}\n" >&2
                 usage
             fi
             ;;
