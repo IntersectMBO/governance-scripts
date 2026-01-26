@@ -30,6 +30,11 @@ if ! command -v pandoc >/dev/null 2>&1; then
   exit 1
 fi
 
+# Check if cardano-cli is installed (needed for deposit querying)
+if ! command -v cardano-cli >/dev/null 2>&1; then
+  echo -e "${YELLOW}Warning: cardano-cli is not installed. Deposit amount will need to be provided manually.${NC}" >&2
+fi
+
 # Usage message
 usage() {
     local col=50
@@ -118,7 +123,7 @@ fi
 echo -e " "
 echo -e "${YELLOW}Creating a governance action metadata file from a markdown file${NC}"
 echo -e "${CYAN}This script assumes a basic structure for the markdown file, using H2 headers${NC}"
-echo -e "${CYAN}This script uses Intersect's governance action schemas (extended CIP108)${NC}"
+echo -e "${CYAN}This script uses CIP169 governance metadata extension with CIP-116 ProposalProcedure format${NC}"
 
 # Generate output filename: same directory and name as input, but with .jsonld extension
 input_dir=$(dirname "$input_file")
@@ -163,6 +168,98 @@ get_section_last() {
   local label="$1"
   awk "/^${label}\$/ {found=1; next} /^## References$/ {found=0} found" "$TEMP_MD" | jq -Rs .
 
+}
+
+# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
+# Returns the deposit amount in lovelace, or "null" if query fails
+query_governance_deposit() {
+  # Check if cardano-cli is available
+  if ! command -v cardano-cli >/dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if node socket path is set
+  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if network id is set
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Determine network flag
+  local network_flag=""
+  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
+    network_flag="--mainnet"
+  else
+    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
+  fi
+
+  # Query deposit amount
+  local deposit
+  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
+
+  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
+    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  echo "$deposit"
+  return 0
+}
+
+# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
+# Returns the deposit amount in lovelace, or "null" if query fails
+query_governance_deposit() {
+  # Check if cardano-cli is available
+  if ! command -v cardano-cli >/dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if node socket path is set
+  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if network id is set
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Determine network flag
+  local network_flag=""
+  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
+    network_flag="--mainnet"
+  else
+    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
+  fi
+
+  # Query deposit amount
+  local deposit
+  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
+
+  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
+    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  echo "$deposit"
+  return 0
 }
 
 # Extract references from References section
@@ -213,25 +310,55 @@ extract_references() {
   ' "$TEMP_MD"
 }
 
-# Generate onChain property for info governance action
+# Generate onChain property for info governance action (CIP-116 ProposalProcedure format)
 generate_info_onchain() {
+  local deposit_amount
+  deposit_amount=$(query_governance_deposit)
+  
+  # If deposit query failed, use null (JSON null, not string)
+  local deposit_json
+  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
+    deposit_json="null"
+  else
+    deposit_json="$deposit_amount"
+  fi
+
   cat <<EOF
 {
-  "governanceActionType": "info",
-  "depositReturnAddress": "$deposit_return_address"
+  "@type": "ProposalProcedure",
+  "deposit": $deposit_json,
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+    "tag": "info_action"
+  }
 }
 EOF
 }
 
-# Generate onChain property for ppu governance action
+# Generate onChain property for ppu governance action (CIP-116 ProposalProcedure format)
 generate_ppu_onchain() {
+  local deposit_amount
+  deposit_amount=$(query_governance_deposit)
+  
+  # If deposit query failed, use null (JSON null, not string)
+  local deposit_json
+  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
+    deposit_json="null"
+  else
+    deposit_json="$deposit_amount"
+  fi
 
-  # todo, improve this
-
+  # Note: protocol_param_update field is required for parameter_change_action
+  # This is a placeholder - full implementation would require protocol parameter update details
   cat <<EOF
 {
-  "governanceActionType": "protocolParameterChanges",
-  "depositReturnAddress": "$deposit_return_address"
+  "@type": "ProposalProcedure",
+  "deposit": $deposit_json,
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+    "tag": "parameter_change_action",
+    "protocol_param_update": {}
+  }
 }
 EOF
 }
@@ -312,17 +439,33 @@ generate_treasury_onchain() {
   # Collect inputs and log to stderr
   treasury_collect_inputs
 
-  # Emit ONLY JSON to stdout
+  local deposit_amount
+  deposit_amount=$(query_governance_deposit)
+  
+  # If deposit query failed, use null (JSON null, not string)
+  local deposit_json
+  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
+    deposit_json="null"
+  else
+    deposit_json="$deposit_amount"
+  fi
+
+  # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
+  # Convert withdrawals to rewards array with key-value pairs
   cat <<EOF
 {
-  "governanceActionType": "treasuryWithdrawals",
-  "depositReturnAddress": "$deposit_return_address",
-  "withdrawals": [
-    {
-      "withdrawalAddress": "$T_WITHDRAWAL_ADDRESS",
-      "withdrawalAmount": $T_LOVELACE
-    }
-  ]
+  "@type": "ProposalProcedure",
+  "deposit": $deposit_json,
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+    "tag": "treasury_withdrawals_action",
+    "rewards": [
+      {
+        "key": "$T_WITHDRAWAL_ADDRESS",
+        "value": $T_LOVELACE
+      }
+    ]
+  }
 }
 EOF
 }
@@ -369,7 +512,7 @@ ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
-# Replace the cat <<EOF section (around line 249) with:
+# Download context (CIP169 onChain property uses CIP-116 format, which is standard JSON)
 echo -e " "
 echo -e "${CYAN}Downloading context from $METADATA_COMMON_URL...${NC}"
 if ! curl -sSfL "$METADATA_COMMON_URL" -o "$TEMP_CONTEXT"; then
@@ -377,6 +520,7 @@ if ! curl -sSfL "$METADATA_COMMON_URL" -o "$TEMP_CONTEXT"; then
     exit 1
 fi
 
+# Build the metadata JSON-LD with CIP-116 ProposalProcedure format onChain property
 jq --argjson context "$(cat "$TEMP_CONTEXT")" \
    --argjson title "$TITLE" \
    --argjson abstract "$ABSTRACT" \
