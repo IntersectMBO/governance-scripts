@@ -41,7 +41,6 @@ usage() {
     echo -e "  ${GREEN}ipfs-check${NC}              Check IPFS pinning status"
     echo -e "  ${GREEN}ipfs-pin${NC}                Pin files to IPFS"
     echo -e "  ${GREEN}pdf-remove-metadata${NC}     Remove metadata from PDF files"
-    echo -e "  ${GREEN}query-actions${NC}           Query live governance actions"
     echo -e "\n"
     echo -e "Use ${BOLD}governance ${GREEN}<command>${NC} ${YELLOW}-h${NC} for more information about a specific command"
     echo -e "\n"
