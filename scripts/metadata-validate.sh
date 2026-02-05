@@ -269,7 +269,6 @@ if [ "$use_cip_169" = "true" ]; then
     echo -e "${WHITE}Downloading CIP-169 Governance Metadata Extension schema...${NC}"
     TEMP_CIP_169_SCHEMA="$TMP_SCHEMAS_DIR/cip-169-schema.json"
     curl -sSfSL "$CIP_169_SCHEMA" -o "$TEMP_CIP_169_SCHEMA"
-    echo $TEMP_CIP_169_SCHEMA
 fi
 
 # Determine which Intersect schema to use based on governanceActionType property

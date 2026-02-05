@@ -216,52 +216,6 @@ query_governance_deposit() {
   return 0
 }
 
-# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
-# Returns the deposit amount in lovelace, or "null" if query fails
-query_governance_deposit() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query deposit amount
-  local deposit
-  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
-
-  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
-    echo "null"
-    return 1
-  fi
-
-  echo "$deposit"
-  return 0
-}
-
 query_governance_state_prev_actions() {
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
@@ -369,7 +323,7 @@ generate_info_onchain() {
 
   cat <<EOF
 {
-  "deposit": $deposit_json,
+  "deposit": "$deposit_json",
   "reward_account": "$deposit_return_address",
   "gov_action": {
      "tag": "info_action"
