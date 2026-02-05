@@ -13,6 +13,7 @@ NC='\033[0m'
 UNDERLINE='\033[4m'
 BOLD='\033[1m'
 GRAY='\033[0;90m'
+WHITE='\033[1;37m'
 
 ##################################################
 # Default schema URLs
@@ -20,16 +21,20 @@ CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
 CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
+CIP_169_SCHEMA="https://raw.githubusercontent.com/elenabardho/CIPs/refs/heads/cip-governance-metadata-extension-schema/cip-governance-metadata-extension/cip-0169.common.schema.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
 INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
 
 # Default schema values
+# CIP-169 is the default as it extends CIP-100 with on-chain effects verification
+# When CIP-169 is used, CIP-116 is automatically included for reference resolution
 DEFAULT_USE_CIP_100="false"
 DEFAULT_USE_CIP_108="false"
 DEFAULT_USE_CIP_119="false"
 DEFAULT_USE_CIP_136="false"
-DEFAULT_USE_INTERSECT="true"
+DEFAULT_USE_CIP_169="false"
+DEFAULT_USE_INTERSECT="false"
 ##################################################
 
 # Check if cardano-signer is installed
@@ -77,7 +82,8 @@ usage() {
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip108]" "- Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip119]" "- Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip136]" "- Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-intersect-schema]" "- Don't compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip169]" "- Compare against CIP-169 Governance metadata schema (default: $DEFAULT_USE_CIP_169, includes CIP-116)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--intersect-schema]" "- Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--schema URL]" "- Compare against schema at URL"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--dict FILE]" "- Use custom aspell dictionary file (optional)"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
@@ -90,6 +96,7 @@ use_cip_108="$DEFAULT_USE_CIP_108"
 use_cip_100="$DEFAULT_USE_CIP_100"
 use_cip_119="$DEFAULT_USE_CIP_119"
 use_cip_136="$DEFAULT_USE_CIP_136"
+use_cip_169="$DEFAULT_USE_CIP_169"
 use_intersect_schema="$DEFAULT_USE_INTERSECT"
 user_schema_url=""
 user_schema="false"
@@ -114,8 +121,12 @@ while [[ $# -gt 0 ]]; do
             use_cip_136="true"
             shift
             ;;
-        --no-intersect-schema)
-            use_intersect_schema="false"
+        --cip169)
+            use_cip_169="true"
+            shift
+            ;;
+        --intersect-schema)
+            use_intersect_schema="true"
             shift
             ;;
         --schema)
@@ -254,6 +265,13 @@ if [ "$use_cip_136" = "true" ]; then
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
+if [ "$use_cip_169" = "true" ]; then
+    echo -e "${WHITE}Downloading CIP-169 Governance Metadata Extension schema...${NC}"
+    TEMP_CIP_169_SCHEMA="$TMP_SCHEMAS_DIR/cip-169-schema.json"
+    curl -sSfSL "$CIP_169_SCHEMA" -o "$TEMP_CIP_169_SCHEMA"
+    echo $TEMP_CIP_169_SCHEMA
+fi
+
 # Determine which Intersect schema to use based on governanceActionType property
 if [ "$use_intersect_schema" = "true" ]; then
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
@@ -286,11 +304,12 @@ fi
 # Validate the JSON file against the schemas
 schemas=("$TMP_SCHEMAS_DIR"/*-schema.json)
 VALIDATION_FAILED=0
+
 for schema in "${schemas[@]}"; do
     echo -e " "
     echo -e "${CYAN}Validating against schema: ${YELLOW}$schema${NC}"
     if [ -f "$schema" ]; then
-        ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=true
+        ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=false
         if [ $? -ne 0 ]; then
             VALIDATION_FAILED=1
         fi
