@@ -129,7 +129,7 @@ echo -e "${CYAN}Doing some basic validation and checks on metadata${NC}"
 check_field() {
     local field_name="$1"
     local field_value="$2"
-    
+
     if [ -z "$field_value" ] || [ "$field_value" = "null" ]; then
         echo -e "${RED}Error: Required field '$field_name' not found in metadata${NC}" >&2
         exit 1
@@ -140,22 +140,25 @@ check_field() {
 title=$(jq -r '.body.title' "$input_file")
 check_field "title" "$title"
 
-ga_type=$(jq -r '.body.onChain.governanceActionType' "$input_file")
-check_field "governanceActionType" "$ga_type"
+ga_type=$(jq -r '.body.onChain.gov_action.tag' "$input_file")
+check_field "tag" "$ga_type"
 
-deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$input_file")
-check_field "depositReturnAddress" "$deposit_return"
+deposit_return=$(jq -r '.body.onChain.reward_account' "$input_file")
+check_field "reward_account" "$deposit_return"
+
+deposit=$(jq -r '.body.onChain.deposit' "$input_file")
+check_field "deposit" "$deposit"
 
 authors=$(jq -r '.authors' "$input_file")
 check_field "authors" "$authors"
 witness=$(jq -r '.authors[0].witness' "$input_file")
 check_field "witness" "$witness"
 
-if [ "$ga_type" = "info" ]; then
-    echo "Metadata has correct governanceActionType"
+if [ "$ga_type" = "info_action" ]; then
+    echo "Metadata has correct governance action tag"
 else
-    echo "Metadata does not have the correct governanceActionType"
-    echo "Expected: info found: $ga_type"
+    echo "Metadata does not have the correct governance action tag"
+    echo "Expected: info_action found: $ga_type"
     exit 1
 fi
 
@@ -222,7 +225,7 @@ is_stake_address_script() {
 
 is_stake_address_registered(){
     local address="$1"
-    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].delegationDeposit')
+    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].stakeRegistrationDeposit')
     if [ "$stake_address_deposit" != "null" ]; then
         return 0
     else

@@ -3,8 +3,8 @@
 ##################################################
 
 # Default configuration values
-METADATA_COMMON_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/common.jsonld"
-
+METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/cip-governance-metadata-extension/cip169.common.jsonld"
+METADATA_108_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0108/cip-0108.common.jsonld"
 ##################################################
 
 # Exit immediately if a command exits with a non-zero status,
@@ -28,6 +28,11 @@ GRAY='\033[0;90m'
 if ! command -v pandoc >/dev/null 2>&1; then
   echo -e "${RED}Error: pandoc is not installed or not in your PATH.${NC}" >&2
   exit 1
+fi
+
+# Check if cardano-cli is installed (needed for deposit querying)
+if ! command -v cardano-cli >/dev/null 2>&1; then
+  echo -e "${YELLOW}Warning: cardano-cli is not installed. Deposit amount will need to be provided manually.${NC}" >&2
 fi
 
 # Usage message
@@ -118,7 +123,7 @@ fi
 echo -e " "
 echo -e "${YELLOW}Creating a governance action metadata file from a markdown file${NC}"
 echo -e "${CYAN}This script assumes a basic structure for the markdown file, using H2 headers${NC}"
-echo -e "${CYAN}This script uses Intersect's governance action schemas (extended CIP108)${NC}"
+echo -e "${CYAN}This script uses CIP169 governance metadata extension with CIP-116 ProposalProcedure format${NC}"
 
 # Generate output filename: same directory and name as input, but with .jsonld extension
 input_dir=$(dirname "$input_file")
@@ -165,6 +170,96 @@ get_section_last() {
 
 }
 
+# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
+# Returns the deposit amount in lovelace, or "null" if query fails
+query_governance_deposit() {
+  # Check if cardano-cli is available
+  if ! command -v cardano-cli >/dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if node socket path is set
+  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if network id is set
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Determine network flag
+  local network_flag=""
+  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
+    network_flag="--mainnet"
+  else
+    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
+  fi
+
+  # Query deposit amount
+  local deposit
+  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
+
+  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
+    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  echo "$deposit"
+  return 0
+}
+
+query_governance_state_prev_actions() {
+  # Check if cardano-cli is available
+  if ! command -v cardano-cli >/dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if node socket path is set
+  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Check if network id is set
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
+    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  # Determine network flag
+  local network_flag=""
+  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
+    network_flag="--mainnet"
+  else
+    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
+  fi
+
+  # Query previous governance state
+  local gov_state
+
+  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+
+  if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
+    echo -e "${YELLOW}Warning: Could not query governance state from chain.${NC}" >&2
+    echo "null"
+    return 1
+  fi
+
+  echo "$gov_state"
+  return 0
+}
 # Extract references from References section
 extract_references() {
   awk '
@@ -213,25 +308,56 @@ extract_references() {
   ' "$TEMP_MD"
 }
 
-# Generate onChain property for info governance action
+# Generate onChain property for info governance action (CIP-116 ProposalProcedure format)
 generate_info_onchain() {
+  local deposit_amount
+  deposit_amount=$(query_governance_deposit)
+  
+  # If deposit query failed, use null (JSON null, not string)
+  local deposit_json
+  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
+    deposit_json="null"
+  else
+    deposit_json="$deposit_amount"
+  fi
+
   cat <<EOF
 {
-  "governanceActionType": "info",
-  "depositReturnAddress": "$deposit_return_address"
+  "deposit": "$deposit_json",
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+     "tag": "info_action"
+  }
 }
 EOF
 }
 
-# Generate onChain property for ppu governance action
+# Generate onChain property for ppu governance action (CIP-116 ProposalProcedure format)
 generate_ppu_onchain() {
+  local deposit_amount
+  deposit_amount=$(query_governance_deposit)
+  
+  # If deposit query failed, use null (JSON null, not string)
+  local deposit_json
+  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
+    deposit_json="null"
+  else
+    deposit_json="$deposit_amount"
+  fi
 
-  # todo, improve this
+  prev_gov_actions=$(query_governance_state_prev_actions)
 
+  # Note: protocol_param_update field is required for parameter_change_action
+  # This is a placeholder - full implementation would require protocol parameter update details
   cat <<EOF
 {
-  "governanceActionType": "protocolParameterChanges",
-  "depositReturnAddress": "$deposit_return_address"
+  "deposit": $deposit_json,
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+    "tag": "parameter_change_action",
+    "gov_action_id": "TODO: get it from user input as well as from chain",
+    "protocol_param_update": {}
+  }
 }
 EOF
 }
@@ -312,17 +438,32 @@ generate_treasury_onchain() {
   # Collect inputs and log to stderr
   treasury_collect_inputs
 
-  # Emit ONLY JSON to stdout
+  local deposit_amount
+  deposit_amount=$(query_governance_deposit)
+  
+  # If deposit query failed, use null (JSON null, not string)
+  local deposit_json
+  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
+    deposit_json="null"
+  else
+    deposit_json="$deposit_amount"
+  fi
+
+  # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
+  # Convert withdrawals to rewards array with key-value pairs
   cat <<EOF
 {
-  "governanceActionType": "treasuryWithdrawals",
-  "depositReturnAddress": "$deposit_return_address",
-  "withdrawals": [
-    {
-      "withdrawalAddress": "$T_WITHDRAWAL_ADDRESS",
-      "withdrawalAmount": $T_LOVELACE
-    }
-  ]
+  "deposit": "$deposit_json",
+  "reward_account": "$deposit_return_address",
+  "gov_action": {
+    "tag": "treasury_withdrawals_action",
+    "rewards": [
+      {
+        "key": "$T_WITHDRAWAL_ADDRESS",
+        "value": "$T_LOVELACE"
+      }
+    ]
+  }
 }
 EOF
 }
@@ -369,14 +510,95 @@ ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
-# Replace the cat <<EOF section (around line 249) with:
+# Download contexts from both CIP-108 and CIP-169 and merge them
 echo -e " "
-echo -e "${CYAN}Downloading context from $METADATA_COMMON_URL...${NC}"
-if ! curl -sSfL "$METADATA_COMMON_URL" -o "$TEMP_CONTEXT"; then
-    echo -e "${RED}Error: Failed to download context from $METADATA_COMMON_URL${NC}" >&2
+echo -e "${CYAN}Downloading CIP-108 context from $METADATA_108_COMMON_URL...${NC}"
+TEMP_CIP108=$(mktemp /tmp/metadata_create_cip108.XXXXXX)
+if ! curl -sSfL "$METADATA_108_COMMON_URL" -o "$TEMP_CIP108"; then
+    echo -e "${RED}Error: Failed to download context from $METADATA_108_COMMON_URL${NC}" >&2
+    rm -f "$TEMP_CIP108"
     exit 1
 fi
 
+echo -e "${CYAN}Downloading CIP-169 context from $METADATA_169_COMMON_URL...${NC}"
+TEMP_CIP169=$(mktemp /tmp/metadata_create_cip169.XXXXXX)
+if ! curl -sSfL "$METADATA_169_COMMON_URL" -o "$TEMP_CIP169"; then
+    echo -e "${RED}Error: Failed to download context from $METADATA_169_COMMON_URL${NC}" >&2
+    rm -f "$TEMP_CIP108" "$TEMP_CIP169"
+    exit 1
+fi
+
+# echo -e "${CYAN}Merging CIP-108 and CIP-169 contexts...${NC}"
+# Merge contexts: use CIP-108 as base and add/update with contents from CIP-169
+# jq -s '.[0] * .[1]' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
+
+# Build gov_action context based on governance action type
+if [ "$governance_action_type" = "info" ]; then
+  GOV_ACTION_CONTEXT='{
+    "@id": "CIP116:GovAction",
+    "@context": {
+      "tag": "CIP116:info_action"
+    }
+  }'
+elif [ "$governance_action_type" = "treasury" ]; then
+  echo "hello"
+  GOV_ACTION_CONTEXT='{
+    "@id": "CIP116:GovAction",
+    "@context": {
+      "tag": "CIP116:treasury_withdrawals_action",
+      "rewards": {
+        "@id": "CIP116:rewards",
+        "@container": "@set"
+      },
+      "key": {
+        "@id": "CIP116:rewardAddress",
+        "@type": "CIP116:RewardAddress"
+      },
+      "value": {
+        "@id": "CIP116:amount",
+        "@type": "CIP116:UInt64"
+      }
+    }      
+  }'
+else 
+  GOV_ACTION_CONTEXT='{
+    "@id": "CIP116:GovAction"
+  }'
+fi
+
+jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" '{
+  "@context": {
+    CIP100: .[0]["@context"].CIP100,
+    CIP108: .[0]["@context"].CIP108,
+    CIP116: .[1]["@context"].CIP116,
+    CIP169: .[1]["@context"].CIP169,
+    hashAlgorithm: .[0]["@context"].hashAlgorithm,
+    body: {
+      "@id": .[0]["@context"].body["@id"],
+      "@context": (.[0]["@context"].body["@context"] * {
+        onChain: {
+          "@id": "CIP169:onChain",
+          "@context": {
+            deposit: {
+              "@id": "CIP116:deposit",
+              "@type": "CIP116:UInt64"
+            },
+            reward_account: {
+              "@id": "CIP116:reward_account",
+              "@type": "CIP116:RewardAddress"
+            },
+            gov_action: $gov_action_ctx
+          }
+        }
+      })
+    },
+    authors: .[0]["@context"].authors
+  }
+}' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
+
+rm -f "$TEMP_CIP108" "$TEMP_CIP169"
+
+# Build the metadata JSON-LD with CIP-116 ProposalProcedure format onChain property
 jq --argjson context "$(cat "$TEMP_CONTEXT")" \
    --argjson title "$TITLE" \
    --argjson abstract "$ABSTRACT" \
