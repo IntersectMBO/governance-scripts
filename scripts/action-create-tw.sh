@@ -163,28 +163,34 @@ check_field() {
 title=$(jq -r '.body.title' "$input_file")
 check_field "title" "$title"
 
-ga_type=$(jq -r '.body.onChain.governanceActionType' "$input_file")
-check_field "governanceActionType" "$ga_type"
+ga_type=$(jq -r '.body.onChain.gov_action.tag' "$input_file")
+check_field "tag" "$ga_type"
 
-deposit_return=$(jq -r '.body.onChain.depositReturnAddress' "$input_file")
-check_field "depositReturnAddress" "$deposit_return"
+deposit_return=$(jq -r '.body.onChain.reward_account' "$input_file")
+check_field "reward_account" "$deposit_return"
+
+deposit_amount=$(jq -r '.body.onChain.deposit' "$input_file")
+check_field "deposit" "$deposit_amount"
+
+withdrawal_list=$(jq -r '.body.onChain.gov_action.rewards' "$input_file")
+check_field "rewards" "$withdrawal_list"
 
 # todo: support multiple withdrawals
-withdrawal_address=$(jq -r '.body.onChain.withdrawals[0].withdrawalAddress' "$input_file")
-check_field "withdrawalAddress" "$withdrawal_address"
-withdrawal_amount=$(jq -r '.body.onChain.withdrawals[0].withdrawalAmount' "$input_file")
-check_field "withdrawalAmount" "$withdrawal_amount"
+withdrawal_address=$(jq -r '.body.onChain.gov_action.rewards[0].key' "$input_file")
+check_field "key" "$withdrawal_address"
+withdrawal_amount=$(jq -r '.body.onChain.gov_action.rewards[0].value' "$input_file")
+check_field "value" "$withdrawal_amount"
 
 authors=$(jq -r '.authors' "$input_file")
 check_field "authors" "$authors"
 witness=$(jq -r '.authors[0].witness' "$input_file")
 check_field "witness" "$witness"
 
-if [ "$ga_type" = "treasuryWithdrawals" ]; then
+if [ "$ga_type" = "treasury_withdrawals_action" ]; then
     echo "Metadata has correct governanceActionType"
 else
     echo "Metadata does not have the correct governanceActionType"
-    echo "Expected: treasuryWithdrawals found: $ga_type"
+    echo "Expected: treasury_withdrawals_action found: $ga_type"
     exit 1
 fi
 
@@ -292,7 +298,7 @@ fi
 
 is_stake_address_registered(){
     local address="$1"
-    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].delegationDeposit')
+    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].stakeRegistrationDeposit')
     if [ "$stake_address_deposit" != "null" ]; then
         return 0
     else
