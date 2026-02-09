@@ -453,15 +453,14 @@ generate_treasury_onchain() {
   # Convert withdrawals to rewards array with key-value pairs
   cat <<EOF
 {
-  "@type": "ProposalProcedure",
-  "deposit": $deposit_json,
+  "deposit": "$deposit_json",
   "reward_account": "$deposit_return_address",
   "gov_action": {
     "tag": "treasury_withdrawals_action",
     "rewards": [
       {
         "key": "$T_WITHDRAWAL_ADDRESS",
-        "value": $T_LOVELACE
+        "value": "$T_LOVELACE"
       }
     ]
   }
@@ -529,7 +528,7 @@ if ! curl -sSfL "$METADATA_169_COMMON_URL" -o "$TEMP_CIP169"; then
     exit 1
 fi
 
-echo -e "${CYAN}Merging CIP-108 and CIP-169 contexts...${NC}"
+# echo -e "${CYAN}Merging CIP-108 and CIP-169 contexts...${NC}"
 # Merge contexts: use CIP-108 as base and add/update with contents from CIP-169
 # jq -s '.[0] * .[1]' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
 
@@ -541,7 +540,27 @@ if [ "$governance_action_type" = "info" ]; then
       "tag": "CIP116:info_action"
     }
   }'
-else
+elif [ "$governance_action_type" = "treasury" ]; then
+  echo "hello"
+  GOV_ACTION_CONTEXT='{
+    "@id": "CIP116:GovAction",
+    "@context": {
+      "tag": "CIP116:treasury_withdrawals_action",
+      "rewards": {
+        "@id": "CIP116:rewards",
+        "@container": "@set"
+      },
+      "key": {
+        "@id": "CIP116:rewardAddress",
+        "@type": "CIP116:RewardAddress"
+      },
+      "value": {
+        "@id": "CIP116:amount",
+        "@type": "CIP116:UInt64"
+      }
+    }      
+  }'
+else 
   GOV_ACTION_CONTEXT='{
     "@id": "CIP116:GovAction"
   }'

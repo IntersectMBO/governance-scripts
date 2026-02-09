@@ -302,6 +302,12 @@ fi
 
 # Validate the JSON file against the schemas
 schemas=("$TMP_SCHEMAS_DIR"/*-schema.json)
+
+if [ -z "$(ls -A $TMP_SCHEMAS_DIR)" ]; then
+    echo -e "${RED}Error: No schemas were downloaded.${NC}"
+    exit 1
+fi
+
 VALIDATION_FAILED=0
 
 for schema in "${schemas[@]}"; do
