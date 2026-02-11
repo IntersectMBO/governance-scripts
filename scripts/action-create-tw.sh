@@ -136,10 +136,10 @@ fi
 # Get if mainnet or testnet
 if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
     echo -e "${YELLOW}Local node is using mainnet${NC}"
-    protocol_magic="mainnet"
+    protocol_magic_name="mainnet"
 else
     echo -e "${YELLOW}Local node is using a testnet${NC}"
-    protocol_magic="testnet"
+    protocol_magic_name="testnet"
 fi
 
 # Open the provided metadata file
@@ -228,7 +228,7 @@ is_stake_address_mainnet() {
 }
 
 # if mainnet node then expect addresses to be mainnet
-if [ "$protocol_magic" = "mainnet" ]; then
+if [ "$protocol_magic_name" = "mainnet" ]; then
     if is_stake_address_mainnet "$deposit_return"; then
         echo -e "Deposit return address is a valid mainnet stake address"
     else
@@ -292,7 +292,7 @@ fi
 
 is_stake_address_registered(){
     local address="$1"
-    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].delegationDeposit')
+    stake_address_deposit=$(cardano-cli conway query stake-address-info --address "$address" | jq -r '.[0].stakeRegistrationDeposit')
     if [ "$stake_address_deposit" != "null" ]; then
         return 0
     else
@@ -393,8 +393,8 @@ echo -e " "
 echo -e "${CYAN}Creating action file...${NC}"
 
 cardano-cli conway governance action create-treasury-withdrawal \
-  --$protocol_magic \
-  --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
+  --$protocol_magic_name \
+  --governance-action-deposit $(cardano-cli conway query gov-state --$protocol_magic_name | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
