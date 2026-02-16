@@ -302,7 +302,7 @@ fi
 
 # Validate the JSON file against the schemas
 schemas=("$TMP_SCHEMAS_DIR"/*-schema.json)
-
+# In the case where flags are used to not have any schemas download, exit with 1
 if [ -z "$(ls -A $TMP_SCHEMAS_DIR)" ]; then
     echo -e "${RED}Error: No schemas were downloaded.${NC}"
     exit 1
