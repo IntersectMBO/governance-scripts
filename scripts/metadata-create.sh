@@ -95,6 +95,8 @@ query_governance_deposit() {
 }
 
 query_governance_state_prev_actions() {
+  
+  ga_type="$1"
 
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
@@ -128,7 +130,7 @@ query_governance_state_prev_actions() {
   # Query previous governance state
   local gov_state
 
-  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds."'$ga_type'" // empty' 2>/dev/null)
 
   if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
     echo -e "${YELLOW}Warning: Could not query governance state from chain.${NC}" >&2
@@ -610,9 +612,14 @@ generate_update_committee_onchain() {
   local remove_creds=$(collect_remove_committee_credentials)
   local add_creds=$(collect_add_committee_credentials)
   local deposit_amount=$(query_governance_deposit)
-  local prev_gov_actions=$(query_governance_state_prev_actions)
 
-  echo "previous gov actions: $prev_gov_actions" >&2
+  echo "Fetching previous gov actions from chain:"
+
+  local prev_gov_actions=$(query_governance_state_prev_actions 'Committee')
+  local gov_action_index=$(echo "$prev_gov_actions" | jq -r '.govActionIx')
+  local transaction_id=$(echo "$prev_gov_actions" | jq -r '.txId')
+
+  echo "$prev_gov_actions" >&2
   
   # Collect signature threshold
   echo " " >&2
@@ -656,28 +663,25 @@ generate_update_committee_onchain() {
     exit 1
   fi
 
-  # Build committeeChanges object dynamically, excluding empty arrays
-  local committee_changes="{"
+  local committee_changes=""
+  
+   # Add gov_action_id if available
+  if [ -n "$transaction_id" ] && [ "$transaction_id" != "null" ]; then
+    committee_changes+="\"gov_action_id\": {\"transaction_id\": \"$transaction_id\", \"gov_action_index\": $gov_action_index},"
+  fi
   
   # Check if add_creds is not empty
   if [ "$add_creds" != "[]" ]; then
-    committee_changes+="\"committee\": $add_creds"
+    committee_changes+="\"committee\": $add_creds,"
   fi
-  
+
   # Check if remove_creds is not empty
   if [ "$remove_creds" != "[]" ]; then
-    # Add comma if add_creds was added
-    if [ "$add_creds" != "[]" ]; then
-      committee_changes+=","
-    fi
-    committee_changes+="\"members_to_remove\": $remove_creds"
+    committee_changes+="\"members_to_remove\": $remove_creds,"
   fi
 
-  committee_changes+=",\"signature_threshold\": {\"numerator\": $threshold_num, \"denominator\": $threshold_denom}"
-  
-  committee_changes+="}"
+  committee_changes+="\"signature_threshold\": {\"numerator\": $threshold_num, \"denominator\": $threshold_denom}"
 
-  # Generate JSON output
   cat <<EOF
 { 
   "deposit": $deposit_amount,
@@ -732,6 +736,13 @@ echo -e " "
 echo -e "Generating onChain property for $governance_action_type"
 ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 
+# Validate the generated JSON
+if ! echo "$ONCHAIN_PROPERTY" | jq empty 2>/dev/null; then
+  echo -e "${RED}Error: Generated onChain property is not valid JSON${NC}" >&2
+  echo -e "${RED}Content: $ONCHAIN_PROPERTY${NC}" >&2
+  exit 1
+fi
+
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
@@ -753,10 +764,6 @@ if ! curl -sSfL "$METADATA_169_COMMON_URL" -o "$TEMP_CIP169"; then
     exit 1
 fi
 
-# echo -e "${CYAN}Merging CIP-108 and CIP-169 contexts...${NC}"
-# Merge contexts: use CIP-108 as base and add/update with contents from CIP-169
-# jq -s '.[0] * .[1]' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
-
 # Build gov_action context based on governance action type
 if [ "$governance_action_type" = "info" ]; then
   GOV_ACTION_CONTEXT='{
@@ -766,7 +773,6 @@ if [ "$governance_action_type" = "info" ]; then
     }
   }'
 elif [ "$governance_action_type" = "treasury" ]; then
-  echo "hello"
   GOV_ACTION_CONTEXT='{
     "@id": "CIP116:GovAction",
     "@context": {
@@ -790,6 +796,13 @@ elif [ "$governance_action_type" = "update-committee" ]; then
     "@id": "CIP116:GovAction",
     "@context": {
       "tag": "CIP116:update_committee",
+      "gov_action_id": {
+        "@id": "CIP116:gov_action_id",
+        "@context": {
+          "transaction_id": "CIP116:transaction_id",
+          "gov_action_index": "CIP116:gov_action_index"
+        }
+      },
       "members_to_remove": {
         "@id": "CIP116:members_to_remove",
         "@container": "@set"
@@ -806,7 +819,11 @@ elif [ "$governance_action_type" = "update-committee" ]; then
         "@type": "CIP116:UInt64"
       },
       "signature_threshold": {
-        "@id": "CIP116:signature_threshold"
+        "@id": "CIP116:signature_threshold",
+        "@context": {
+          "numerator": "CIP116:threshold_numerator",
+          "denominator": "CIP116:threshold_denominator"
+        }
       }
     }
   }'
@@ -816,7 +833,7 @@ else
   }'
 fi
 
-jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" '{
+jq -s --argjson gov_action_ctx "$(echo "$GOV_ACTION_CONTEXT" | jq -c .)" '{
   "@context": {
     CIP100: .[0]["@context"].CIP100,
     CIP108: .[0]["@context"].CIP108,
