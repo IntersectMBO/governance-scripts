@@ -286,6 +286,10 @@ if [ "$use_intersect_schema" = "true" ]; then
     elif [ "$governance_action_type" = "protocolParameterChanges" ]; then
         echo -e "${WHITE}Downloading Intersect ${YELLOW}parameterChanges${WHITE} schema...${NC}"
         INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
+        
+    elif [ "$governance_action_type" = "updateCommittee" ]; then
+        echo -e "${WHITE}Downloading Intersect ${YELLOW}parameterChanges${WHITE} schema...${NC}"
+        #INTERSECT_SCHEMA_URL="$INTERSECT_COMMITTEE_UPDATE_SCHEMA" PLACEHOLDER for future schema
     else
         echo -e "${RED}Error: Unknown governanceActionType '${YELLOW}$governance_action_type${RED}' in '${YELLOW}$JSON_FILE${RED}'.${NC}"
         exit 1

@@ -31,6 +31,11 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Creates a treasury withdrawal governance action from a Intersect metadata
   - Uses a local cardano node socket file
 
+- [action-create-uc-beta.sh](./scripts/action-create-uc-beta.sh)
+  - BETA Version
+  - Creates a update committee governance action from an Intersect metadata
+  - Uses local cardano node socket file
+
 #### IPFS Scripts
 
 - [ipfs-check.sh](./scripts/ipfs-check.sh)
