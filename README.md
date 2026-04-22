@@ -41,7 +41,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 
 #### CIP-108 Scripts
 
-- [cip-108-create-human-readable.sh](./scripts/cip-108-create-human-readable.sh)
+- [cip-108-markdown.sh](./scripts/cip-108-markdown.sh)
   - Creates a markdown file from CIP108 metadata
 
 #### CIP-100 Author Scripts
@@ -51,7 +51,14 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [author-validate.sh](./scripts/author-validate.sh)
   - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
 
-#### (archive) 2025 Budget Scripts
+#### Other Scripts
+
+- [hash.sh](./scripts/hash.sh)
+  - Performs a blake2b-256 hash on provided file
+- [pdf-remove-metadata.sh](./scripts/pdf-remove-metadata.sh)
+  - Removes PDF metadata from PDF files
+
+#### Archived Scripts
 
 Note: These are really only useful for archival reasons.
 
@@ -63,13 +70,8 @@ Note: These are really only useful for archival reasons.
   - This expects certain structure within the `.docx`
 - [budget-action-create.sh](./scripts/archive/budget-action-create.sh)
   - Creates Intersect budget treasury withdrawal file from a .jsonld
-
-#### Other Scripts
-
-- [hash.sh](./scripts/hash.sh)
-  - Performs a blake2b-256 hash on provided file
-- [pdf-remove-metadata.sh](./scripts/pdf-remove-metadata.sh)
-  - Removes PDF metadata from PDF files
+- [query-live-actions.sh](./scripts/archive/query-live-actions.sh)
+  - Fetches active governance actions from Koios and prints their DRep vote summary
 
 ### Documentation
 

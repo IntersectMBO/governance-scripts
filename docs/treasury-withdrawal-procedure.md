@@ -50,7 +50,7 @@ Generate a markdown representation from the created `.jsonld`
 and manually compare against the `.docx`.
 
 ```shell
-./scripts/cip-108-create-human-readable.sh my-metadata.jsonld
+./scripts/cip-108-markdown.sh my-metadata.jsonld
 ```
 
 ### 6. Validate the metadata
