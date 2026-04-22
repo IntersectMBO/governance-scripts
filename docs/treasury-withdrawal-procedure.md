@@ -14,7 +14,7 @@ Using the Google Docs template:
 
 ### 2. Export markdown file
 
-Export your metadata from Google Docs as markdown file.
+Export your metadata from Google Docs as markdown file (`.md`).
 
 ### 3. Set environment variables
 
