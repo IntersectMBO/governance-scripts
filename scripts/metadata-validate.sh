@@ -211,6 +211,10 @@ check_length() {
         echo -e "${WHITE}'$field' length: ${YELLOW}$len${WHITE} / $max${NC}"
     fi
 }
+
+echo -e " "
+echo -e "${CYAN}Checking field length limits...${NC}"
+
 check_length title 80
 check_length abstract 2500
 if [ "$LENGTH_CHECK_FAILED" -ne 0 ]; then
