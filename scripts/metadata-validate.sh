@@ -187,6 +187,36 @@ if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
     exit 1
 fi
 
+# Length checks for title (max 80) and abstract (max 2500) — only for fields that are present
+LENGTH_CHECK_FAILED=0
+LENGTH_CHECK_HEADER_SHOWN=0
+check_length() {
+    local field="$1"
+    local max="$2"
+    local text len
+    text=$(jq -r ".body.$field // empty" "$JSON_FILE")
+    if [ -z "$text" ]; then
+        return
+    fi
+    if [ "$LENGTH_CHECK_HEADER_SHOWN" -eq 0 ]; then
+        echo -e " "
+        echo -e "${CYAN}Checking field length limits...${NC}"
+        LENGTH_CHECK_HEADER_SHOWN=1
+    fi
+    len=${#text}
+    if [ "$len" -gt "$max" ]; then
+        echo -e "${RED}Error: '${YELLOW}$field${RED}' is ${YELLOW}$len${RED} chars, exceeds max of ${YELLOW}$max${RED}.${NC}" >&2
+        LENGTH_CHECK_FAILED=1
+    else
+        echo -e "${WHITE}'$field' length: ${YELLOW}$len${WHITE} / $max${NC}"
+    fi
+}
+check_length title 80
+check_length abstract 2500
+if [ "$LENGTH_CHECK_FAILED" -ne 0 ]; then
+    exit 1
+fi
+
 # Basic spell check on key data fields (requires 'aspell' installed)
 echo -e " "
 echo -e "${CYAN}Applying spell check...${NC}"
