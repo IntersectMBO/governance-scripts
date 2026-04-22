@@ -14,7 +14,7 @@ Using the Google Docs template:
 
 ### 2. Export markdown file
 
-Export your metadata from Google Docs as markdown file.
+Export your metadata from Google Docs as markdown file (`.md`).
 
 ### 3. Set environment variables
 
@@ -40,6 +40,8 @@ Convert the `.md` to [intersect's metadata standard](https://github.com/Intersec
 
 With the `metadata-create` script taking the data from the doc and creating a `.jsonld`.
 
+The input file must be a `.md` file structured with H2 headers (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`). Pass `--language <BCP-47-tag>` to override the default `en` in the generated `@context.@language`.
+
 ```shell
 ./scripts/metadata-create.sh my-metadata.md --governance-action-type treasury --deposit-return-addr $DEPOSIT_RETURN_ADDR
 ```
@@ -47,7 +49,7 @@ With the `metadata-create` script taking the data from the doc and creating a `.
 ### 5. Sanity check the metadata
 
 Generate a markdown representation from the created `.jsonld`
-and manually compare against the `.docx`.
+and manually compare against the original `.md`.
 
 ```shell
 ./scripts/cip-108-markdown.sh my-metadata.jsonld
@@ -60,9 +62,10 @@ We can then run our validation script to check
 - compliance with CIP schema(s)
 - compliance with Intersect schemas (runs by default)
 - spelling check on CIP108 sections
+- `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108
+./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
 ```
 
 ### 7. Add author witness(es)
@@ -73,7 +76,7 @@ We can sign it with author key(s).
 You can either pass the `my-metadata.jsonld` to authors to sign, using something like `./scripts/author-create.sh`.
 Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash to sign via standard cardano wallets.
 
-### 7. Verify the author's witness(es)
+### 8. Verify the author's witness(es)
 
 Check the author witnesses were added correctly.
 
@@ -81,29 +84,34 @@ Check the author witnesses were added correctly.
 ./scripts/author-validate.sh my-metadata.jsonld
 ```
 
-### 8. Final validation
+Pass `--no-intersect` to skip the comparison against Intersect's well-known author public key.
+
+### 9. Final validation
 
 Just to double check that all is good now, with author.
 
 - compliance with CIP schema(s)
 - compliance with Intersect schemas (runs by default)
 - spelling check
+- `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108
+./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
 ```
 
 If running with Intersect schema this will give us an error for missing author, this is okay.
 
-### 9. Host on IPFS
+### 10. Host on IPFS
 
 Pin the metadata to different IPFS pinning services.
 
 ```shell
-./scripts/ipfs-pin.sh ./my-metadata-directory
+./scripts/ipfs-pin.sh my-metadata.jsonld
 ```
 
-### 10. Verify IPFS hosting
+To skip a specific pinning service use `--no-local`, `--no-pinata`, `--no-blockfrost`, or `--no-nmkr`.
+
+### 11. Verify IPFS hosting
 
 This will now additionally check that the file is accessible via IPFS.
 
@@ -111,10 +119,15 @@ This will now additionally check that the file is accessible via IPFS.
 ./scripts/ipfs-check.sh my-metadata.jsonld
 ```
 
-### 11. Create the action file
+### 12. Create the action file
 
 Now we can create an treasury withdrawal governance action file from our metadata.
 
 ```shell
 ./scripts/action-create-tw.sh my-metadata.jsonld --deposit-return-addr $DEPOSIT_RETURN_ADDR --withdrawal-addr $WITHDRAWAL_ADDR
 ```
+
+### 13. Submit on testnet
+
+It is highly recommended to submit all actions on testnets before mainnet.
+This gives the author the opportunity to ensure all explorers pick up and render the action's metadata properly

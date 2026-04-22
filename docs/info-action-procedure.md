@@ -12,7 +12,7 @@ Using the Google Docs template:
 
 ### 2. Export markdown file
 
-Export your metadata from Google Docs as markdown file.
+Export your metadata from Google Docs as markdown file (`.md`).
 
 ### 3. Set environment variables
 
@@ -37,6 +37,8 @@ Convert the `.md` to [intersect's metadata standard](https://github.com/Intersec
 
 With the `metadata-create` script taking the data from the doc and creating a `.jsonld`.
 
+The input file must be a `.md` file structured with H2 headers (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`). Pass `--language <BCP-47-tag>` to override the default `en` in the generated `@context.@language`.
+
 ```shell
 ./scripts/metadata-create.sh my-metadata.md --governance-action-type info --deposit-return-addr $DEPOSIT_RETURN_ADDR
 ```
@@ -59,8 +61,10 @@ We can then run our validation script to check
 - spelling check
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108
+./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
 ```
+
+This also enforces `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters when those fields are present.
 
 If running with Intersect schema this will give us an error for missing author, this is okay.
 
@@ -73,7 +77,7 @@ You can either pass the `my-metadata.jsonld` to authors to sign, using something
 Or you can run `./scripts/metadata-canonize.sh` and share the canonized body hash to sign via standard cardano wallets. In that case, HWW are supported too, but you need to change the witnessAlgorithm from `ed25519` to `CIP-0008` for those authors that do.
 If you are not sure how your author key signs, CIP-8 signing produces a significantly longer (214 byte) signature string than ed25519 signing (62 bytes). 
 
-### 7. Verify the author's witness(es)
+### 8. Verify the author's witness(es)
 
 Just to double check that all is good now, with author.
 
@@ -81,7 +85,9 @@ Just to double check that all is good now, with author.
 ./scripts/author-validate.sh my-metadata.jsonld
 ```
 
-### 8. Final validation
+Pass `--no-intersect` to skip the comparison against Intersect's well-known author public key.
+
+### 9. Final validation
 
 Just to double check that all is good now.
 
@@ -90,18 +96,20 @@ Just to double check that all is good now.
 - spelling check
 
 ```shell
-./scripts/metadata-validate.sh ./my-metadata-directory --cip108 --intersect-schema
+./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
 ```
 
-### 9. Host on IPFS
+### 10. Host on IPFS
 
 Pin the metadata to different IPFS pinning services.
 
 ```shell
-./scripts/ipfs-pin.sh ./my-metadata-directory --only-ipfs
+./scripts/ipfs-pin.sh my-metadata.jsonld
 ```
 
-### 10. Verify IPFS hosting
+To skip a specific pinning service use `--no-local`, `--no-pinata`, `--no-blockfrost`, or `--no-nmkr`.
+
+### 11. Verify IPFS hosting
 
 This will now additionally check that the file is accessible via IPFS.
 
@@ -109,7 +117,7 @@ This will now additionally check that the file is accessible via IPFS.
 ./scripts/ipfs-check.sh my-metadata.jsonld
 ```
 
-### 11. Create the action file
+### 12. Create the action file
 
 Now we can create an Info governance action file from our metadata. The stake key must be registered via a registration certificate (auto done by e.g. pool delegations) and the deposit will eventually appear as staking reward. 
 
@@ -117,7 +125,7 @@ Now we can create an Info governance action file from our metadata. The stake ke
 ./scripts/action-create-info.sh my-metadata.jsonld --deposit-return-addr $DEPOSIT_RETURN_ADDR
 ```
 
-### 12. Create transaction 
+### 13. Create transaction 
 
 We can now include this .action file in a transaction. 
 Note that the GA deposit is balanced out across all inputs, as if we were to create a new UTXO, and we can spend multiple inputs to get to the deposit. Thus, the below example with only one `--tx-in` consumes a UTXO that must contain 100k ada + fees. 
@@ -129,7 +137,8 @@ cardano-cli latest transaction build \
   --proposal-file info.action \
   --out-file tx.raw
 ```
-### 13. Sign transaction
+
+### 14. Sign transaction
 
 We copy the contents of `tx.raw` to wherever the key is that contains the input we spend. No other signatures are required. 
 Depending on the setup, e.g. for testnets, copying the raw CBOR could be used to import the tx in certain GUI wallets and sign via those. However, at the moment (Q4 2025), only the Keystone HWW supports signing Governance Actions.  
@@ -141,7 +150,8 @@ cardano-cli latest transaction sign \
   --out-file tx.signed
 ```
 
-### 14. Submit 
+### 15. Submit 
+
 E.g.: through CLI
 ```shell
 cardano-cli latest transaction submit \

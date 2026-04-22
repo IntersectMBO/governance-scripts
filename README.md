@@ -9,13 +9,16 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 #### Governance (CIP-100+) Metadata Scripts
 
 - [metadata-create.sh](./scripts/metadata-create.sh)
-  - Creates governance action CIP-108+ (including [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)) JSONLD file
-  - Takes an inputted markdown file in expected shape
+  - Creates a governance-action JSON-LD file (CIP-108 body + CIP-169 extension + CIP-116 ProposalProcedure on-chain format, including [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas))
+  - Requires a `.md` input file with H2 sections (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`)
+  - Requires `--governance-action-type <info|treasury|ppu>` and `--deposit-return-addr <stake-address>`
+  - Optional `--language <BCP-47-tag>` sets the JSON-LD `@context.@language` (default: `en`)
 
 - [metadata-validate.sh](./scripts/metadata-validate.sh)
   - Compares governance metadata against the established schema(s)
-  - Supports CIP100, CIP108, CIP119, CIP136 and [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
-  - Applies a spell check to CIP108 metadata fields
+  - Supports CIP100, CIP108, CIP119, CIP136, CIP169 and [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas) (via `--cip100` / `--cip108` / `--cip119` / `--cip136` / `--cip169` / `--intersect-schema` / `--schema <URL>`)
+  - Applies a spell check to CIP108 metadata fields (customizable via `--dict <FILE>`)
+  - Enforces `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters when those fields are present
 
 - [metadata-canonize.sh](./scripts/metadata-canonize.sh)
   - Uses cardano-singer to produce a blake2b-256 hash digest of a given metadata canonized body
@@ -36,8 +39,9 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [ipfs-check.sh](./scripts/ipfs-check.sh)
   - Checks if a file is accessible via free IPFS gateways
 - [ipfs-pin.sh](./scripts/ipfs-pin.sh)
-  - Allows user to pin JSONLD file(s) on a number of pinning services
-  - Optionally allows the user to check file's discoverability first
+  - Pins file(s) across local IPFS node, Pinata, Blockfrost, and NMKR (enabled by default; disable individually with `--no-local`, `--no-pinata`, `--no-blockfrost`, `--no-nmkr`)
+  - Accepts a single file or a directory; use `--just-jsonld` to limit a directory walk to `.jsonld` files
+  - `--check-too` first runs `ipfs-check.sh` and skips pinning if the file is already discoverable
 
 #### CIP-108 Scripts
 
@@ -50,11 +54,12 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Adds an author witness to CIP100/CIP108 metadata
 - [author-validate.sh](./scripts/author-validate.sh)
   - Checks the correctness of CIP100/CIP108 metadata with a author(s) witness(es)
+  - Also compares each author's public key against Intersect's well-known key; pass `--no-intersect` to skip
 
 #### Other Scripts
 
 - [hash.sh](./scripts/hash.sh)
-  - Performs a blake2b-256 hash on provided file
+  - Prints a BLAKE2b-256 hash of the given file using both `b2sum` and `cardano-cli`, so the two outputs can be compared
 - [pdf-remove-metadata.sh](./scripts/pdf-remove-metadata.sh)
   - Removes PDF metadata from PDF files
 
@@ -85,6 +90,7 @@ In order to run all of these scripts you will need the following binaries/packag
 ### Required Binaries/Packages
 
 #### Core Dependencies
+
 - **[ajv-cli](https://www.npmjs.com/package/ajv-cli)** (`ajv`)
   - Used by: `metadata-validate.sh`
   - JSON schema validation
@@ -106,7 +112,7 @@ In order to run all of these scripts you will need the following binaries/packag
   - Canonization and signing of governance metadata
 
 - **curl**
-  - Used by: `metadata-create.sh`, `metadata-validate.sh`, `ipfs-check.sh`, `ipfs-pin.sh`, `author-validate.sh`, `query-live-actions.sh`
+  - Used by: `metadata-create.sh`, `metadata-validate.sh`, `ipfs-check.sh`, `ipfs-pin.sh`, `author-validate.sh`, `archive/query-live-actions.sh`
   - HTTP requests for downloading schemas and API calls
 
 - **[ipfs](https://docs.ipfs.eth.link/install/command-line/)**
@@ -122,6 +128,7 @@ In order to run all of these scripts you will need the following binaries/packag
   - Document conversion (DOCX to Markdown, Markdown processing)
 
 #### Optional/Additional Dependencies
+
 - **perl**
   - Used by: `budget-metadata-create.sh`
   - Text processing and regex operations
