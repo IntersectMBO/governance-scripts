@@ -210,6 +210,19 @@ if [ -z "$input_file" ]; then
   usage
 fi
 
+# Enforce .md extension — the script parses Markdown H2 sections (## Title, ## Abstract, ...)
+if [[ "$input_file" != *.md ]]; then
+  echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' must be a Markdown file with a ${YELLOW}.md${RED} extension.${NC}" >&2
+  echo -e "${YELLOW}This script expects a Markdown document structured with H2 sections (## Title, ## Abstract, ## Motivation, ## Rationale, ## References, ## Authors).${NC}" >&2
+  exit 1
+fi
+
+# Ensure the input file actually exists
+if [ ! -f "$input_file" ]; then
+  echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' not found.${NC}" >&2
+  exit 1
+fi
+
 # If no governance action type provided, show usage
 if [ -z "$governance_action_type" ]; then
   echo -e "${RED}Error: --governance-action-type is required${NC}" >&2
