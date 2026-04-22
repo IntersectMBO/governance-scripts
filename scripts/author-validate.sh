@@ -104,9 +104,10 @@ verify_author_witness() {
         echo -e "${RED}Error: cardano-signer command failed while verifying file '${YELLOW}$file${RED}'.${NC}" >&2
         exit 1
     fi
-    
+
+    # cardano-signer's --json-extended can emit unescaped control chars (e.g. raw newlines in body.abstract), which jq rejects. Escape them.
     local output
-    output=$(echo "$raw_output" | jq '{result, errorMsg, authors, canonizedHash, fileHash}')
+    output=$(printf '%s' "$raw_output" | perl -pe 's/([\x00-\x1f])/sprintf("\\u%04x",ord($1))/ge' | jq '{result, errorMsg, authors, canonizedHash, fileHash}')
 
     echo -e "${CYAN}Result: ${NC}$(echo "$output" | jq -r '.result')"
     echo -e "${CYAN}Error Messages: ${NC}$(echo "$output" | jq -r '.errorMsg')"

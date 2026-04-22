@@ -17,7 +17,8 @@ fi
 
 
 # hash of the input file using cardano-cli
-hash=$(cardano-signer canonize --data-file $input_file --cip100 --json-extended --out-file /dev/stdout | jq -r '.canonizedHash')
+# cardano-signer's --json-extended can emit unescaped control chars (e.g. raw newlines in body.abstract), which jq rejects. Escape them.
+hash=$(cardano-signer canonize --data-file $input_file --cip100 --json-extended --out-file /dev/stdout | perl -pe 's/([\x00-\x1f])/sprintf("\\u%04x",ord($1))/ge' | jq -r '.canonizedHash')
 
 # Output the result
 echo "For anchor file: $input_file"
