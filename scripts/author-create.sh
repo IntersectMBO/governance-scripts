@@ -206,7 +206,12 @@ if [ -d "$input_path" ]; then
     echo -e "${GREEN}All files processed successfully!${NC}"
     
 elif [ -f "$input_path" ]; then
-    # Input is a single file
+    # Input is a single file — enforce .jsonld extension
+    if [[ "$input_path" != *.jsonld ]]; then
+        echo -e "${RED}Error: Input file '${YELLOW}$input_path${RED}' must be a JSON-LD metadata file with a ${YELLOW}.jsonld${RED} extension.${NC}" >&2
+        echo -e "${YELLOW}This script adds an author witness to CIP-100/CIP-108 governance metadata.${NC}" >&2
+        exit 1
+    fi
     echo -e " "
     echo -e "${CYAN}Processing single file: ${YELLOW}$input_path${NC}"
     sign_file "$input_path" "$use_cip8" "$new_file"

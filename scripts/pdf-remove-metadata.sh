@@ -73,6 +73,19 @@ if [ -z "$input_path" ]; then
     usage
 fi
 
+# Enforce .pdf extension
+if [[ "$input_path" != *.pdf ]]; then
+    echo "Error: Input file '$input_path' must be a PDF file with a .pdf extension." >&2
+    echo "This script uses exiftool and qpdf to strip and rewrite PDF metadata." >&2
+    exit 1
+fi
+
+# Ensure the input file actually exists
+if [ ! -f "$input_path" ]; then
+    echo "Error: Input file '$input_path' not found." >&2
+    exit 1
+fi
+
 # Extract filename without extension
 BASENAME=$(basename "$input_path" .pdf)
 

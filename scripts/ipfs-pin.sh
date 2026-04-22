@@ -113,6 +113,12 @@ if [ -z "$input_path" ]; then
     usage
 fi
 
+# Ensure the input is an actual file or directory
+if [ ! -e "$input_path" ]; then
+    echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is not a valid file or directory.${NC}" >&2
+    exit 1
+fi
+
 echo -e " "
 echo -e "${CYAN}IPFS File Pinning Service${NC}"
 echo -e "${CYAN}This script pins files to IPFS using multiple pinning services${NC}"

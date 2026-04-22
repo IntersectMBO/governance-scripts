@@ -105,6 +105,19 @@ if [ -z "$input_file" ]; then
     usage
 fi
 
+# Enforce .jsonld extension
+if [[ "$input_file" != *.jsonld ]]; then
+    echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' must be a JSON-LD metadata file with a ${YELLOW}.jsonld${RED} extension.${NC}" >&2
+    echo -e "${YELLOW}This script expects a CIP-108 metadata document whose body.onChain.gov_action.tag is 'treasury_withdrawals_action'.${NC}" >&2
+    exit 1
+fi
+
+# Ensure the input file actually exists
+if [ ! -f "$input_file" ]; then
+    echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' not found.${NC}" >&2
+    exit 1
+fi
+
 # If deposit return addr is not provided, show usage
 if [ -z "$deposit_return_address_input" ]; then
   echo -e "${RED}Error: --deposit-return-addr is required${NC}" >&2
