@@ -40,10 +40,11 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Create JSON-LD metadata from a Markdown file${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<.md-file> --governance-action-type ${NC}<info|treasury|ppu> ${GREEN}--deposit-return-addr ${NC}<stake-address>"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<.md-file> --governance-action-type ${NC}<info|treasury|ppu> ${GREEN}--deposit-return-addr ${NC}<stake-address> [${GREEN}--language ${NC}<BCP-47-tag>]"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<.md-file>" "- Path to the .md file as input"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--governance-action-type <info|treasury|ppu>" "- Type of governance action"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--deposit-return-addr <stake-address>" "- Stake address for deposit return (bech32)"
+    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "[--language <BCP-47-tag>]" "- JSON-LD @language for the document (default: en)"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
@@ -143,6 +144,7 @@ query_governance_state_prev_actions() {
 input_file=""
 governance_action_type=""
 deposit_return_address=""
+language="en"
 
 # Create temporary files in /tmp/
 TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
@@ -178,6 +180,15 @@ while [[ $# -gt 0 ]]; do
                 usage
             fi
             ;;
+        --language)
+            if [ -n "${2:-}" ]; then
+                language="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --language requires a value${NC}" >&2
+                usage
+            fi
+            ;;
         -h|--help)
             usage
             ;;
@@ -197,6 +208,19 @@ done
 if [ -z "$input_file" ]; then
   echo -e "${RED}Error: No input file specified${NC}" >&2
   usage
+fi
+
+# Enforce .md extension — the script parses Markdown H2 sections (## Title, ## Abstract, ...)
+if [[ "$input_file" != *.md ]]; then
+  echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' must be a Markdown file with a ${YELLOW}.md${RED} extension.${NC}" >&2
+  echo -e "${YELLOW}This script expects a Markdown document structured with H2 sections (## Title, ## Abstract, ## Motivation, ## Rationale, ## References, ## Authors).${NC}" >&2
+  exit 1
+fi
+
+# Ensure the input file actually exists
+if [ ! -f "$input_file" ]; then
+  echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' not found.${NC}" >&2
+  exit 1
 fi
 
 # If no governance action type provided, show usage
@@ -658,34 +682,33 @@ else
   }'
 fi
 
-jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" '{
-  "@context": {
-    CIP100: .[0]["@context"].CIP100,
-    CIP108: .[0]["@context"].CIP108,
-    CIP116: .[1]["@context"].CIP116,
-    CIP169: .[1]["@context"].CIP169,
-    hashAlgorithm: .[0]["@context"].hashAlgorithm,
-    body: {
-      "@id": .[0]["@context"].body["@id"],
-      "@context": (.[0]["@context"].body["@context"] * {
-        onChain: {
-          "@id": "CIP169:onChain",
-          "@context": {
-            deposit: {
-              "@id": "CIP116:deposit",
-              "@type": "CIP116:UInt64"
-            },
-            reward_account: {
-              "@id": "CIP116:reward_account",
-              "@type": "CIP116:RewardAddress"
-            },
-            gov_action: $gov_action_ctx
-          }
+jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" --arg language "$language" '{
+  "@language": $language,
+  CIP100: .[0]["@context"].CIP100,
+  CIP108: .[0]["@context"].CIP108,
+  CIP116: .[1]["@context"].CIP116,
+  CIP169: .[1]["@context"].CIP169,
+  hashAlgorithm: .[0]["@context"].hashAlgorithm,
+  body: {
+    "@id": .[0]["@context"].body["@id"],
+    "@context": (.[0]["@context"].body["@context"] * {
+      onChain: {
+        "@id": "CIP169:onChain",
+        "@context": {
+          deposit: {
+            "@id": "CIP116:deposit",
+            "@type": "CIP116:UInt64"
+          },
+          reward_account: {
+            "@id": "CIP116:reward_account",
+            "@type": "CIP116:RewardAddress"
+          },
+          gov_action: $gov_action_ctx
         }
-      })
-    },
-    authors: .[0]["@context"].authors
-  }
+      }
+    })
+  },
+  authors: .[0]["@context"].authors
 }' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
 
 rm -f "$TEMP_CIP108" "$TEMP_CIP169"
