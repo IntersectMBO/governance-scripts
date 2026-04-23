@@ -15,10 +15,11 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Optional `--language <BCP-47-tag>` sets the JSON-LD `@context.@language` (default: `en`)
 
 - [metadata-validate.sh](./scripts/metadata-validate.sh)
-  - Compares governance metadata against the established schema(s)
-  - Supports CIP100, CIP108, CIP119, CIP136, CIP169 and [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas) (via `--cip100` / `--cip108` / `--cip119` / `--cip136` / `--cip169` / `--intersect-schema` / `--schema <URL>`)
-  - Applies a spell check to CIP108 metadata fields (customizable via `--dict <FILE>`)
+  - Requires at least one schema source (`--cip100` / `--cip108` / `--cip119` / `--cip136` / `--cip169` / `--intersect-schema` / `--schema <URL>`); errors early otherwise
+  - Supports CIP100, CIP108, CIP119, CIP136, CIP169 and [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas)
   - Enforces `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters when those fields are present
+  - Applies an aspell spell check to CIP108 metadata fields; the personal dictionary is fetched at runtime from the `main` branch of this repo — no local copy needed. Skip with `--no-spell-check`.
+  - Checks that every URI in the document (structured `uri`/`url` fields plus markdown links / bare URLs in `title` / `abstract` / `motivation` / `rationale`) is reachable; `ipfs://<cid>` is resolved via `$IPFS_GATEWAY_URI` (fallback `https://ipfs.io`). Skip with `--no-check-links`.
 
 - [metadata-canonize.sh](./scripts/metadata-canonize.sh)
   - Uses cardano-singer to produce a blake2b-256 hash digest of a given metadata canonized body
