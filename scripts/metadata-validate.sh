@@ -86,6 +86,8 @@ usage() {
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--intersect-schema]" "- Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--schema URL]" "- Compare against schema at URL"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--dict FILE]" "- Use custom aspell dictionary file (optional)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-spell-check]" "- Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-check-links]" "- Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
@@ -101,27 +103,29 @@ use_intersect_schema="$DEFAULT_USE_INTERSECT"
 user_schema_url=""
 user_schema="false"
 custom_dict_file=""
+check_links="true"
+check_spelling="true"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --cip108)
+        --cip108|--cip-108)
             use_cip_108="true"
             shift
             ;;
-        --cip100)
+        --cip100|--cip-100)
             use_cip_100="true"
             shift
             ;;
-        --cip119)
+        --cip119|--cip-119)
             use_cip_119="true"
             shift
             ;;
-        --cip136)
+        --cip136|--cip-136)
             use_cip_136="true"
             shift
             ;;
-        --cip169)
+        --cip169|--cip-169)
             use_cip_169="true"
             shift
             ;;
@@ -133,6 +137,14 @@ while [[ $# -gt 0 ]]; do
             user_schema_url="$2"
             user_schema="true"
             shift 2
+            ;;
+        --no-check-links)
+            check_links="false"
+            shift
+            ;;
+        --no-spell-check)
+            check_spelling="false"
+            shift
             ;;
         --dict)
             if [ -n "${2:-}" ]; then
@@ -154,6 +166,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Require at least one schema source. Without it the downstream "no schemas downloaded"
+# branch would fail anyway, but that happens after length/spell/URI checks run pointlessly.
+if [ "$use_cip_100" = "false" ] && [ "$use_cip_108" = "false" ] && \
+   [ "$use_cip_119" = "false" ] && [ "$use_cip_136" = "false" ] && \
+   [ "$use_cip_169" = "false" ] && [ "$use_intersect_schema" = "false" ] && \
+   [ "$user_schema" = "false" ]; then
+    echo -e "${RED}Error: At least one schema flag is required.${NC}" >&2
+    echo -e "${YELLOW}Pass one or more of: ${GREEN}--cip100${YELLOW} / ${GREEN}--cip108${YELLOW} / ${GREEN}--cip119${YELLOW} / ${GREEN}--cip136${YELLOW} / ${GREEN}--cip169${YELLOW}, or ${GREEN}--intersect-schema${YELLOW}, or ${GREEN}--schema <URL>${NC}." >&2
+    usage
+fi
 
 # Welcome message
 echo -e " "
@@ -218,51 +241,162 @@ if [ "$LENGTH_CHECK_FAILED" -ne 0 ]; then
 fi
 
 # Basic spell check on key data fields (requires 'aspell' installed)
-echo -e " "
-echo -e "${CYAN}Applying spell check...${NC}"
+if [ "$check_spelling" = "true" ]; then
+    echo -e " "
+    echo -e "${CYAN}Applying spell check...${NC}"
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # Get the directory where this script is located
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Determine which dictionary to use
-if [ -n "$custom_dict_file" ]; then
-    # User provided a custom dictionary
-    CARDANO_DICT="$custom_dict_file"
-    if [ ! -f "$CARDANO_DICT" ]; then
-        echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
-        exit 1
+    # Determine which dictionary to use
+    if [ -n "$custom_dict_file" ]; then
+        # User provided a custom dictionary
+        CARDANO_DICT="$custom_dict_file"
+        if [ ! -f "$CARDANO_DICT" ]; then
+            echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
+            exit 1
+        fi
+        echo -e "${WHITE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
+    else
+        # Use default dictionary from script directory
+        echo -e "${WHITE}Using default spelling dictionary from script directory${NC}"
+        CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
     fi
-    echo -e "${WHITE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
-else
-    # Use default dictionary from script directory
-    echo -e "${WHITE}Using default spelling dictionary from script directory${NC}"
-    CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
+
+    # Check if the dictionary file exists
+    if [ ! -f "$CARDANO_DICT" ]; then
+        echo -e "${YELLOW}Warning: Cardano aspell dictionary not found at ${YELLOW}$CARDANO_DICT${NC}"
+        echo -e "${YELLOW}Using default aspell dictionary only.${NC}"
+        PERSONAL_DICT_ARG=""
+    else
+        PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
+    fi
+
+    echo -e "${YELLOW}Possible misspellings:${NC}"
+    # This hardcoded for CIP108
+    # todo fix for other schemas
+    for field in title abstract motivation rationale; do
+        # Extract field text
+        text=$(jq -r ".body.$field // empty" "$JSON_FILE")
+        if [ -n "$text" ]; then
+            # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
+            echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
+                if [ -n "$word" ]; then
+                    echo -e "  ${BLUE}'$field': ${YELLOW}$word${NC}"
+                fi
+            done
+        fi
+    done
 fi
 
-# Check if the dictionary file exists
-if [ ! -f "$CARDANO_DICT" ]; then
-    echo -e "${YELLOW}Warning: Cardano aspell dictionary not found at ${YELLOW}$CARDANO_DICT${NC}"
-    echo -e "${YELLOW}Using default aspell dictionary only.${NC}"
-    PERSONAL_DICT_ARG=""
-else
-    PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
-fi
+# URI reachability check — every URI (structured + markdown-embedded in prose fields)
+# is HEAD-checked (with GET fallback). Duplicates are intentionally re-checked.
+# Skip with --no-check-links. IPFS gateway from $IPFS_GATEWAY_URI or https://ipfs.io.
+URI_CHECK_FAILED=0
+if [ "$check_links" = "true" ]; then
+    echo -e " "
+    echo -e "${CYAN}Checking URI reachability...${NC}"
+    IPFS_GATEWAY="${IPFS_GATEWAY_URI:-https://ipfs.io}"
+    IPFS_GATEWAY="${IPFS_GATEWAY%/}"
 
-echo -e "${YELLOW}Possible misspellings:${NC}"
-# This hardcoded for CIP108
-# todo fix for other schemas
-for field in title abstract motivation rationale; do
-    # Extract field text
-    text=$(jq -r ".body.$field // empty" "$JSON_FILE")
-    if [ -n "$text" ]; then
-        # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
-        echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
-            if [ -n "$word" ]; then
-                echo -e "  ${BLUE}'$field': ${YELLOW}$word${NC}"
+    uris=()
+
+    # 1. Structured URIs anywhere under .body with a key named uri/url (case-insensitive)
+    while IFS= read -r u; do
+        [ -n "$u" ] && uris+=("$u")
+    done < <(jq -r '
+        .body
+        | [.. | objects | to_entries[]
+            | select((.key | ascii_downcase) == "uri" or (.key | ascii_downcase) == "url")
+            | .value | select(type == "string")]
+        | .[]
+    ' "$JSON_FILE")
+
+    # 2. Markdown-embedded / bare URLs in prose fields
+    for field in title abstract motivation rationale; do
+        text=$(jq -r ".body.$field // empty" "$JSON_FILE")
+        if [ -n "$text" ]; then
+            while IFS= read -r u; do
+                [ -n "$u" ] && uris+=("$u")
+            done < <(printf '%s' "$text" | perl -0777 -ne '
+                while (/\[[^\]]*\]\((https?:\/\/[^)\s]+|ipfs:\/\/[^)\s]+)\)/g) { print "$1\n" }
+                while (/<(https?:\/\/[^>\s]+|ipfs:\/\/[^>\s]+)>/g) { print "$1\n" }
+                while (/(?<![\w\/:])(https?:\/\/[^\s)\]<>"'"'"'\\]+)/g) { print "$1\n" }
+                while (/(?<![\w\/:])(ipfs:\/\/[A-Za-z0-9\/._\-]+)/g) { print "$1\n" }
+            ')
+        fi
+    done
+
+    total_count=${#uris[@]}
+    failed_count=0
+
+    if [ "$total_count" -eq 0 ]; then
+        echo -e "${YELLOW}No URIs found to check.${NC}"
+    else
+        for raw_uri in "${uris[@]}"; do
+            # Trim trailing punctuation that regex may have grabbed
+            uri="$raw_uri"
+            while :; do
+                case "$uri" in
+                    *.|*,|*\;|*\!|*\?|*\)|*\]|*\>|*\"|*\'|*\`) uri="${uri%?}" ;;
+                    *) break ;;
+                esac
+            done
+
+            # Skip non-HTTP(S)/IPFS and fragment-only
+            case "$uri" in
+                mailto:*|tel:*) continue ;;
+                \#*) continue ;;
+            esac
+            if [[ ! "$uri" =~ ^(https?|ipfs):// ]]; then
+                continue
+            fi
+
+            # Normalize ipfs:// to configured gateway
+            check_url="$uri"
+            if [[ "$uri" == ipfs://* ]]; then
+                check_url="$IPFS_GATEWAY/ipfs/${uri#ipfs://}"
+            fi
+
+            http_code=$(curl --silent --location \
+                             --max-time 10 --retry 1 --retry-delay 1 \
+                             --head -o /dev/null -w '%{http_code}' "$check_url" 2>/dev/null || true)
+            [ -z "$http_code" ] && http_code="000"
+
+            if [ "$http_code" = "405" ] || [ "$http_code" = "000" ]; then
+                http_code=$(curl --silent --location \
+                                 --max-time 10 --retry 1 --retry-delay 1 \
+                                 --request GET --range 0-0 \
+                                 -o /dev/null -w '%{http_code}' "$check_url" 2>/dev/null || true)
+                [ -z "$http_code" ] && http_code="000"
+            fi
+
+            if [[ "$http_code" =~ ^[23][0-9][0-9]$ ]]; then
+                if [ "$uri" != "$check_url" ]; then
+                    echo -e "${GREEN}[OK]  ${NC} $uri ($http_code via $check_url)"
+                else
+                    echo -e "${GREEN}[OK]  ${NC} $uri ($http_code)"
+                fi
+            else
+                failed_count=$((failed_count + 1))
+                if [ "$uri" != "$check_url" ]; then
+                    echo -e "${RED}[FAIL]${NC} $uri ($http_code via $check_url)" >&2
+                else
+                    echo -e "${RED}[FAIL]${NC} $uri ($http_code)" >&2
+                fi
             fi
         done
+
+        echo -e " "
+        if [ "$failed_count" -gt 0 ]; then
+            echo -e "${RED}$failed_count of $total_count URIs unreachable.${NC}" >&2
+            echo -e "${YELLOW}Re-run with --no-check-links to skip this check (e.g. if offline).${NC}" >&2
+            URI_CHECK_FAILED=1
+        else
+            echo -e "${GREEN}All $total_count URIs reachable.${NC}"
+        fi
     fi
-done
+fi
 
 echo -e " "
 echo -e "${CYAN}Applying schema check(s)...${NC}"
@@ -352,7 +486,7 @@ for schema in "${schemas[@]}"; do
 done
 
 # Final result
-if [ "$VALIDATION_FAILED" -ne 0 ]; then
+if [ "$VALIDATION_FAILED" -ne 0 ] || [ "$URI_CHECK_FAILED" -ne 0 ]; then
     echo -e " "
     echo -e "${RED}One or more validation errors were found.${NC}"
     exit 1
