@@ -60,13 +60,16 @@ and manually compare against the original `.md`.
 We can then run our validation script to check
 
 - compliance with CIP schema(s)
-- compliance with Intersect schemas (runs by default)
-- spelling check on CIP108 sections
+- compliance with Intersect schemas
+- spell check on CIP108 sections (aspell personal dictionary fetched from the `main` branch of this repo at runtime; skip with `--no-spell-check`)
+- URI reachability for every `uri`/`url` field plus markdown links and bare URLs inside prose fields; `ipfs://<cid>` is resolved via `$IPFS_GATEWAY_URI` (fallback `https://ipfs.io`). Skip with `--no-check-links`.
 - `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters
 
 ```shell
 ./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
 ```
+
+At least one schema flag (`--cipNNN`, `--intersect-schema`, or `--schema <URL>`) is required.
 
 ### 7. Add author witness(es)
 
@@ -91,8 +94,9 @@ Pass `--no-intersect` to skip the comparison against Intersect's well-known auth
 Just to double check that all is good now, with author.
 
 - compliance with CIP schema(s)
-- compliance with Intersect schemas (runs by default)
-- spelling check
+- compliance with Intersect schemas
+- spell check (skip with `--no-spell-check`)
+- URI reachability (skip with `--no-check-links`)
 - `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters
 
 ```shell

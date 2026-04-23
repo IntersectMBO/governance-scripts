@@ -58,13 +58,15 @@ We can then run our validation script to check
 
 - compliance with CIP schema(s)
 - compliance with Intersect schemas
-- spelling check
+- spell check (aspell personal dictionary fetched from the `main` branch of this repo at runtime; skip with `--no-spell-check`)
+- URI reachability for every `uri`/`url` field plus markdown links and bare URLs inside prose fields; `ipfs://<cid>` is resolved via `$IPFS_GATEWAY_URI` (fallback `https://ipfs.io`). Skip with `--no-check-links`.
+- `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters (when those fields are present)
 
 ```shell
 ./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
 ```
 
-This also enforces `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters when those fields are present.
+At least one schema flag (`--cipNNN`, `--intersect-schema`, or `--schema <URL>`) is required.
 
 If running with Intersect schema this will give us an error for missing author, this is okay.
 
@@ -93,7 +95,9 @@ Just to double check that all is good now.
 
 - compliance with CIP schema(s)
 - compliance with Intersect schemas
-- spelling check
+- spell check (skip with `--no-spell-check`)
+- URI reachability (skip with `--no-check-links`)
+- title/abstract length limits
 
 ```shell
 ./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
