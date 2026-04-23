@@ -26,9 +26,10 @@ INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/govern
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
 INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
 
+# Default aspell dictionary (fetched at runtime so users don't need a local copy)
+CARDANO_ASPELL_DICT_URL="https://raw.githubusercontent.com/IntersectMBO/governance-scripts/refs/heads/main/scripts/cardano-aspell-dict.txt"
+
 # Default schema values
-# CIP-169 is the default as it extends CIP-100 with on-chain effects verification
-# When CIP-169 is used, CIP-116 is automatically included for reference resolution
 DEFAULT_USE_CIP_100="false"
 DEFAULT_USE_CIP_108="false"
 DEFAULT_USE_CIP_119="false"
@@ -54,6 +55,7 @@ set -euo pipefail
 # Global variables for cleanup
 TMP_JSON_FILE=""
 TMP_SCHEMAS_DIR="/tmp/schemas"
+TMP_DICT_FILE=""
 
 # Cleanup function
 cleanup() {
@@ -64,6 +66,10 @@ cleanup() {
     # Clean up temporary schemas directory if it exists
     if [ -d "$TMP_SCHEMAS_DIR" ]; then
         rm -rf "$TMP_SCHEMAS_DIR" 2>/dev/null || true
+    fi
+    # Clean up downloaded aspell dictionary
+    if [ -n "$TMP_DICT_FILE" ] && [ -f "$TMP_DICT_FILE" ]; then
+        rm -f "$TMP_DICT_FILE" 2>/dev/null || true
     fi
 }
 
@@ -76,7 +82,7 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Validate a JSON-LD metadata file${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--dict ${NC}FILE]"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--no-spell-check${NC}] [${GREEN}--no-check-links${NC}]"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip100]" "- Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip108]" "- Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
@@ -85,8 +91,7 @@ usage() {
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip169]" "- Compare against CIP-169 Governance metadata schema (default: $DEFAULT_USE_CIP_169, includes CIP-116)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--intersect-schema]" "- Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--schema URL]" "- Compare against schema at URL"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--dict FILE]" "- Use custom aspell dictionary file (optional)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-spell-check]" "- Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-spell-check]" "- Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-check-links]" "- Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
@@ -102,7 +107,6 @@ use_cip_169="$DEFAULT_USE_CIP_169"
 use_intersect_schema="$DEFAULT_USE_INTERSECT"
 user_schema_url=""
 user_schema="false"
-custom_dict_file=""
 check_links="true"
 check_spelling="true"
 
@@ -145,15 +149,6 @@ while [[ $# -gt 0 ]]; do
         --no-spell-check)
             check_spelling="false"
             shift
-            ;;
-        --dict)
-            if [ -n "${2:-}" ]; then
-                custom_dict_file="$2"
-                shift 2
-            else
-                echo -e "${RED}Error: --dict requires a file path${NC}" >&2
-                usage
-            fi
             ;;
         -h|--help)
             usage
@@ -245,32 +240,16 @@ if [ "$check_spelling" = "true" ]; then
     echo -e " "
     echo -e "${CYAN}Applying spell check...${NC}"
 
-    # Get the directory where this script is located
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    # Determine which dictionary to use
-    if [ -n "$custom_dict_file" ]; then
-        # User provided a custom dictionary
-        CARDANO_DICT="$custom_dict_file"
-        if [ ! -f "$CARDANO_DICT" ]; then
-            echo -e "${RED}Error: Custom dictionary file not found at ${YELLOW}$CARDANO_DICT${NC}" >&2
-            exit 1
-        fi
-        echo -e "${WHITE}Using custom dictionary: ${YELLOW}$CARDANO_DICT${NC}"
-    else
-        # Use default dictionary from script directory
-        echo -e "${WHITE}Using default spelling dictionary from script directory${NC}"
-        CARDANO_DICT="$SCRIPT_DIR/cardano-aspell-dict.txt"
+    # Fetch the upstream Intersect dictionary so users don't need a local copy
+    echo -e "${WHITE}Fetching Cardano aspell dictionary from ${YELLOW}$CARDANO_ASPELL_DICT_URL${NC}"
+    TMP_DICT_FILE=$(mktemp /tmp/cardano-aspell-dict.XXXXXX)
+    if ! curl --silent --show-error --fail --location --max-time 10 \
+              -o "$TMP_DICT_FILE" "$CARDANO_ASPELL_DICT_URL"; then
+        echo -e "${RED}Error: Failed to download aspell dictionary from ${YELLOW}$CARDANO_ASPELL_DICT_URL${NC}." >&2
+        echo -e "${YELLOW}Pass ${GREEN}--no-spell-check${YELLOW} to skip the spell check, or retry when online.${NC}" >&2
+        exit 1
     fi
-
-    # Check if the dictionary file exists
-    if [ ! -f "$CARDANO_DICT" ]; then
-        echo -e "${YELLOW}Warning: Cardano aspell dictionary not found at ${YELLOW}$CARDANO_DICT${NC}"
-        echo -e "${YELLOW}Using default aspell dictionary only.${NC}"
-        PERSONAL_DICT_ARG=""
-    else
-        PERSONAL_DICT_ARG="--personal=$CARDANO_DICT"
-    fi
+    PERSONAL_DICT_ARG="--personal=$TMP_DICT_FILE"
 
     echo -e "${YELLOW}Possible misspellings:${NC}"
     # This hardcoded for CIP108
