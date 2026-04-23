@@ -82,7 +82,7 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Validate a JSON-LD metadata file${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--no-spell-check${NC}] [${GREEN}--no-check-links${NC}]"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip169${NC}] [${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--no-spell-check${NC}] [${GREEN}--no-check-links${NC}]"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip100]" "- Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip108]" "- Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
