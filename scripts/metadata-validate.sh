@@ -251,21 +251,24 @@ if [ "$check_spelling" = "true" ]; then
     fi
     PERSONAL_DICT_ARG="--personal=$TMP_DICT_FILE"
 
-    echo -e "${YELLOW}Possible misspellings:${NC}"
     # This hardcoded for CIP108
     # todo fix for other schemas
+    SPELL_OUTPUT=""
     for field in title abstract motivation rationale; do
-        # Extract field text
         text=$(jq -r ".body.$field // empty" "$JSON_FILE")
         if [ -n "$text" ]; then
-            # Use aspell to check spelling with personal dictionary (if available), output only misspelled words
-            echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u | while read -r word; do
-                if [ -n "$word" ]; then
-                    echo -e "  ${BLUE}'$field': ${YELLOW}$word${NC}"
-                fi
-            done
+            while IFS= read -r word; do
+                [ -n "$word" ] && SPELL_OUTPUT+="  ${BLUE}'$field': ${YELLOW}$word${NC}"$'\n'
+            done < <(echo "$text" | aspell list $PERSONAL_DICT_ARG | sort -u)
         fi
     done
+
+    if [ -n "$SPELL_OUTPUT" ]; then
+        echo -e "${YELLOW}Possible misspellings:${NC}"
+        printf '%b' "$SPELL_OUTPUT"
+    else
+        echo -e "${GREEN}No misspellings found.${NC}"
+    fi
 fi
 
 # URI reachability check — every URI (structured + markdown-embedded in prose fields)
