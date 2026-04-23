@@ -9,6 +9,13 @@ fi
 # Input file
 input_file="$1"
 
+# Enforce .jsonld extension
+if [[ "$input_file" != *.jsonld ]]; then
+    echo "Error: Input file '$input_file' must be a JSON-LD metadata file with a .jsonld extension." >&2
+    echo "This script produces a blake2b-256 hash of the canonized body for author-signature workflows." >&2
+    exit 1
+fi
+
 # Check if the file exists
 if [ ! -f "$input_file" ]; then
     echo "Error: Anchor file '$input_file' not found!"
