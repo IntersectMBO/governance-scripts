@@ -192,6 +192,17 @@ if [ "$deposit_amount" != "$EXPECTED_DEPOSIT_LOVELACE" ]; then
     echo -e "${YELLOW}Warning: body.onChain.deposit = ${BRIGHTWHITE}$deposit_amount${YELLOW} lovelace, expected ${BRIGHTWHITE}$EXPECTED_DEPOSIT_LOVELACE${YELLOW} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting.${NC}" >&2
 fi
 
+# Authoritative deposit check against the live protocol parameter
+echo "Checking that deposit matches the current protocol parameter"
+onchain_deposit=$(cardano-cli conway query protocol-parameters | jq -r '.govActionDeposit')
+if [ "$deposit_amount" = "$onchain_deposit" ]; then
+    echo -e "${GREEN}Metadata has expected deposit amount${NC}"
+else
+    echo -e "${RED}Metadata does not have expected deposit amount${NC}" >&2
+    echo -e "${RED}Expected: $onchain_deposit found: $deposit_amount${NC}" >&2
+    exit 1
+fi
+
 withdrawal_list=$(jq -r '.body.onChain.gov_action.rewards' "$input_file")
 check_field "rewards" "$withdrawal_list"
 

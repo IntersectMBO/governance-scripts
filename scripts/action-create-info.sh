@@ -163,6 +163,17 @@ if [ "$deposit" != "$EXPECTED_DEPOSIT_LOVELACE" ]; then
     echo -e "${YELLOW}Warning: body.onChain.deposit = ${BRIGHTWHITE}$deposit${YELLOW} lovelace, expected ${BRIGHTWHITE}$EXPECTED_DEPOSIT_LOVELACE${YELLOW} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting.${NC}" >&2
 fi
 
+# Authoritative deposit check against the live protocol parameter
+echo "Checking that deposit matches the current protocol parameter"
+onchain_deposit=$(cardano-cli conway query protocol-parameters | jq -r '.govActionDeposit')
+if [ "$deposit" = "$onchain_deposit" ]; then
+    echo -e "${GREEN}Metadata has expected deposit amount${NC}"
+else
+    echo -e "${RED}Metadata does not have expected deposit amount${NC}" >&2
+    echo -e "${RED}Expected: $onchain_deposit found: $deposit${NC}" >&2
+    exit 1
+fi
+
 authors=$(jq -r '.authors' "$input_file")
 check_field "authors" "$authors"
 witness=$(jq -r '.authors[0].witness' "$input_file")
@@ -188,17 +199,6 @@ if [ ! -z "$deposit_return_address_input" ]; then
     fi
 fi
 
-if [ ! -z "$deposit" ]; then
-    echo "Checking that deposit is the smame amount as current protocol parameter"
-    onchain_deposit=$(cardano-cli conway query protocol-parameters | jq -r '.govActionDeposit')
-    if [ "$deposit" = "$onchain_deposit" ]; then
-        echo -e "${GREEN}Metadata has expected deposit amount${NC}"
-    else
-        echo -e "${RED}Metadata does not have expected deposit amount${NC}"
-        echo -e "${RED}Expected: $onchain_deposit found: $deposit${NC}"
-        exit 1
-    fi
-fi
 # use bech32 prefix to determine if addresses are mainnet or testnet
 is_stake_address_mainnet() {
     local address="$1"
