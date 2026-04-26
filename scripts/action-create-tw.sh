@@ -231,6 +231,27 @@ if [ ! -z "$withdrawal_address_input" ]; then
     fi
 fi
 
+# Verify bech32 integrity (checksum + address type) of stake address
+validate_stake_address() {
+    local label="$1"
+    local address="$2"
+    local info
+    if ! info=$(cardano-cli address info --address "$address" 2>&1); then
+        echo -e "${RED}Error: $label is not a valid bech32 address: ${YELLOW}$address${NC}" >&2
+        echo -e "${GRAY}cardano-cli rejected it: $info${NC}" >&2
+        exit 1
+    fi
+    local addr_type
+    addr_type=$(echo "$info" | jq -r '.type // ""')
+    if [ "$addr_type" != "stake" ]; then
+        echo -e "${RED}Error: $label is bech32-valid but is not a stake address (type=${YELLOW}${addr_type:-unknown}${RED}): ${YELLOW}$address${NC}" >&2
+        exit 1
+    fi
+}
+
+validate_stake_address "metadata body.onChain.reward_account" "$deposit_return"
+validate_stake_address "metadata body.onChain.gov_action.rewards[0].key" "$withdrawal_address"
+
 # use bech32 prefix to determine if addresses are mainnet or testnet
 is_stake_address_mainnet() {
     local address="$1"
