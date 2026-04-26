@@ -72,9 +72,10 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Pin files to local IPFS node and via Blockfrost, NMKR and Pinata${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC} [${GREEN}--check-too${NC}] [${GREEN}--no-local${NC}] [${GREEN}--no-pinata${NC}] [${GREEN}--no-blockfrost${NC}] [${GREEN}--no-nmkr${NC}]"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC} [${GREEN}--directory${NC}] [${GREEN}--check-too${NC}] [${GREEN}--no-local${NC}] [${GREEN}--no-pinata${NC}] [${GREEN}--no-blockfrost${NC}] [${GREEN}--no-nmkr${NC}]"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<file|directory>" "- Path to your file or directory containing files"
-    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--just-jsonld]" "- If a directory is provided, only .jsonld files will be processed (default: $JUST_JSONLD)"
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--directory]" "- REQUIRED if the path is a directory. Without this flag, a directory path is rejected to prevent accidental bulk uploads (e.g. pointing at a project root and pinning every file in it). Treat this as the equivalent of rm's '-r'."
+    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--just-jsonld]" "- If --directory is set, only .jsonld files will be processed (default: $JUST_JSONLD)"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--check-too]" "- Run a check if file is discoverable on ipfs, only pin if not discoverable (default: $CHECK_TOO)"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-local]" "- Don't try to pin file on local ipfs node (default: $DEFAULT_HOST_ON_LOCAL_NODE)"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-pinata]" "- Don't try to pin file on pinata service (default: $DEFAULT_HOST_ON_PINATA)"
@@ -88,6 +89,7 @@ usage() {
 input_path=""
 check_discoverable="$CHECK_TOO"
 just_jsonld="$JUST_JSONLD"
+allow_directory="false"
 local_host="$DEFAULT_HOST_ON_LOCAL_NODE"
 pinata_host="$DEFAULT_HOST_ON_PINATA"
 blockfrost_host="$DEFAULT_HOST_ON_BLOCKFROST"
@@ -98,6 +100,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --check-too)
             check_discoverable="true"
+            shift
+            ;;
+        --directory)
+            allow_directory="true"
             shift
             ;;
         --just-jsonld)
@@ -176,13 +182,29 @@ if [ "$nmkr_host" = "true" ]; then
     fi
 fi
 
+# Refuse to pin obviously-secret files. Public-IPFS pinning a Cardano signing
+# key (.skey) or an .env credentials file would publish it permanently
+SENSITIVE_BASENAME_REGEX='\.(skey|vkey|env)$|^\.env(\..*)?$|^id_(rsa|ed25519|ecdsa|dsa)(\.pub)?$|\.(pem|p12|pfx)$'
+is_sensitive_filename() {
+    local name
+    name=$(basename "$1")
+    [[ "$name" =~ $SENSITIVE_BASENAME_REGEX ]]
+}
+
 # Function to pin a single file
 pin_single_file() {
     local file="$1"
-    
+
+    if is_sensitive_filename "$file"; then
+        echo -e " "
+        echo -e "${RED}Refusing to pin '${YELLOW}$file${RED}': filename matches a sensitive pattern (signing key / env / private key / cert). Pinning would publish it permanently to public IPFS.${NC}" >&2
+        echo -e "${GRAY}If you genuinely intend to pin this file, rename it first or remove it from the directory tree.${NC}" >&2
+        return 1
+    fi
+
     echo -e " "
     echo -e "${CYAN}Processing file: ${YELLOW}$file${NC}"
-    
+
     # Generate CID from the given file
     echo -e "${CYAN}Generating CID for the file...${NC}"
     
@@ -306,18 +328,17 @@ pin_single_file() {
         
         echo -e "${CYAN}Uploading file to NMKR service...${NC}"
         nmkr_auth_file=$(write_auth_header_file "Authorization: Bearer ${NMKR_API_KEY}")
+        # Build the JSON body with jq so the basename and base64 payload are
+        # properly escaped
+        nmkr_body=$(jq -n \
+            --arg b64 "$base64_content" \
+            --arg name "$(basename "$file")" \
+            '{fileFromBase64: $b64, name: $name, mimetype: "application/json"}')
         response=$(curl -s -X POST "https://studio-api.nmkr.io/v2/UploadToIpfs/${NMKR_USER_ID}" \
             -H 'accept: text/plain' \
             -H 'Content-Type: application/json' \
             -H "@${nmkr_auth_file}" \
-            -d @- <<EOF
-{
-    "fileFromBase64": "$base64_content",
-    "name": "$(basename "$file")",
-    "mimetype": "application/json"
-}
-EOF
-        )
+            --data-binary @- <<<"$nmkr_body")
         # Check response for errors
         if echo "$response" | grep -q '"errors":'; then
             echo -e "${RED}Error in NMKR response:${NC}" >&2
@@ -337,8 +358,15 @@ EOF
 
 # Main processing logic
 if [ -d "$input_path" ]; then
-    # If input is a directory: pin files (optionally only .jsonld files) including subdirectories
+    # Directory uploads must be opted into explicitly
+    if [ "$allow_directory" != "true" ]; then
+        echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is a directory.${NC}" >&2
+        echo -e "${YELLOW}Pass ${GREEN}--directory${YELLOW} to confirm you want to recursively pin its contents (think of this as the equivalent of ${GREEN}rm -r${YELLOW} — it will publish every regular non-symlink, non-VCS, non-sensitive file under the tree to public IPFS, irreversibly).${NC}" >&2
+        echo -e "${GRAY}Combine with ${GREEN}--just-jsonld${GRAY} to limit the walk to *.jsonld files.${NC}" >&2
+        exit 1
+    fi
     echo -e " "
+    echo -e "${YELLOW}Warning: ${GREEN}--directory${YELLOW} is set — this will recursively pin files under '${BRIGHTWHITE}$input_path${YELLOW}' to every enabled pinning service. Pinning is publishing: anything uploaded becomes permanently retrievable from public IPFS gateways.${NC}" >&2
     echo -e "${CYAN}Processing directory: ${YELLOW}$input_path${NC}"
 
     # Pruning rules for the recursive walk:
@@ -395,9 +423,11 @@ if [ -d "$input_path" ]; then
     echo -e "${GREEN}All files processed successfully!${NC}"
     
 elif [ -f "$input_path" ]; then
-    # Input is a single file. Reject symlinks: `[ -f X ]` follows the link, so
-    # a `bash ipfs-pin.sh symlink-to-secret.jsonld` would otherwise silently
-    # upload the target (e.g. /etc/passwd, ~/.cardano/keys/...) to public IPFS.
+    if [ "$allow_directory" = "true" ]; then
+        echo -e "${RED}Error: ${GREEN}--directory${RED} was set, but '${YELLOW}$input_path${RED}' is a single file. Drop ${GREEN}--directory${RED} for single-file uploads.${NC}" >&2
+        exit 1
+    fi
+    # Input is a single file. Reject symlinks: `[ -f X ]` follows the link.
     if [ -L "$input_path" ]; then
         echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is a symbolic link. Refusing to pin a symlink target — pass the real file path instead.${NC}" >&2
         exit 1

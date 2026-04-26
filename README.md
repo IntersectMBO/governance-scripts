@@ -41,7 +41,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Checks if a file is accessible via free IPFS gateways
 - [ipfs-pin.sh](./scripts/ipfs-pin.sh)
   - Pins file(s) across local IPFS node, Pinata, Blockfrost, and NMKR (enabled by default; disable individually with `--no-local`, `--no-pinata`, `--no-blockfrost`, `--no-nmkr`)
-  - Accepts a single file or a directory; use `--just-jsonld` to limit a directory walk to `.jsonld` files
+  - Accepts a single file by default. To recursively pin a directory you must explicitly pass `--directory` (think of it as the equivalent of `rm -r`); without it, a directory path is rejected to prevent accidental bulk uploads. Combine with `--just-jsonld` to limit the walk to `.jsonld` files. The walk skips `.git`/`.svn`/`.hg`, symlinks, and any file whose name matches a sensitive pattern (`*.skey`, `*.vkey`, `.env*`, `id_rsa*`, `*.pem`, `*.p12`, `*.pfx`).
   - `--check-too` first runs `ipfs-check.sh` and skips pinning if the file is already discoverable
 
 #### CIP-108 Scripts
