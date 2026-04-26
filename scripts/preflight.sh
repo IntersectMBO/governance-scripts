@@ -1,0 +1,255 @@
+#!/bin/bash
+
+##################################################
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+BOLD='\033[1m'
+##################################################
+
+# supported versions for scripts v1.0.0
+# Exact known-good versions. If the installed version differs in any
+# component, preflight WARNs (never fails) — these are advisory, not hard
+# requirements. Leave blank to skip the version check for a tool.
+
+cardano_cli_version="cardano-cli 10.8.0"
+cardano_signer_version="cardano-signer 1.27.0"
+jq_version="1.7.1"
+curl_version="8.7.1"
+ipfs_version="0.38.2"
+pandoc_version="3.7.0.1"
+ajv_version=""
+b2sum_version=""
+aspell_version=""
+perl_version=""
+awk_version=""
+sed_version=""
+qpdf_version=""
+exiftool_version=""
+bc_version=""
+base64_version=""
+
+
+##################################################
+
+# Checks that the environment is set up to run the other scripts in this
+# directory: required/optional binaries on PATH, .env file, and Cardano node
+# env vars. Prints a grouped report; exits 1 if any required check FAILs.
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+PASS_COUNT=0
+WARN_COUNT=0
+FAIL_COUNT=0
+
+record() {
+    case "$1" in
+        PASS) PASS_COUNT=$((PASS_COUNT + 1)) ;;
+        WARN) WARN_COUNT=$((WARN_COUNT + 1)) ;;
+        FAIL) FAIL_COUNT=$((FAIL_COUNT + 1)) ;;
+    esac
+}
+
+tag() {
+    case "$1" in
+        PASS) echo -ne "  ${GREEN}[PASS]${NC} " ;;
+        WARN) echo -ne "  ${YELLOW}[WARN]${NC} " ;;
+        FAIL) echo -ne "  ${RED}[FAIL]${NC} " ;;
+    esac
+}
+
+# Extract the first dotted version number (e.g. "10.8.0.0") from a string.
+extract_version_number() {
+    printf '%s\n' "$1" | grep -oE '[0-9]+(\.[0-9]+)+' | head -1
+}
+
+# Compare two dotted version numbers. Echoes: lt | eq | gt
+# Missing components are treated as 0, so "1.6" == "1.6.0".
+compare_versions() {
+    local a="$1" b="$2"
+    local IFS=.
+    # shellcheck disable=SC2206
+    local av=($a) bv=($b)
+    local len=${#av[@]}
+    if [ "${#bv[@]}" -gt "$len" ]; then len=${#bv[@]}; fi
+    local i x y
+    for ((i = 0; i < len; i++)); do
+        x=${av[i]:-0}
+        y=${bv[i]:-0}
+        if [ "$x" -lt "$y" ] 2>/dev/null; then echo lt; return; fi
+        if [ "$x" -gt "$y" ] 2>/dev/null; then echo gt; return; fi
+    done
+    echo eq
+}
+
+# Run a tool with its version flag; redirect stdin from /dev/null so tools
+# like BSD awk that ignore unknown flags and wait for input don't hang.
+get_version() {
+    local bin="$1"
+    local flag="$2"
+    local out rc
+    # shellcheck disable=SC2086
+    out=$("$bin" $flag </dev/null 2>&1)
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "installed (version unknown)"
+        return
+    fi
+    local line
+    line=$(printf '%s\n' "$out" | awk 'NF {print; exit}' | tr -d '\r')
+    if [ -z "$line" ]; then
+        echo "installed"
+    else
+        echo "$line"
+    fi
+}
+
+check_binary() {
+    local bin="$1"
+    local requirement="$2"
+    local version_flag="$3"
+    local hint="$4"
+    local supported="${5:-}"
+
+    if command -v "$bin" >/dev/null 2>&1; then
+        local ver installed_num supported_num cmp
+        ver=$(get_version "$bin" "$version_flag")
+
+        if [ -n "$supported" ]; then
+            installed_num=$(extract_version_number "$ver")
+            supported_num=$(extract_version_number "$supported")
+            if [ -n "$installed_num" ] && [ -n "$supported_num" ]; then
+                cmp=$(compare_versions "$installed_num" "$supported_num")
+                if [ "$cmp" != "eq" ]; then
+                    tag WARN
+                    printf "%-18s %s (supported: %s)\n" "$bin" "$ver" "$supported_num"
+                    record WARN
+                    return
+                fi
+            fi
+        fi
+
+        tag PASS
+        printf "%-18s %s\n" "$bin" "$ver"
+        record PASS
+        return
+    fi
+
+    if [ "$requirement" = "required" ]; then
+        tag FAIL
+        printf "%-18s not found — %s\n" "$bin" "$hint"
+        record FAIL
+    else
+        tag WARN
+        printf "%-18s not found — %s\n" "$bin" "$hint"
+        record WARN
+    fi
+}
+
+echo -e "${BOLD}=== Governance scripts preflight ===${NC}"
+echo
+
+echo -e "${BOLD}${CYAN}Required binaries${NC}"
+check_binary cardano-cli    required "--version" "install from https://github.com/IntersectMBO/cardano-node/releases" "$cardano_cli_version"
+check_binary cardano-signer required "--version" "install from https://github.com/gitmachtl/cardano-signer/releases" "$cardano_signer_version"
+check_binary jq             required "--version" "brew install jq  |  apt install jq"                               "$jq_version"
+check_binary curl           required "--version" "brew install curl  |  apt install curl"                           "$curl_version"
+check_binary ipfs           required "version"   "install from https://docs.ipfs.tech/install/command-line/"        "$ipfs_version"
+check_binary pandoc         required "--version" "install from https://pandoc.org/installing.html"                  "$pandoc_version"
+check_binary ajv            required "help"      "npm install -g ajv-cli"                                           "$ajv_version"
+check_binary b2sum          required "--version" "brew install coreutils (macOS)  |  apt install coreutils"         "$b2sum_version"
+check_binary aspell         required "--version" "brew install aspell  |  apt install aspell"                       "$aspell_version"
+check_binary perl           required "--version" "preinstalled on macOS/Linux; otherwise brew/apt install perl"     "$perl_version"
+check_binary awk            required "--version" "preinstalled on macOS/Linux"                                      "$awk_version"
+check_binary sed            required "--version" "preinstalled on macOS/Linux"                                      "$sed_version"
+echo
+
+echo -e "${BOLD}${CYAN}Optional binaries${NC}"
+check_binary qpdf     optional "--version" "needed only by pdf-remove-metadata.sh"       "$qpdf_version"
+check_binary exiftool optional "-ver"      "needed only by pdf-remove-metadata.sh"       "$exiftool_version"
+check_binary bc       optional "--version" "needed only by action-create-tw.sh"          "$bc_version"
+check_binary base64   optional "--version" "needed only by NMKR pinning in ipfs-pin.sh"  "$base64_version"
+echo
+
+echo -e "${BOLD}${CYAN}Environment${NC}"
+
+ENV_FILE="$SCRIPT_DIR/.env"
+if [ -f "$ENV_FILE" ]; then
+    tag PASS
+    printf "%-32s found at %s\n" ".env file" "$ENV_FILE"
+    record PASS
+else
+    tag WARN
+    printf "%-32s missing — copy .env.example to .env or export vars in your shell\n" ".env file"
+    record WARN
+fi
+# Env-var checks below read the current shell only — they do NOT source .env.
+# Run `source ./scripts/.env` yourself before preflight to verify the values
+# that action-create-* / ipfs-pin scripts will actually see.
+
+sock="${CARDANO_NODE_SOCKET_PATH:-}"
+if [ -z "$sock" ]; then
+    tag WARN
+    printf "%-32s not set — required by action-create-* scripts\n" "CARDANO_NODE_SOCKET_PATH"
+    record WARN
+elif [ ! -e "$sock" ]; then
+    tag FAIL
+    printf "%-32s path does not exist: %s\n" "CARDANO_NODE_SOCKET_PATH" "$sock"
+    record FAIL
+elif [ ! -S "$sock" ]; then
+    tag WARN
+    printf "%-32s %s (exists but not a socket)\n" "CARDANO_NODE_SOCKET_PATH" "$sock"
+    record WARN
+else
+    tag PASS
+    printf "%-32s %s (valid socket)\n" "CARDANO_NODE_SOCKET_PATH" "$sock"
+    record PASS
+fi
+
+netid="${CARDANO_NODE_NETWORK_ID:-}"
+if [ -z "$netid" ]; then
+    tag WARN
+    printf "%-32s not set — required by action-create-* scripts\n" "CARDANO_NODE_NETWORK_ID"
+    record WARN
+else
+    tag PASS
+    printf "%-32s %s\n" "CARDANO_NODE_NETWORK_ID" "$netid"
+    record PASS
+fi
+
+echo
+echo -e "${BOLD}${CYAN}IPFS pinning (ipfs-pin.sh)${NC}"
+echo -e "  ${CYAN}Local IPFS pinning works without any keys; each remote service below is optional.${NC}"
+
+check_pin_var() {
+    local name="$1"
+    local service="$2"
+    local value="${!name:-}"
+    if [ -z "$value" ]; then
+        tag WARN
+        printf "%-32s not set — %s pinning will be skipped\n" "$name" "$service"
+        record WARN
+    else
+        tag PASS
+        printf "%-32s set (%s pinning available)\n" "$name" "$service"
+        record PASS
+    fi
+}
+
+check_pin_var PINATA_API_KEY     "Pinata"
+check_pin_var BLOCKFROST_API_KEY "Blockfrost"
+check_pin_var NMKR_API_KEY       "NMKR"
+check_pin_var NMKR_USER_ID       "NMKR"
+
+echo
+echo -e "${BOLD}Summary:${NC} ${GREEN}${PASS_COUNT} pass${NC}, ${YELLOW}${WARN_COUNT} warn${NC}, ${RED}${FAIL_COUNT} fail${NC}"
+
+if [ "$FAIL_COUNT" -gt 0 ]; then
+    exit 1
+fi
+exit 0
