@@ -82,7 +82,7 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Validate a JSON-LD metadata file${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip169${NC}] [${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--no-spell-check${NC}] [${GREEN}--no-check-links${NC}]"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip169${NC}] [${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--no-spell-check${NC}] [${GREEN}--no-check-links${NC}] [${GREEN}--draft${NC}]"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip100]" "- Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip108]" "- Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
@@ -93,6 +93,7 @@ usage() {
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--schema URL]" "- Compare against schema at URL"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-spell-check]" "- Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
     printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-check-links]" "- Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
+    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--draft]" "- Treat the file as a pre-signing draft: downgrade the empty-authors check to a warning instead of an error."
     printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
     exit 1
 }
@@ -109,6 +110,7 @@ user_schema_url=""
 user_schema="false"
 check_links="true"
 check_spelling="true"
+is_draft="false"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -148,6 +150,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-spell-check)
             check_spelling="false"
+            shift
+            ;;
+        --draft)
+            is_draft="true"
             shift
             ;;
         -h|--help)
@@ -467,8 +473,31 @@ for schema in "${schemas[@]}"; do
     fi
 done
 
+# Structural integrity check beyond what ajv enforces.
+# Skipped entirely when only --schema URL is in use
+STRUCT_CHECK_FAILED=0
+if [ "$use_cip_100" = "true" ] || [ "$use_cip_108" = "true" ] || \
+   [ "$use_cip_119" = "true" ] || [ "$use_cip_136" = "true" ] || \
+   [ "$use_cip_169" = "true" ] || [ "$use_intersect_schema" = "true" ]; then
+    echo -e " "
+    echo -e "${CYAN}Applying structural integrity checks...${NC}"
+
+    # Non-empty authors array. Downgraded to a warning under --draft so the
+    authors_count=$(jq -r '(.authors // []) | length' "$JSON_FILE")
+    if [ "$authors_count" -eq 0 ]; then
+        if [ "$is_draft" = "true" ]; then
+            echo -e "${YELLOW}[WARN]${NC} ${WHITE}authors${NC}: array is empty. Acceptable under ${GREEN}--draft${NC}; re-run without ${GREEN}--draft${NC} after signing."
+        else
+            echo -e "${RED}[FAIL]${NC} ${WHITE}authors${NC}: array is empty. Governance metadata must declare at least one author for the document to be attestable. ${GRAY}(Add a witness or pass ${GREEN}--draft${GRAY} for pre-signing validation.)${NC}" >&2
+            STRUCT_CHECK_FAILED=1
+        fi
+    else
+        echo -e "${GREEN}[OK]${NC}   ${WHITE}authors${NC}: $authors_count entr$([ "$authors_count" -eq 1 ] && echo y || echo ies)"
+    fi
+fi
+
 # Final result
-if [ "$VALIDATION_FAILED" -ne 0 ] || [ "$URI_CHECK_FAILED" -ne 0 ]; then
+if [ "$VALIDATION_FAILED" -ne 0 ] || [ "$URI_CHECK_FAILED" -ne 0 ] || [ "$STRUCT_CHECK_FAILED" -ne 0 ]; then
     echo -e " "
     echo -e "${RED}One or more validation errors were found.${NC}"
     exit 1

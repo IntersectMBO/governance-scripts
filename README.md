@@ -20,6 +20,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Enforces `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters when those fields are present
   - Applies an aspell spell check to CIP108 metadata fields; the personal dictionary is fetched at runtime from the `main` branch of this repo — no local copy needed. Skip with `--no-spell-check`.
   - Checks that every URI in the document (structured `uri`/`url` fields plus markdown links / bare URLs in `title` / `abstract` / `motivation` / `rationale`) is reachable; `ipfs://<cid>` is resolved via `$IPFS_GATEWAY_URI` (fallback `https://ipfs.io`). Skip with `--no-check-links`.
+  - Runs a structural integrity check beyond the published schemas: `authors` must be non-empty (CIP-100 declares `authors` as required but does not enforce `minItems: 1`). Pass `--draft` during the create-then-sign workflow to downgrade the empty-`authors` failure to a warning; omit `--draft` for the post-signing pass so the strict check fires. Numeric-shape on `body.onChain.deposit` and treasury `rewards[].value` is enforced by the CIP-169 schema's `UInt64` pattern when `--cip169` is passed.
 
 - [metadata-canonize.sh](./scripts/metadata-canonize.sh)
   - Uses cardano-singer to produce a blake2b-256 hash digest of a given metadata canonized body
