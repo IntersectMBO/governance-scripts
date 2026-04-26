@@ -42,6 +42,31 @@ if ! command -v ipfs >/dev/null 2>&1; then
   exit 1
 fi
 
+# Auth-header tmp file plumbing. We pass the API key to curl via `-H @file`
+# (header-file syntax, curl >= 7.55) so the secret never appears in this
+# process's argv, where it would otherwise be visible to any user on the
+# system via `ps`. Files are mktemp'd with mode 600 and removed on exit.
+SECRET_TMP_FILES=()
+cleanup_secret_files() {
+    local f
+    for f in "${SECRET_TMP_FILES[@]:-}"; do
+        [ -n "$f" ] && [ -f "$f" ] && rm -f "$f"
+    done
+}
+trap cleanup_secret_files EXIT INT TERM
+
+# Create a 0600 tmp file containing one HTTP header line and emit its path on
+# stdout. The caller passes that path to `curl -H @path`. Track it for cleanup.
+write_auth_header_file() {
+    local header_line="$1"
+    local f
+    f=$(mktemp "${TMPDIR:-/tmp}/ipfs-pin-auth.XXXXXX")
+    chmod 600 "$f"
+    printf '%s\n' "$header_line" > "$f"
+    SECRET_TMP_FILES+=("$f")
+    printf '%s' "$f"
+}
+
 # Usage message
 usage() {
     local col=50
@@ -210,8 +235,9 @@ pin_single_file() {
         fi
         
         echo -e "${CYAN}Uploading file to Pinata service...${NC}"
+        pinata_auth_file=$(write_auth_header_file "Authorization: Bearer ${PINATA_API_KEY}")
         response=$(curl -s -X POST "https://uploads.pinata.cloud/v3/files" \
-                    -H "Authorization: Bearer ${PINATA_API_KEY}" \
+                    -H "@${pinata_auth_file}" \
                     -F "file=@$file" \
                     -F "network=public" \
                 )
@@ -240,8 +266,9 @@ pin_single_file() {
         fi
         
         echo -e "${CYAN}Uploading file to Blockfrost service...${NC}"
+        blockfrost_auth_file=$(write_auth_header_file "project_id: $BLOCKFROST_API_KEY")
         response=$(curl -s -X POST "https://ipfs.blockfrost.io/api/v0/ipfs/add" \
-                    -H "project_id: $BLOCKFROST_API_KEY" \
+                    -H "@${blockfrost_auth_file}" \
                     -F "file=@$file" \
                 )
         # Check response for errors
@@ -278,10 +305,11 @@ pin_single_file() {
         base64_content=$(base64 -i "$file")
         
         echo -e "${CYAN}Uploading file to NMKR service...${NC}"
+        nmkr_auth_file=$(write_auth_header_file "Authorization: Bearer ${NMKR_API_KEY}")
         response=$(curl -s -X POST "https://studio-api.nmkr.io/v2/UploadToIpfs/${NMKR_USER_ID}" \
             -H 'accept: text/plain' \
             -H 'Content-Type: application/json' \
-            -H "Authorization: Bearer ${NMKR_API_KEY}" \
+            -H "@${nmkr_auth_file}" \
             -d @- <<EOF
 {
     "fileFromBase64": "$base64_content",
@@ -312,19 +340,26 @@ if [ -d "$input_path" ]; then
     # If input is a directory: pin files (optionally only .jsonld files) including subdirectories
     echo -e " "
     echo -e "${CYAN}Processing directory: ${YELLOW}$input_path${NC}"
-    
-    # if just jsonld is true, only process .jsonld files
+
+    # Pruning rules for the recursive walk:
+    # - Skip .git / .svn / .hg metadata directories
+    # - Skip symlinks (` ! -type l`)
+    PRUNE_EXPR=(
+        \( -type d \( -name .git -o -name .svn -o -name .hg \) \) -prune
+        -o
+    )
+
     files_to_process=()
     if [ "$just_jsonld" = "true" ]; then
-        # Only .jsonld files
+        # Only .jsonld files (still skipping VCS dirs and symlinks)
         while IFS= read -r -d '' file; do
             files_to_process+=("$file")
-        done < <(find "$input_path" -type f -name "*.jsonld" -print0)
+        done < <(find "$input_path" "${PRUNE_EXPR[@]}" -type f ! -type l -name "*.jsonld" -print0)
     else
-        # else do all files
+        # All files (still skipping VCS dirs and symlinks)
         while IFS= read -r -d '' file; do
             files_to_process+=("$file")
-        done < <(find "$input_path" -type f -print0)
+        done < <(find "$input_path" "${PRUNE_EXPR[@]}" -type f ! -type l -print0)
     fi
     
     # check if any files were found
@@ -360,7 +395,13 @@ if [ -d "$input_path" ]; then
     echo -e "${GREEN}All files processed successfully!${NC}"
     
 elif [ -f "$input_path" ]; then
-    # Input is a single file
+    # Input is a single file. Reject symlinks: `[ -f X ]` follows the link, so
+    # a `bash ipfs-pin.sh symlink-to-secret.jsonld` would otherwise silently
+    # upload the target (e.g. /etc/passwd, ~/.cardano/keys/...) to public IPFS.
+    if [ -L "$input_path" ]; then
+        echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is a symbolic link. Refusing to pin a symlink target — pass the real file path instead.${NC}" >&2
+        exit 1
+    fi
     echo -e " "
     echo -e "${CYAN}Processing single file: ${YELLOW}$input_path${NC}"
     pin_single_file "$input_path"
