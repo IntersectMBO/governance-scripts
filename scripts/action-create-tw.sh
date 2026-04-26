@@ -165,7 +165,7 @@ echo -e "${CYAN}Doing some basic validation and checks on metadata${NC}"
 check_field() {
     local field_name="$1"
     local field_value="$2"
-    
+
     if [ -z "$field_value" ] || [ "$field_value" = "null" ]; then
         echo -e "${RED}Error: Required field '$field_name' not found in metadata${NC}" >&2
         exit 1
@@ -184,6 +184,13 @@ check_field "reward_account" "$deposit_return"
 
 deposit_amount=$(jq -r '.body.onChain.deposit' "$input_file")
 check_field "deposit" "$deposit_amount"
+
+# Sanity-check the deposit magnitude. The current Cardano governance action
+# deposit is 100,000 ADA = 100_000_000_000 lovelace.
+EXPECTED_DEPOSIT_LOVELACE="100000000000"
+if [ "$deposit_amount" != "$EXPECTED_DEPOSIT_LOVELACE" ]; then
+    echo -e "${YELLOW}Warning: body.onChain.deposit = ${BRIGHTWHITE}$deposit_amount${YELLOW} lovelace, expected ${BRIGHTWHITE}$EXPECTED_DEPOSIT_LOVELACE${YELLOW} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting.${NC}" >&2
+fi
 
 withdrawal_list=$(jq -r '.body.onChain.gov_action.rewards' "$input_file")
 check_field "rewards" "$withdrawal_list"
