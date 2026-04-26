@@ -186,7 +186,7 @@ deposit_amount=$(jq -r '.body.onChain.deposit' "$input_file")
 check_field "deposit" "$deposit_amount"
 
 # Sanity-check the deposit magnitude. The current Cardano governance action
-# deposit is 100,000 ADA = 100_000_000_000 lovelace.
+# deposit is 100,000 ada = 100_000_000_000 lovelace.
 EXPECTED_DEPOSIT_LOVELACE="100000000000"
 if [ "$deposit_amount" != "$EXPECTED_DEPOSIT_LOVELACE" ]; then
     echo -e "${YELLOW}Warning: body.onChain.deposit = ${BRIGHTWHITE}$deposit_amount${YELLOW} lovelace, expected ${BRIGHTWHITE}$EXPECTED_DEPOSIT_LOVELACE${YELLOW} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting.${NC}" >&2
