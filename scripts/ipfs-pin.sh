@@ -4,8 +4,6 @@
 
 # Can change if you want!
 
-# Default behavior is to not check if file is discoverable on IPFS
-CHECK_TOO="false"
 JUST_JSONLD="false"
 
 # Pinning services to host the file on IPFS
@@ -72,11 +70,10 @@ usage() {
     local col=50
     echo -e "${UNDERLINE}${BOLD}Pin files to local IPFS node and via Blockfrost, NMKR and Pinata${NC}"
     echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC} [${GREEN}--directory${NC}] [${GREEN}--check-too${NC}] [${GREEN}--no-local${NC}] [${GREEN}--no-pinata${NC}] [${GREEN}--no-blockfrost${NC}] [${GREEN}--no-nmkr${NC}]"
+    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC} [${GREEN}--directory${NC}] [${GREEN}--no-local${NC}] [${GREEN}--no-pinata${NC}] [${GREEN}--no-blockfrost${NC}] [${GREEN}--no-nmkr${NC}]"
     printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<file|directory>" "- Path to your file or directory containing files"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--directory]" "- REQUIRED if the path is a directory. Without this flag, a directory path is rejected to prevent accidental bulk uploads (e.g. pointing at a project root and pinning every file in it). Treat this as the equivalent of rm's '-r'."
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--just-jsonld]" "- If --directory is set, only .jsonld files will be processed (default: $JUST_JSONLD)"
-    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--check-too]" "- Run a check if file is discoverable on ipfs, only pin if not discoverable (default: $CHECK_TOO)"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-local]" "- Don't try to pin file on local ipfs node (default: $DEFAULT_HOST_ON_LOCAL_NODE)"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-pinata]" "- Don't try to pin file on pinata service (default: $DEFAULT_HOST_ON_PINATA)"
     printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-blockfrost]" "- Don't try to pin file on blockfrost service (default: $DEFAULT_HOST_ON_BLOCKFROST)"
@@ -87,7 +84,6 @@ usage() {
 
 # Initialize variables with defaults
 input_path=""
-check_discoverable="$CHECK_TOO"
 just_jsonld="$JUST_JSONLD"
 allow_directory="false"
 local_host="$DEFAULT_HOST_ON_LOCAL_NODE"
@@ -98,10 +94,6 @@ nmkr_host="$DEFAULT_HOST_ON_NMKR"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --check-too)
-            check_discoverable="true"
-            shift
-            ;;
         --directory)
             allow_directory="true"
             shift
@@ -212,23 +204,9 @@ pin_single_file() {
     # use CIDv1
     ipfs_cid=$(ipfs add -Q --cid-version 1 "$file")
     echo -e "CID: ${YELLOW}$ipfs_cid${NC}"
-    
-    # If user wants to check if file is discoverable on IPFS
-    if [ "$check_discoverable" = "true" ]; then
-        echo -e "${CYAN}Using ./scripts/ipfs-check.sh script to check if file is discoverable on IPFS...${NC}"
-        # check if file is discoverable on IPFS
-        if ! ./scripts/ipfs-check.sh "$file"; then
-            echo -e "${YELLOW}File is not discoverable on IPFS. Proceeding to pin it.${NC}"
-        else
-            echo -e "${GREEN}File is already discoverable on IPFS. No need to pin it.${NC}"
-            return 0
-        fi
-    else
-        echo -e "${CYAN}Skipping check of file on ipfs...${NC}"
-    fi
-    
+
     echo -e " "
-    echo -e "${CYAN}File is not hosted on IPFS, so pinning it...${NC}"
+    echo -e "${CYAN}Pinning file to enabled services...${NC}"
     
     # Pin on local node
     if [ "$local_host" = "true" ]; then
