@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "test/**"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "test/**"
+      - ".github/workflows/**"
+
+jobs:
+  lint:
+    name: shellcheck + bash -n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck on scripts/*.sh
+        # Severity=error keeps the gate strict on real bugs (set -e interactions,
+        # unquoted expansions affecting paths) while ignoring stylistic warnings
+        # for now. Tighten to "warning" once existing notices are addressed.
+        run: shellcheck --severity=error scripts/*.sh
+      - name: bash -n syntax check on every script
+        run: |
+          set -e
+          for f in scripts/*.sh; do
+            echo "checking $f"
+            bash -n "$f"
+          done
+
+  canonize:
+    name: canonicalization drift detection
+    runs-on: ubuntu-latest
+    # cardano-signer is pinned to 1.27.0 to match scripts/preflight.sh and the
+    # golden hashes recorded in test/cip-examples/sources.tsv. Bumping this
+    # version is a deliberate act and requires re-computing the goldens.
+    env:
+      CARDANO_SIGNER_VERSION: "1.27.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cardano-signer binary
+        id: cache-cs
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.tool_cache }}/cardano-signer
+          key: cardano-signer-${{ env.CARDANO_SIGNER_VERSION }}-linux-x64
+
+      - name: Install cardano-signer (release tarball, x64 Linux)
+        if: steps.cache-cs.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ runner.tool_cache }}/cardano-signer"
+          curl --silent --show-error --fail --location --max-time 60 \
+               -o /tmp/cardano-signer.tar.gz \
+               "https://github.com/gitmachtl/cardano-signer/releases/download/v${CARDANO_SIGNER_VERSION}/cardano-signer-${CARDANO_SIGNER_VERSION}_linux-x64.tar.gz"
+          tar -xzf /tmp/cardano-signer.tar.gz -C "${{ runner.tool_cache }}/cardano-signer"
+
+      - name: Add cardano-signer to PATH
+        run: echo "${{ runner.tool_cache }}/cardano-signer" >> "$GITHUB_PATH"
+
+      - name: Sanity-check cardano-signer
+        run: |
+          which cardano-signer
+          cardano-signer --version
+
+      - name: Run canonicalization drift verifier
+        # test/cip-examples/verify.sh fetches each pinned upstream CIP example
+        # (CIP-108 / CIP-119 / CIP-136 examples directories, pinned to a
+        # specific commit SHA in sources.tsv), re-canonizes it, and asserts
+        # the body hash matches the recorded golden. A drift here indicates
+        # one of: cardano-signer version drift, perl-escape behavior drift,
+        # or an unintended change to the canonization pipeline. Investigate
+        # the cause before bumping any golden.
+        run: bash test/cip-examples/verify.sh
