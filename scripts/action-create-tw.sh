@@ -165,7 +165,7 @@ echo -e "${CYAN}Doing some basic validation and checks on metadata${NC}"
 check_field() {
     local field_name="$1"
     local field_value="$2"
-    
+
     if [ -z "$field_value" ] || [ "$field_value" = "null" ]; then
         echo -e "${RED}Error: Required field '$field_name' not found in metadata${NC}" >&2
         exit 1
@@ -184,6 +184,24 @@ check_field "reward_account" "$deposit_return"
 
 deposit_amount=$(jq -r '.body.onChain.deposit' "$input_file")
 check_field "deposit" "$deposit_amount"
+
+# Sanity-check the deposit magnitude. The current Cardano governance action
+# deposit is 100,000 ada = 100_000_000_000 lovelace.
+EXPECTED_DEPOSIT_LOVELACE="100000000000"
+if [ "$deposit_amount" != "$EXPECTED_DEPOSIT_LOVELACE" ]; then
+    echo -e "${YELLOW}Warning: body.onChain.deposit = ${BRIGHTWHITE}$deposit_amount${YELLOW} lovelace, expected ${BRIGHTWHITE}$EXPECTED_DEPOSIT_LOVELACE${YELLOW} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting.${NC}" >&2
+fi
+
+# Authoritative deposit check against the live protocol parameter
+echo "Checking that deposit matches the current protocol parameter"
+onchain_deposit=$(cardano-cli conway query protocol-parameters | jq -r '.govActionDeposit')
+if [ "$deposit_amount" = "$onchain_deposit" ]; then
+    echo -e "${GREEN}Metadata has expected deposit amount${NC}"
+else
+    echo -e "${RED}Metadata does not have expected deposit amount${NC}" >&2
+    echo -e "${RED}Expected: $onchain_deposit found: $deposit_amount${NC}" >&2
+    exit 1
+fi
 
 withdrawal_list=$(jq -r '.body.onChain.gov_action.rewards' "$input_file")
 check_field "rewards" "$withdrawal_list"
@@ -230,6 +248,27 @@ if [ ! -z "$withdrawal_address_input" ]; then
         exit 1
     fi
 fi
+
+# Verify bech32 integrity (checksum + address type) of stake address
+validate_stake_address() {
+    local label="$1"
+    local address="$2"
+    local info
+    if ! info=$(cardano-cli address info --address "$address" 2>&1); then
+        echo -e "${RED}Error: $label is not a valid bech32 address: ${YELLOW}$address${NC}" >&2
+        echo -e "${GRAY}cardano-cli rejected it: $info${NC}" >&2
+        exit 1
+    fi
+    local addr_type
+    addr_type=$(echo "$info" | jq -r '.type // ""')
+    if [ "$addr_type" != "stake" ]; then
+        echo -e "${RED}Error: $label is bech32-valid but is not a stake address (type=${YELLOW}${addr_type:-unknown}${RED}): ${YELLOW}$address${NC}" >&2
+        exit 1
+    fi
+}
+
+validate_stake_address "metadata body.onChain.reward_account" "$deposit_return"
+validate_stake_address "metadata body.onChain.gov_action.rewards[0].key" "$withdrawal_address"
 
 # use bech32 prefix to determine if addresses are mainnet or testnet
 is_stake_address_mainnet() {
