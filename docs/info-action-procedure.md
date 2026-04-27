@@ -62,13 +62,15 @@ We can then run our validation script to check
 - URI reachability for every `uri`/`url` field plus markdown links and bare URLs inside prose fields; `ipfs://<cid>` is resolved via `$IPFS_GATEWAY_URI` (fallback `https://ipfs.io`). Skip with `--no-check-links`.
 - `body.title` length ≤ 80 and `body.abstract` length ≤ 2500 characters (when those fields are present)
 
+Because the metadata at this point in the procedure has not yet been signed, run with `--draft`:
+
 ```shell
-./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
+./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169 --draft
 ```
 
 At least one schema flag (`--cipNNN`, `--intersect-schema`, or `--schema <URL>`) is required.
 
-If running with Intersect schema this will give us an error for missing author, this is okay.
+The `--draft` flag is what suppresses the "missing author" failure at this stage; it must be omitted in step 9 below so the strict post-signing pass actually catches an empty-authors regression.
 
 ### 7. Add author witness(es)
 
@@ -98,6 +100,9 @@ Just to double check that all is good now.
 - spell check (skip with `--no-spell-check`)
 - URI reachability (skip with `--no-check-links`)
 - title/abstract length limits
+- structural integrity (non-empty `authors`)
+
+Run **without** `--draft` so the empty-`authors` check is strict — this is what guarantees the document was actually signed in step 7:
 
 ```shell
 ./scripts/metadata-validate.sh my-metadata.jsonld --cip108 --cip169
