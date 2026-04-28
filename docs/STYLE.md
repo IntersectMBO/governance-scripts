@@ -177,18 +177,7 @@ print_pass "Action file created at $(fmt_path "$action_file")"
 
 ## Migration status
 
-| Script                     | Status   |
-|----------------------------|----------|
-| `action-create-info.sh`    | migrated |
-| `action-create-tw.sh`      | migrated |
-| `metadata-create.sh`       | migrated |
-| `metadata-validate.sh`     | migrated |
-| `preflight.sh`             | pending — already uses `[PASS]/[WARN]/[FAIL]` directly |
-| `author-create.sh`         | pending  |
-| `author-validate.sh`       | pending  |
-| `ipfs-pin.sh`              | pending  |
-| `ipfs-check.sh`            | pending  |
-| `cip-108-markdown.sh`      | pending  |
-| `pdf-remove-metadata.sh`   | pending  |
-| `metadata-canonize.sh`     | pending  |
-| `hash.sh`                  | pending  |
+All shell scripts under `scripts/` have been migrated to use `lib/messages.sh`.
+`preflight.sh` keeps its own inline `tag()` emitter because it prints
+tag + name + value on a single column-aligned line; it sources the lib for
+its color variables so NO_COLOR / non-TTY behavior is consistent.
