@@ -1,0 +1,38 @@
+# Pinned upstream CIP example fixtures used by CI to detect canonicalization
+# drift in the cardano-signer + perl-control-char-escape pipeline that
+# scripts/metadata-canonize.sh wraps.
+#
+# Each row: <id> <safemode> <sha-pinned-url> <golden-canonized-hash>
+#
+# - id            short identifier; CI uses it as a download filename
+# - safemode      yes|no — passed through to cardano-signer canonize. CIP-119 and
+#                 some CIP-136 documents use body shapes that cardano-signer
+#                 1.27.0 does not recognise as CIP-108-compatible and rejects
+#                 under safe mode; --disable-safemode lets canonization proceed
+#                 deterministically.
+# - URL           PINNED to a commit SHA, not a branch. Bumping the SHA is a
+#                 deliberate act and requires re-computing the golden hash.
+# - golden hash   blake2b-256 of the canonized body, hex. If CI fails this,
+#                 the cause is one of: cardano-signer version drift, perl-escape
+#                 behavior drift, the pinned upstream file changed under the
+#                 same SHA (should not be possible), or a wrapper-script change.
+#                 Investigate the cause; do NOT just bump the golden.
+#
+# Why no schema-validation step here? The upstream cardano-foundation/CIPs
+# repository's published example .jsonld files do not currently conform to the
+# repository's own published schemas (e.g. CIP-100 schema enum on
+# witnessAlgorithm is ["ed25519"] only, but CIP-108 examples use "CIP-0008";
+# CIP-108 schema requires `name` on each author, but examples omit it). That's
+# an upstream inconsistency outside this repo's scope to fix. CI runs
+# metadata-validate.sh against the in-repo `test/*.jsonld` fixtures separately.
+#
+# Pinned to cardano-foundation/CIPs commit
+#   5c29bb73d8ae90bfcea9c3d20849c90700b99ff4
+# Re-pin by editing this file; the rest of CI reads from here.
+#
+# Lines starting with # and blank lines are ignored. Tab-separated fields.
+cip108-treasury-withdrawal	yes	https://raw.githubusercontent.com/cardano-foundation/CIPs/5c29bb73d8ae90bfcea9c3d20849c90700b99ff4/CIP-0108/examples/treasury-withdrawal.jsonld	68d6fe27087457acf0164e65414238c43573192c99f30341926d1524924d71ca
+cip108-no-confidence	yes	https://raw.githubusercontent.com/cardano-foundation/CIPs/5c29bb73d8ae90bfcea9c3d20849c90700b99ff4/CIP-0108/examples/no-confidence.jsonld	4a7ecc544559df67ece3f7f90f76c4e3e7e329a274c79a06dcfbf28351db600e
+cip119-drep	no	https://raw.githubusercontent.com/cardano-foundation/CIPs/5c29bb73d8ae90bfcea9c3d20849c90700b99ff4/CIP-0119/examples/drep.jsonld	a7a5cf6bfcad40e7b43653dae26344d6fbb5d7a2ef8de56a5e43703b298b94b5
+cip136-treasury-withdrawal-unconstitutional	no	https://raw.githubusercontent.com/cardano-foundation/CIPs/5c29bb73d8ae90bfcea9c3d20849c90700b99ff4/CIP-0136/examples/treasury-withdrawal-unconstitutional.jsonld	7b2c08cafbdf7b524035c1f7face3af9f0370d2df4d5c841ebb83b4e5a843e64
+cip136-parameter-change-abstain	yes	https://raw.githubusercontent.com/cardano-foundation/CIPs/5c29bb73d8ae90bfcea9c3d20849c90700b99ff4/CIP-0136/examples/parameter-change-abstain.jsonld	f1a20900160c3516d9cfb9b6db2d75d8f06bc167b751d285dc8532e45ce29eaf
