@@ -6,46 +6,34 @@
 
 ##################################################
 
-# Exit immediately if a command exits with a non-zero status, 
+# Exit immediately if a command exits with a non-zero status,
 # treat unset variables as an error, and fail if any command in a pipeline fails
 set -euo pipefail
 
-# Colors
-#BLACK='\033[0;30m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
-NC='\033[0m'
-UNDERLINE='\033[4m'
-BOLD='\033[1m'
-GRAY='\033[0;90m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
 
 # Check if cardano-cli is installed
 if ! command -v cardano-cli >/dev/null 2>&1; then
-  echo -e "${RED}Error: cardano-cli is not installed or not in your PATH." >&2
+  print_fail "cardano-cli is not installed or not in your PATH."
   exit 1
 fi
 
 # Check if ipfs cli is installed
 if ! command -v ipfs >/dev/null 2>&1; then
-  echo -e "${RED}Error: ipfs cli is not installed or not in your PATH." >&2
+  print_fail "ipfs cli is not installed or not in your PATH."
   exit 1
 fi
 
 # Usage message
 
 usage() {
-    local col=50
-    echo -e "${UNDERLINE}${BOLD}Create an Info action from a given JSON-LD metadata file${NC}"
-    echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--deposit-return-addr ${NC}<stake address>]"
-    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
-    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--deposit-return-addr <stake address>]" "- Optional check that metadata deposit return address"
-    printf "  %-*s${GRAY}%s${NC}\n" $col "" "matches provided one (Bech32)"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    printf '%s%sCreate an Info action from a given JSON-LD metadata file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
+    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--deposit-return-addr%s <stake address>]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC"
+    print_usage_option "<jsonld-file>"                              "Path to the JSON-LD metadata file"
+    print_usage_option "[--deposit-return-addr <stake address>]"    "Optional check that metadata deposit return address matches provided one (Bech32)"
+    print_usage_option "-h, --help"                                 "Show this help message and exit"
     exit 1
 }
 
@@ -63,7 +51,7 @@ while [[ $# -gt 0 ]]; do
                 deposit_return_address_input="$2"
                 shift 2
             else
-                echo -e "\n${RED}Error: --deposit-return-addr requires a value${NC}\n" >&2
+                print_fail "--deposit-return-addr requires a value"
                 usage
             fi
             ;;
@@ -74,7 +62,7 @@ while [[ $# -gt 0 ]]; do
             if [ -z "$input_file" ]; then
                 input_file="$1"
             else
-                echo -e "${RED}Error: Input file already specified. Unexpected argument: $1${NC}" >&2
+                print_fail "Input file already specified. Unexpected argument: $1"
                 usage
             fi
             shift
@@ -84,53 +72,51 @@ done
 
 # If no input file provided, show usage
 if [ -z "$input_file" ]; then
-    echo -e "${RED}Error: No input file specified${NC}" >&2
+    print_fail "No input file specified"
     usage
 fi
 
 # Enforce .jsonld extension
 if [[ "$input_file" != *.jsonld ]]; then
-    echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' must be a JSON-LD metadata file with a ${YELLOW}.jsonld${RED} extension.${NC}" >&2
-    echo -e "${YELLOW}This script expects a CIP-108 metadata document whose body.onChain.gov_action.tag is 'info_action'.${NC}" >&2
+    print_fail "Input file $(fmt_path "$input_file") must be a JSON-LD metadata file with a .jsonld extension."
+    print_hint "This script expects a CIP-108 metadata document whose body.onChain.gov_action.tag is 'info_action'."
     exit 1
 fi
 
 # Check if input file exists
 if [ ! -f "$input_file" ]; then
-    echo -e "${RED}Error: Input file not found: $input_file${NC}" >&2
+    print_fail "Input file not found: $(fmt_path "$input_file")"
     exit 1
 fi
 
-echo -e " "
-echo -e "${YELLOW}Creating an Info governance action from a given metadata file${NC}"
-echo -e "${CYAN}This script assumes compliance Intersect's Info action schema${NC}"
-echo -e "${CYAN}This script assumes that CARDANO_NODE_SOCKET_PATH, CARDANO_NODE_NETWORK_ID and IPFS_GATEWAY_URI are set${NC}"
+print_banner "Creating an Info governance action from a given metadata file"
+print_info "This script assumes compliance Intersect's Info action schema"
+print_info "This script assumes that CARDANO_NODE_SOCKET_PATH, CARDANO_NODE_NETWORK_ID and IPFS_GATEWAY_URI are set"
 
 # Exit if socket path is not set
 if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
-    echo "Error: Cardano node $CARDANO_NODE_SOCKET_PATH environment variable is not set." >&2
+    print_fail "CARDANO_NODE_SOCKET_PATH environment variable is not set."
     exit 1
 fi
 
 # Exit if network id is not set
 if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
-    echo "Error: Cardano node $CARDANO_NODE_NETWORK_ID environment variable is not set." >&2
+    print_fail "CARDANO_NODE_NETWORK_ID environment variable is not set."
 fi
 
 # Get if mainnet or testnet
 if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    echo -e "${YELLOW}Local node is using mainnet${NC}"
+    print_info "Local node is using mainnet"
     protocol_magic="mainnet"
 else
-    echo -e "${YELLOW}Local node is using a testnet${NC}"
+    print_info "Local node is using a testnet"
     protocol_magic="testnet"
 fi
 
 # Open the provided metadata file
 
 # Do some basic validation checks on metadata
-echo -e " "
-echo -e "${CYAN}Doing some basic validation and checks on metadata${NC}"
+print_section "Doing some basic validation and checks on metadata"
 
 # Function to check if jq query returned null or empty
 check_field() {
@@ -138,7 +124,7 @@ check_field() {
     local field_value="$2"
 
     if [ -z "$field_value" ] || [ "$field_value" = "null" ]; then
-        echo -e "${RED}Error: Required field '$field_name' not found in metadata${NC}" >&2
+        print_fail "Required field '$field_name' not found in metadata"
         exit 1
     fi
 }
@@ -160,17 +146,17 @@ check_field "deposit" "$deposit"
 # deposit is 100,000 ada = 100_000_000_000 lovelace.
 EXPECTED_DEPOSIT_LOVELACE="100000000000"
 if [ "$deposit" != "$EXPECTED_DEPOSIT_LOVELACE" ]; then
-    echo -e "${YELLOW}Warning: body.onChain.deposit = ${BRIGHTWHITE}$deposit${YELLOW} lovelace, expected ${BRIGHTWHITE}$EXPECTED_DEPOSIT_LOVELACE${YELLOW} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting.${NC}" >&2
+    print_warn "body.onChain.deposit = ${BRIGHTWHITE}${deposit}${NC} lovelace, expected ${BRIGHTWHITE}${EXPECTED_DEPOSIT_LOVELACE}${NC} (100,000 ADA, the current governance action deposit). Verify this is intentional before submitting."
 fi
 
 # Authoritative deposit check against the live protocol parameter
-echo "Checking that deposit matches the current protocol parameter"
+print_info "Checking that deposit matches the current protocol parameter"
 onchain_deposit=$(cardano-cli conway query protocol-parameters | jq -r '.govActionDeposit')
 if [ "$deposit" = "$onchain_deposit" ]; then
-    echo -e "${GREEN}Metadata has expected deposit amount${NC}"
+    print_pass "Metadata has expected deposit amount"
 else
-    echo -e "${RED}Metadata does not have expected deposit amount${NC}" >&2
-    echo -e "${RED}Expected: $onchain_deposit found: $deposit${NC}" >&2
+    print_fail "Metadata does not have expected deposit amount"
+    print_hint "Expected: $onchain_deposit  found: $deposit"
     exit 1
 fi
 
@@ -180,21 +166,20 @@ witness=$(jq -r '.authors[0].witness' "$input_file")
 check_field "witness" "$witness"
 
 if [ "$ga_type" = "info_action" ]; then
-    echo "Metadata has correct governance action tag"
+    print_pass "Metadata has correct governance action tag"
 else
-    echo "Metadata does not have the correct governance action tag"
-    echo "Expected: info_action found: $ga_type"
+    print_fail "Metadata does not have the correct governance action tag"
+    print_hint "Expected: info_action  found: $ga_type"
     exit 1
 fi
 
 # if return address passed in check against metadata
-if [ ! -z "$deposit_return_address_input" ]; then
-    echo "Deposit return address provided"
-    echo "Comparing provided address to metadata"
+if [ -n "$deposit_return_address_input" ]; then
+    print_info "Comparing provided deposit return address to metadata"
     if [ "$deposit_return_address_input" = "$deposit_return" ]; then
-        echo -e "${GREEN}Metadata has expected deposit return address${NC}"
+        print_pass "Metadata has expected deposit return address"
     else
-        echo -e "${RED}Metadata does not have expected deposit return address${NC}"
+        print_fail "Metadata does not have expected deposit return address"
         exit 1
     fi
 fi
@@ -209,7 +194,7 @@ is_stake_address_mainnet() {
     elif [[ "$address" =~ ^stake_test1 ]]; then
         return 1
     else
-        echo -e "${RED}Error: Invalid stake address format: $address${NC}" >&2
+        print_fail "Invalid stake address format: $address"
         exit 1
     fi
 }
@@ -217,16 +202,16 @@ is_stake_address_mainnet() {
 # if mainnet node then expect addresses to be mainnet
 if [ "$protocol_magic" = "mainnet" ]; then
     if is_stake_address_mainnet "$deposit_return"; then
-        echo -e "Deposit return address is a valid mainnet stake address"
+        print_pass "Deposit return address is a valid mainnet stake address"
     else
-        echo -e "${RED}Deposit return address is not a valid mainnet stake address${NC}"
+        print_fail "Deposit return address is not a valid mainnet stake address"
         exit 1
     fi
 else
     if ! is_stake_address_mainnet "$deposit_return"; then
-        echo -e "Deposit return address is a valid testnet stake address"
+        print_pass "Deposit return address is a valid testnet stake address"
     else
-        echo -e "${RED}Deposit return address is not a valid testnet stake address${NC}"
+        print_fail "Deposit return address is not a valid testnet stake address"
         exit 1
     fi
 fi
@@ -237,13 +222,13 @@ is_stake_address_script() {
 
     address_hex=$(cardano-cli address info --address "$address"| jq -r ".base16")
     first_char="${address_hex:0:1}"
-    
+
     if [ "$first_char" = "f" ]; then
         return 0  # true
     elif [ "$first_char" = "e" ]; then
         return 1  # false
     else
-        echo -e "${RED}Error: Invalid stake address header byte${NC}" >&2
+        print_fail "Invalid stake address header byte"
         exit 1
     fi
 }
@@ -260,47 +245,43 @@ is_stake_address_registered(){
 
 # check if stake addresses are registered
 if is_stake_address_registered "$deposit_return"; then
-    echo -e "Deposit return stake address is registered"
+    print_pass "Deposit return stake address is registered"
 else
-   echo -e "${RED}Deposit return stake address is not registered, exiting.${NC}"
-   exit 1
+    print_fail "Deposit return stake address is not registered"
+    exit 1
 fi
 
 
-echo -e "${GREEN}Automatic validations passed${NC}"
-echo -e " "
-echo -e "${CYAN}Computing details${NC}"
+print_pass "Automatic validations passed"
+print_section "Computing details"
 
 # Compute the hash and IPFS URI
 file_hash=$(b2sum -l 256 "$input_file" | awk '{print $1}')
-echo -e "Metadata file hash: ${YELLOW}$file_hash${NC}"
+print_info "Metadata file hash: ${YELLOW}${file_hash}${NC}"
 
 ipfs_cid=$(ipfs add -Q --cid-version 1 "$input_file")
-echo -e "IPFS URI: ${YELLOW}ipfs://$ipfs_cid${NC}"
+print_info "IPFS URI: ${YELLOW}ipfs://${ipfs_cid}${NC}"
 
 # Make user manually confirm the choices
-echo -e " "
-echo -e "${CYAN}Creating info action${NC}"
-echo -e "Title: ${YELLOW}$title${NC}"
-echo -e " "
-echo -e "Deposit return address: ${YELLOW}$deposit_return${NC}"
+print_section "Creating info action"
+print_info "Title: ${YELLOW}${title}${NC}"
+print_info "Deposit return address: ${YELLOW}${deposit_return}${NC}"
 if is_stake_address_script "$deposit_return"; then
-    echo -e "(this is a script-based address)"
+    print_info "(this is a script-based address)"
 else
-    echo -e "(this is a key-based address)"
+    print_info "(this is a key-based address)"
 fi
 
-echo -e " "
-read -p "Do you want to proceed with this deposit return address? (yes/no): " confirm_deposit
-
-if [ "$confirm_deposit" != "yes" ]; then
-  echo -e "${RED}Deposit address not confirmed by user, exiting.${NC}"
-  exit 1
+if ! confirm "Do you want to proceed with this deposit return address?"; then
+    print_fail "Cancelled by user"
+    exit 1
 fi
 
 # Create the action
-echo -e " "
-echo -e "${CYAN}Creating action file...${NC}"
+print_section "Creating action file"
+
+action_file="$input_file.action"
+action_json="$input_file.action.json"
 
 cardano-cli conway governance action create-info \
   --$protocol_magic \
@@ -309,12 +290,19 @@ cardano-cli conway governance action create-info \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
   --check-anchor-data \
-  --out-file "$input_file.action"
+  --out-file "$action_file"
 
-echo -e "${GREEN}Action file created at "$input_file.action" ${NC}"
+print_pass "Action file created at $(fmt_path "$action_file")"
 
-echo -e " "
-echo -e "${CYAN}Creating JSON representation of action file...${NC}"
+print_section "Creating JSON representation of action file"
 
-cardano-cli conway governance action view --action-file "$input_file.action" > "$input_file.action.json"
-echo -e "${GREEN}JSON file created at "$input_file.action.json" ${NC}"
+cardano-cli conway governance action view --action-file "$action_file" > "$action_json"
+print_pass "JSON file created at $(fmt_path "$action_json")"
+
+print_section "Summary"
+print_pass "Info governance action created"
+print_kv "Input"   "$(fmt_path "$input_file")"
+print_kv "Action"  "$(fmt_path "$action_file")"
+print_kv "JSON"    "$(fmt_path "$action_json")"
+print_kv "Hash"    "$file_hash"
+print_kv "IPFS"    "ipfs://$ipfs_cid"
