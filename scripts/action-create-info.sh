@@ -306,3 +306,8 @@ print_kv "Action"  "$(fmt_path "$action_file")"
 print_kv "JSON"    "$(fmt_path "$action_json")"
 print_kv "Hash"    "$file_hash"
 print_kv "IPFS"    "ipfs://$ipfs_cid"
+print_next "Include the action file in a transaction:" \
+           "  cardano-cli latest transaction build \\" \
+           "    --tx-in <utxo> --change-address <addr> \\" \
+           "    --proposal-file '$action_file' \\" \
+           "    --out-file tx.raw"

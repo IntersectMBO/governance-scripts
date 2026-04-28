@@ -76,6 +76,16 @@ print_kv() {
     printf '         %-12s %s\n' "$1:" "$2"
 }
 
+# "Next step:" footer for end-of-script summaries. Each argument is one
+# command/instruction line, indented to align under the [PASS] message column.
+print_next() {
+    printf '%sNext step:%s\n' "$BOLD" "$NC"
+    local line
+    for line in "$@"; do
+        printf '         %s\n' "$line"
+    done
+}
+
 # Single-quoted, colored path; suitable for inlining in other messages.
 fmt_path() {
     printf "'%s%s%s'" "$YELLOW" "$1" "$NC"

@@ -766,3 +766,5 @@ print_kv "Input"    "$(fmt_path "$input_file")"
 print_kv "Output"   "$(fmt_path "$FINAL_OUTPUT_JSON")"
 print_kv "Type"     "$governance_action_type"
 print_kv "Language" "$language"
+print_next "Validate the document (still pre-signing, so use --draft):" \
+           "  ./scripts/metadata-validate.sh '$FINAL_OUTPUT_JSON' --cip108 --cip169 --draft"
