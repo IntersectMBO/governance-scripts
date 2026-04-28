@@ -8,33 +8,23 @@ CHECK_INTERSECT_AUTHOR="true"
 
 set -euo pipefail
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
-NC='\033[0m'
-UNDERLINE='\033[4m'
-BOLD='\033[1m'
-GRAY='\033[0;90m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
 
 # Check if cardano-signer is installed
 if ! command -v cardano-signer >/dev/null 2>&1; then
-  echo -e "${RED}Error: cardano-signer is not installed or not in your PATH.${NC}" >&2
+  print_fail "cardano-signer is not installed or not in your PATH."
   exit 1
 fi
 
 # Usage message
 usage() {
-    local col=50
-    echo -e "${UNDERLINE}${BOLD}Verify metadata files with author witness using cardano-signer${NC}"
-    echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file|directory>${NC} [${GREEN}--no-intersect${NC}]"
-    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file|directory>" "- Path to JSON-LD file or directory to verify"
-    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-intersect]" "- Don't compare author's public key against Intersect's known key"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    printf '%s%sVerify metadata files with author witness using cardano-signer%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
+    printf 'Syntax:%s %s %s<jsonld-file|directory>%s [%s--no-intersect%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC"
+    print_usage_option "<jsonld-file|directory>" "Path to JSON-LD file or directory to verify"
+    print_usage_option "[--no-intersect]"        "Don't compare author's public key against Intersect's known key"
+    print_usage_option "-h, --help"              "Show this help message and exit"
     exit 1
 }
 
@@ -61,7 +51,7 @@ while [[ $# -gt 0 ]]; do
                 input_path="$1"
                 shift
             else
-                echo -e "${RED}Error: Unknown argument: $1${NC}" >&2
+                print_fail "Unknown argument: $1"
                 usage
             fi
             ;;
@@ -70,23 +60,20 @@ done
 
 # Check if the metadata input file exists
 if [ ! -f "$input_path" ]; then
-    echo -e "${RED}Error: JSON file '${YELLOW}$input_path${RED}' not found!${NC}"
+    print_fail "JSON file $(fmt_path "$input_path") not found"
     exit 1
 fi
 
-echo -e " "
-echo -e "${YELLOW}Validating the authors within given governance metadata${NC}"
+print_banner "Validating the authors within given governance metadata"
 
 # Get Intersect author public key
 if [ "$check_intersect" == "true" ]; then
-    echo -e " "
-    echo -e "${CYAN}Comparing author's public key to Intersect's known public key${NC}"
-    echo -e "${CYAN}Fetching Intersect author public key from ${YELLOW}$INTERSECT_AUTHOR_PATH${NC}"
+    print_section "Fetching Intersect author public key"
+    print_info "Source: ${YELLOW}${INTERSECT_AUTHOR_PATH}${NC}"
     author_key=$(curl -s "$INTERSECT_AUTHOR_PATH" | jq -r '.publicKey')
-    echo -e "Intersect author public key: ${YELLOW}$author_key${NC}"
+    print_info "Intersect author public key: ${YELLOW}${author_key}${NC}"
 else
-    echo -e " "
-    echo -e "${CYAN}Not comparing author's against Intersect's known public key${NC}"
+    print_info "Not comparing author's against Intersect's known public key"
 fi
 
 # Use cardano-signer to verify author witnesses
@@ -101,7 +88,7 @@ verify_author_witness() {
 
     # read exit code of last command
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: cardano-signer command failed while verifying file '${YELLOW}$file${RED}'.${NC}" >&2
+        print_fail "cardano-signer command failed while verifying file $(fmt_path "$file")."
         exit 1
     fi
 
@@ -109,16 +96,16 @@ verify_author_witness() {
     local output
     output=$(printf '%s' "$raw_output" | perl -pe 's/([\x00-\x1f])/sprintf("\\u%04x",ord($1))/ge' | jq '{result, errorMsg, authors, canonizedHash, fileHash}')
 
-    echo -e "${CYAN}Result: ${NC}$(echo "$output" | jq -r '.result')"
-    echo -e "${CYAN}Error Messages: ${NC}$(echo "$output" | jq -r '.errorMsg')"
-    echo -e "${CYAN}Authors: ${NC}$(echo "$output" | jq -r '.authors')"
-    echo -e "${CYAN}Canonized Hash: ${NC}$(echo "$output" | jq -r '.canonizedHash')"
-    echo -e "${CYAN}File Hash: ${NC}$(echo "$output" | jq -r '.fileHash')"
+    print_kv "Result"          "$(echo "$output" | jq -r '.result')"
+    print_kv "Error Messages"  "$(echo "$output" | jq -r '.errorMsg')"
+    print_kv "Authors"         "$(echo "$output" | jq -c '.authors')"
+    print_kv "Canonized Hash"  "$(echo "$output" | jq -r '.canonizedHash')"
+    print_kv "File Hash"       "$(echo "$output" | jq -r '.fileHash')"
 
     local result
     result=$(echo "$output" | jq -r '.result')
     if [ "$result" != "true" ]; then
-        echo -e "${RED}Error: Verification failed with result: ${YELLOW}$result${NC}" >&2
+        print_fail "Verification failed with result: $result"
         exit 1
     fi
 }
@@ -127,28 +114,27 @@ verify_author_witness() {
 check_if_correct_author() {
     local file="$1"
     author_count=$(jq '.authors | length' "$file")
-    
+
     # Iterate over all author pubkeys present
     for i in $(seq 0 $(($author_count - 1))); do
         file_author_key=$(jq -r ".authors[$i].witness.publicKey" "$file")
-        echo " "
-        echo -e "${CYAN}Checking author index $i public key against Intersect's keys${NC}"
-        
-        # if author's public key matches Intersect's public key
+        print_section "Checking author index $i public key against Intersect's keys"
+
+        # if author's public key matches Intersect's public key
         if [ "$file_author_key" == "$author_key" ]; then
             # and if author name is intersect
             if [ "$(jq -r ".authors[$i].name" "$file")" == "Intersect" ]; then
-                echo -e "${GREEN}Author pub key and name is correctly set to 'Intersect'.${NC}"
+                print_pass "Author pub key and name is correctly set to 'Intersect'."
             else
-                echo -e "${RED}Warning: Author name is NOT set to 'Intersect' but public key matches Intersect's key.${NC}"
-                echo -e "Author name: ${YELLOW}$(jq -r ".authors[$i].name" "$file")${NC}"
-                echo -e "Author public key: ${YELLOW}$file_author_key${NC}"
+                print_warn "Author name is NOT set to 'Intersect' but public key matches Intersect's key."
+                print_kv "Author name"       "$(jq -r ".authors[$i].name" "$file")"
+                print_kv "Author public key" "$file_author_key"
             fi
-            
+
         else
-            echo -e "${RED}Warning: Author public key is not Intersect's key.${NC}"
-            echo -e "Author name: ${YELLOW}$(jq -r ".authors[$i].name" "$file")${NC}"
-            echo -e "Author public key: ${YELLOW}$file_author_key${NC}"
+            print_warn "Author public key is not Intersect's key."
+            print_kv "Author name"       "$(jq -r ".authors[$i].name" "$file")"
+            print_kv "Author public key" "$file_author_key"
         fi
     done
 }
@@ -159,12 +145,12 @@ if [ -d "$input_path" ]; then
     jsonld_files=("$input_path"/*.jsonld)
     # check if any .jsonld files were found
     if [ ${#jsonld_files[@]} -eq 0 ]; then
-        echo -e "${RED}Error: No .jsonld files found in directory '${YELLOW}$input_path${RED}'.${NC}"
+        print_fail "No .jsonld files found in directory $(fmt_path "$input_path")."
         exit 1
     fi
     # for each .jsonld file in the directory, go over it
     for file in "${jsonld_files[@]}"; do
-        echo -e "${CYAN} Verifying provided signature on file is valid:${NC}"
+        print_section "Verifying signature on $(basename "$file")"
         verify_author_witness "$file"
         if [ "$check_intersect" == "true" ]; then
             check_if_correct_author "$file"
@@ -172,13 +158,13 @@ if [ -d "$input_path" ]; then
     done
 elif [ -f "$input_path" ]; then
     # Input is a single file
-    echo -e "${CYAN}Verifying provided signature on file is valid:${NC}"
+    print_section "Verifying signature on $(basename "$input_path")"
     verify_author_witness "$input_path"
     if [ "$check_intersect" == "true" ]; then
         check_if_correct_author "$input_path"
     fi
-    
+
 else
-    echo -e "${RED}Error: '${YELLOW}$input_path${RED}' is not a valid file or directory.${NC}"
+    print_fail "$(fmt_path "$input_path") is not a valid file or directory."
     exit 1
 fi
