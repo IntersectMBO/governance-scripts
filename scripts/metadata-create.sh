@@ -3,7 +3,7 @@
 ##################################################
 
 # Default configuration values
-METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/cip-governance-metadata-extension/cip169.common.jsonld"
+METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip169.common.jsonld"
 METADATA_108_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0108/cip-0108.common.jsonld"
 ##################################################
 
