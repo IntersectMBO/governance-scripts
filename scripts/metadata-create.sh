@@ -150,10 +150,18 @@ language="en"
 TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
 TEMP_OUTPUT_JSON=$(mktemp /tmp/metadata_create_temp.XXXXXX)
 TEMP_CONTEXT=$(mktemp /tmp/metadata_create_context.XXXXXX)
+TEMP_TITLE=$(mktemp /tmp/metadata_create_title.XXXXXX)
+TEMP_ABSTRACT=$(mktemp /tmp/metadata_create_abstract.XXXXXX)
+TEMP_MOTIVATION=$(mktemp /tmp/metadata_create_motivation.XXXXXX)
+TEMP_RATIONALE=$(mktemp /tmp/metadata_create_rationale.XXXXXX)
+TEMP_REFERENCES=$(mktemp /tmp/metadata_create_references.XXXXXX)
+TEMP_ONCHAIN=$(mktemp /tmp/metadata_create_onchain.XXXXXX)
 
 # Cleanup function to remove temporary files
 cleanup() {
-  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" "$TEMP_CONTEXT"
+  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" "$TEMP_CONTEXT" \
+        "$TEMP_TITLE" "$TEMP_ABSTRACT" "$TEMP_MOTIVATION" \
+        "$TEMP_RATIONALE" "$TEMP_REFERENCES" "$TEMP_ONCHAIN"
 }
 
 # Set trap to cleanup on any script
@@ -714,24 +722,34 @@ jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" --arg language "$language" 
 rm -f "$TEMP_CIP108" "$TEMP_CIP169"
 
 # Build the metadata JSON-LD with CIP-116 ProposalProcedure format onChain property
-jq --argjson context "$(cat "$TEMP_CONTEXT")" \
-   --argjson title "$TITLE" \
-   --argjson abstract "$ABSTRACT" \
-   --argjson motivation "$MOTIVATION" \
-   --argjson rationale "$RATIONALE" \
-   --argjson references "$REFERENCES_JSON" \
-   --argjson onchain "$ONCHAIN_PROPERTY" \
+# Write each value to a temp file to avoid "Argument list too long" with large markdown.
+# --slurpfile reads the file from disk and binds it as a 1-element array,
+# which is why every variable below is dereferenced with [0].
+printf '%s' "$TITLE"            > "$TEMP_TITLE"
+printf '%s' "$ABSTRACT"         > "$TEMP_ABSTRACT"
+printf '%s' "$MOTIVATION"       > "$TEMP_MOTIVATION"
+printf '%s' "$RATIONALE"        > "$TEMP_RATIONALE"
+printf '%s' "$REFERENCES_JSON"  > "$TEMP_REFERENCES"
+printf '%s' "$ONCHAIN_PROPERTY" > "$TEMP_ONCHAIN"
+
+jq --slurpfile context    "$TEMP_CONTEXT" \
+   --slurpfile title      "$TEMP_TITLE" \
+   --slurpfile abstract   "$TEMP_ABSTRACT" \
+   --slurpfile motivation "$TEMP_MOTIVATION" \
+   --slurpfile rationale  "$TEMP_RATIONALE" \
+   --slurpfile references "$TEMP_REFERENCES" \
+   --slurpfile onchain    "$TEMP_ONCHAIN" \
    '{
-     "@context": $context,
+     "@context": $context[0],
      "authors": [],
      "hashAlgorithm": "blake2b-256",
      "body": {
-       "title": $title,
-       "abstract": $abstract,
-       "motivation": $motivation,
-       "rationale": $rationale,
-       "references": $references,
-       "onChain": $onchain
+       "title": $title[0],
+       "abstract": $abstract[0],
+       "motivation": $motivation[0],
+       "rationale": $rationale[0],
+       "references": $references[0],
+       "onChain": $onchain[0]
      }
    }' <<< '{}' > "$TEMP_OUTPUT_JSON"
 
