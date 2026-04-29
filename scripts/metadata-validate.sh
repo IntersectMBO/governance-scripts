@@ -22,6 +22,9 @@ CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
 CIP_169_SCHEMA="https://raw.githubusercontent.com/elenabardho/CIPs/refs/heads/cip-governance-metadata-extension-schema/cip-governance-metadata-extension/cip-0169.common.schema.json"
+# CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/redo-schema/CIP-0169/cip-0169.common.schema.json"
+# CIP-169 schemas $ref into the CIP-116 cardano-conway types, so we fetch that
+CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0116/cardano-conway.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
 INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
@@ -417,10 +420,17 @@ if [ "$use_cip_136" = "true" ]; then
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
+CARDANO_CONWAY_REF=""
 if [ "$use_cip_169" = "true" ]; then
     echo -e "${WHITE}Downloading CIP-169 Governance Metadata Extension schema...${NC}"
     TEMP_CIP_169_SCHEMA="$TMP_SCHEMAS_DIR/cip-169-schema.json"
     curl -sSfSL "$CIP_169_SCHEMA" -o "$TEMP_CIP_169_SCHEMA"
+
+    echo -e "${WHITE}Downloading CIP-116 cardano-conway types (referenced by CIP-169)...${NC}"
+    # Filename intentionally avoids the "*-schema.json" suffix so the glob below
+    # does not pick it up as a top-level schema to validate against.
+    CARDANO_CONWAY_REF="$TMP_SCHEMAS_DIR/cardano-conway.json"
+    curl -sSfSL "$CIP_116_CONWAY_SCHEMA" -o "$CARDANO_CONWAY_REF"
 fi
 
 # Determine which Intersect schema to use based on governanceActionType property
@@ -466,8 +476,12 @@ for schema in "${schemas[@]}"; do
     echo -e " "
     echo -e "${CYAN}Validating against schema: ${YELLOW}$schema${NC}"
     if [ -f "$schema" ]; then
-        ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=false
-        if [ $? -ne 0 ]; then
+        ajv_args=(validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=false)
+        # CIP-169 references CIP-116 cardano-conway types via $ref; supply them.
+        if [[ "$schema" == *cip-169-schema.json ]] && [ -n "$CARDANO_CONWAY_REF" ]; then
+            ajv_args=(validate --spec=draft2020 -s "$schema" -r "$CARDANO_CONWAY_REF" -d "$JSON_FILE" --all-errors --strict=false)
+        fi
+        if ! ajv "${ajv_args[@]}"; then
             VALIDATION_FAILED=1
         fi
     fi
