@@ -258,21 +258,32 @@ FINAL_OUTPUT_JSON="$input_dir/$input_name.jsonld"
 cp "$input_file" "$TEMP_MD"
 
 # Clean up escaped characters in markdown
+# Usable sed (for macOS + Linux)
+portable_sed() {
+  # If this returns 0, sed is GNU (Linux); if not, it's BSD (macOS)
+  if sed --version >/dev/null 2>&1; then
+    # GNU(linux)
+    sed -E -i "$1" "$2"
+  else
+    # BSD(macOS)
+    sed -E -i '' "$1" "$2"
+  fi
+}
 # Remove extra backslashes before special characters that don't need escaping in JSON
-sed -E -i '' 's/\\-/-/g' "$TEMP_MD"
-sed -E -i '' 's/\\_/_/g' "$TEMP_MD"
-sed -E -i '' 's/\\\./\./g' "$TEMP_MD"
-sed -E -i '' 's/\\\?/\?/g' "$TEMP_MD"
-sed -E -i '' 's/\\\+/\+/g' "$TEMP_MD"
-sed -E -i '' 's/\\\^/\^/g' "$TEMP_MD"
-sed -E -i '' 's/\\\$/\\$/g' "$TEMP_MD"
+portable_sed 's/\\-/-/g' "$TEMP_MD"
+portable_sed 's/\\_/_/g' "$TEMP_MD"
+portable_sed 's/\\\./\./g' "$TEMP_MD"
+portable_sed 's/\\\?/\?/g' "$TEMP_MD"
+portable_sed 's/\\\+/\+/g' "$TEMP_MD"
+portable_sed 's/\\\^/\^/g' "$TEMP_MD"
+portable_sed 's/\\\$/\\$/g' "$TEMP_MD"
 # Fix common markdown escaping issues
-sed -E -i '' 's/\\\&/\&/g' "$TEMP_MD"
-sed -E -i '' 's/\\\#/#/g' "$TEMP_MD"
-sed -E -i '' 's/\\\:/:/g' "$TEMP_MD"
-sed -E -i '' 's/\\\;/\;/g' "$TEMP_MD"
+portable_sed 's/\\\&/\&/g' "$TEMP_MD"
+portable_sed 's/\\\#/#/g' "$TEMP_MD"
+portable_sed 's/\\\:/:/g' "$TEMP_MD"
+portable_sed 's/\\\;/\;/g' "$TEMP_MD"
 # Handle asterisks - only remove backslash if not part of markdown formatting
-sed -E -i '' 's/\\\*([^*])/\*\1/g' "$TEMP_MD"
+portable_sed 's/\\\*([^*])/\*\1/g' "$TEMP_MD"
 
 extract_section() {
   local start="$1"
