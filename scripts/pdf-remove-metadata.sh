@@ -4,43 +4,33 @@
 DEFAULT_NEW_FILE="false" # default to false, to the script overwrites the input file
 ##################################################
 
-# Exit immediately if a command exits with a non-zero status, 
+# Exit immediately if a command exits with a non-zero status,
 # treat unset variables as an error, and fail if any command in a pipeline fails
 set -euo pipefail
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
-NC='\033[0m'
-UNDERLINE='\033[4m'
-BOLD='\033[1m'
-GRAY='\033[0;90m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
 
 # check if user has exiftool cli installed
 if ! command -v exiftool >/dev/null 2>&1; then
-  echo -e "${RED}Error: exiftool cli is not installed or not in your PATH.${NC}" >&2
+  print_fail "exiftool cli is not installed or not in your PATH."
   exit 1
 fi
 
 # check if user has qpdf cli installed
 if ! command -v qpdf >/dev/null 2>&1; then
-  echo -e "${RED}Error: qpdf cli is not installed or not in your PATH.${NC}" >&2
+  print_fail "qpdf cli is not installed or not in your PATH."
   exit 1
 fi
 
 # Usage message
 usage() {
-    local col=50
-    echo -e "${UNDERLINE}${BOLD}Remove all metadata from a PDF file and set the Title metadata to the filename${NC}"
-    echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<pdf-file>${NC} [${GREEN}--new-file${NC}]"
-    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<pdf-file>" "- Path to your PDF file"
-    printf "        ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--new-file]" "- Create a new file with the signed metadata (default: $DEFAULT_NEW_FILE)"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    printf '%s%sRemove all metadata from a PDF file and set the Title metadata to the filename%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
+    printf 'Syntax:%s %s %s<pdf-file>%s [%s--new-file%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC"
+    print_usage_option "<pdf-file>"   "Path to your PDF file"
+    print_usage_option "[--new-file]" "Create a new file with the signed metadata (default: $DEFAULT_NEW_FILE)"
+    print_usage_option "-h, --help"   "Show this help message and exit"
     exit 1
 }
 
@@ -69,20 +59,20 @@ done
 
 # Check for required arguments
 if [ -z "$input_path" ]; then
-    echo "Error: Could not find PDF file."
+    print_fail "Could not find PDF file."
     usage
 fi
 
 # Enforce .pdf extension
 if [[ "$input_path" != *.pdf ]]; then
-    echo "Error: Input file '$input_path' must be a PDF file with a .pdf extension." >&2
-    echo "This script uses exiftool and qpdf to strip and rewrite PDF metadata." >&2
+    print_fail "Input file $(fmt_path "$input_path") must be a PDF file with a .pdf extension."
+    print_hint "This script uses exiftool and qpdf to strip and rewrite PDF metadata."
     exit 1
 fi
 
 # Ensure the input file actually exists
 if [ ! -f "$input_path" ]; then
-    echo "Error: Input file '$input_path' not found." >&2
+    print_fail "Input file $(fmt_path "$input_path") not found."
     exit 1
 fi
 
@@ -90,7 +80,7 @@ fi
 BASENAME=$(basename "$input_path" .pdf)
 
 # could add some logic here
-TITLE=$(echo "$BASENAME")
+TITLE="$BASENAME"
 
 if [ "$new_file" = "true" ]; then
     output_new_file="$input_path-new-metadata.pdf"
@@ -98,15 +88,21 @@ if [ "$new_file" = "true" ]; then
     exiftool -all= "$input_path" -o "$output_new_file"
     # remove all hidden metadata
     qpdf --linearize "$input_path" --replace-input
-    # add the Title metadata to the new PDF
+    # add the Title metadata to the new PDF
     exiftool -Title="$TITLE" "$output_new_file" -overwrite_original_in_place
-    echo "Metadata processing completed. New file: $output_new_file with Title: $TITLE"
+    print_section "Summary"
+    print_pass "PDF metadata replaced (new file)"
+    print_kv "Output" "$(fmt_path "$output_new_file")"
+    print_kv "Title"  "$TITLE"
 else
     # remove all metadata from the original PDF
     exiftool -all= "$input_path" -overwrite_original_in_place
     # remove all hidden metadata from the original PDF
     qpdf --linearize "$input_path" --replace-input
-    # add the Title metadata to the original PDF
+    # add the Title metadata to the original PDF
     exiftool -Title="$TITLE" "$input_path" -overwrite_original_in_place
-    echo "Metadata processing completed. Your file: $input_path now only has a Title: $TITLE"
+    print_section "Summary"
+    print_pass "PDF metadata replaced (in place)"
+    print_kv "File"  "$(fmt_path "$input_path")"
+    print_kv "Title" "$TITLE"
 fi

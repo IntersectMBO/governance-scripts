@@ -1,15 +1,10 @@
 #!/bin/bash
 
-##################################################
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-BOLD='\033[1m'
-##################################################
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
 
+##################################################
 # supported versions for scripts v1.0.0
 # Exact known-good versions. If the installed version differs in any
 # component, preflight WARNs (never fails) — these are advisory, not hard
@@ -41,8 +36,6 @@ base64_version=""
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
@@ -55,11 +48,14 @@ record() {
     esac
 }
 
+# Inline tag emitter — preflight prints tag + name + value on a single line
+# (column-aligned table), so it can't use lib's print_pass/warn/fail which
+# emit complete lines. Colors come from the lib.
 tag() {
     case "$1" in
-        PASS) echo -ne "  ${GREEN}[PASS]${NC} " ;;
-        WARN) echo -ne "  ${YELLOW}[WARN]${NC} " ;;
-        FAIL) echo -ne "  ${RED}[FAIL]${NC} " ;;
+        PASS) printf '  %s[PASS]%s ' "$GREEN" "$NC" ;;
+        WARN) printf '  %s[WARN]%s ' "$YELLOW" "$NC" ;;
+        FAIL) printf '  %s[FAIL]%s ' "$RED" "$NC" ;;
     esac
 }
 
@@ -151,10 +147,9 @@ check_binary() {
     fi
 }
 
-echo -e "${BOLD}=== Governance scripts preflight ===${NC}"
-echo
+printf '%s%s=== Governance scripts preflight ===%s\n\n' "$BOLD" "$CYAN" "$NC"
 
-echo -e "${BOLD}${CYAN}Required binaries${NC}"
+printf '%s%sRequired binaries%s\n' "$BOLD" "$CYAN" "$NC"
 check_binary cardano-cli    required "--version" "install from https://github.com/IntersectMBO/cardano-node/releases" "$cardano_cli_version"
 check_binary cardano-signer required "--version" "install from https://github.com/gitmachtl/cardano-signer/releases" "$cardano_signer_version"
 check_binary jq             required "--version" "brew install jq  |  apt install jq"                               "$jq_version"
@@ -169,14 +164,14 @@ check_binary awk            required "--version" "preinstalled on macOS/Linux"  
 check_binary sed            required "--version" "preinstalled on macOS/Linux"                                      "$sed_version"
 echo
 
-echo -e "${BOLD}${CYAN}Optional binaries${NC}"
+printf '%s%sOptional binaries%s\n' "$BOLD" "$CYAN" "$NC"
 check_binary qpdf     optional "--version" "needed only by pdf-remove-metadata.sh"       "$qpdf_version"
 check_binary exiftool optional "-ver"      "needed only by pdf-remove-metadata.sh"       "$exiftool_version"
 check_binary bc       optional "--version" "needed only by action-create-tw.sh"          "$bc_version"
 check_binary base64   optional "--version" "needed only by NMKR pinning in ipfs-pin.sh"  "$base64_version"
 echo
 
-echo -e "${BOLD}${CYAN}Environment${NC}"
+printf '%s%sEnvironment%s\n' "$BOLD" "$CYAN" "$NC"
 
 ENV_FILE="$SCRIPT_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
@@ -223,8 +218,8 @@ else
 fi
 
 echo
-echo -e "${BOLD}${CYAN}IPFS pinning (ipfs-pin.sh)${NC}"
-echo -e "  ${CYAN}Local IPFS pinning works without any keys; each remote service below is optional.${NC}"
+printf '%s%sIPFS pinning (ipfs-pin.sh)%s\n' "$BOLD" "$CYAN" "$NC"
+printf '  %sLocal IPFS pinning works without any keys; each remote service below is optional.%s\n' "$CYAN" "$NC"
 
 check_pin_var() {
     local name="$1"
@@ -247,7 +242,11 @@ check_pin_var NMKR_API_KEY       "NMKR"
 check_pin_var NMKR_USER_ID       "NMKR"
 
 echo
-echo -e "${BOLD}Summary:${NC} ${GREEN}${PASS_COUNT} pass${NC}, ${YELLOW}${WARN_COUNT} warn${NC}, ${RED}${FAIL_COUNT} fail${NC}"
+printf '%sSummary:%s %s%d pass%s, %s%d warn%s, %s%d fail%s\n' \
+    "$BOLD" "$NC" \
+    "$GREEN" "$PASS_COUNT" "$NC" \
+    "$YELLOW" "$WARN_COUNT" "$NC" \
+    "$RED" "$FAIL_COUNT" "$NC"
 
 if [ "$FAIL_COUNT" -gt 0 ]; then
     exit 1
