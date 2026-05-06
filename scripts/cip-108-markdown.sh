@@ -1,25 +1,15 @@
 #!/bin/bash
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
-NC='\033[0m'
-UNDERLINE='\033[4m'
-BOLD='\033[1m'
-GRAY='\033[0;90m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
 
 # Usage message
 usage() {
-    local col=50
-    echo -e "${UNDERLINE}${BOLD}Create a human-readable Markdown representation of JSON-LD metadata${NC}"
-    echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<file|directory>${NC}"
-    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<file|directory>" "- Path to JSON-LD file or directory"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    printf '%s%sCreate a human-readable Markdown representation of JSON-LD metadata%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
+    printf 'Syntax:%s %s %s<file|directory>%s\n' "$BOLD" "$0" "$GREEN" "$NC"
+    print_usage_option "<file|directory>" "Path to JSON-LD file or directory"
+    print_usage_option "-h, --help"       "Show this help message and exit"
     exit 1
 }
 
@@ -74,7 +64,7 @@ $authors
 $onchain
 EOF
 
-    echo "Markdown file generated: $output_file"
+    print_pass "Markdown file generated at $(fmt_path "$output_file")"
 }
 
 # Check if a file or directory is passed as an argument
@@ -94,15 +84,15 @@ if [ -d "$1" ]; then
     while IFS= read -r -d '' file; do
         jsonld_files+=("$file")
     done < <(find "$1" -type f -name "*.jsonld" -print0)
-    
+
     # Check if any .jsonld files were found
     if [ ${#jsonld_files[@]} -eq 0 ]; then
-        echo "Error: No .jsonld files found in directory (including subdirectories): $1"
+        print_fail "No .jsonld files found in directory (including subdirectories): $(fmt_path "$1")"
         exit 1
     fi
-    
-    echo "Found ${#jsonld_files[@]} .jsonld files to process"
-    
+
+    print_info "Found ${#jsonld_files[@]} .jsonld files to process"
+
     # Process each .jsonld file
     for jsonld_file in "${jsonld_files[@]}"; do
         extract_jsonld_data "$jsonld_file"
@@ -111,6 +101,6 @@ elif [ -f "$1" ]; then
     # If it's a single file, process it
     extract_jsonld_data "$1"
 else
-    echo "Invalid input. Please provide a valid file or directory."
+    print_fail "Invalid input. $(fmt_path "$1") is not a valid file or directory."
     exit 1
 fi

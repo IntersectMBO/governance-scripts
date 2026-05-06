@@ -11,41 +11,30 @@ METADATA_108_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads
 # treat unset variables as an error, and fail if any command in a pipeline fails
 set -euo pipefail
 
-# Colors
-#BLACK='\033[0;30m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
-NC='\033[0m'
-UNDERLINE='\033[4m'
-BOLD='\033[1m'
-GRAY='\033[0;90m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
 
 # Check if pandoc cli is installed
 if ! command -v pandoc >/dev/null 2>&1; then
-  echo -e "${RED}Error: pandoc is not installed or not in your PATH.${NC}" >&2
+  print_fail "pandoc is not installed or not in your PATH."
   exit 1
 fi
 
 # Check if cardano-cli is installed (needed for deposit querying)
 if ! command -v cardano-cli >/dev/null 2>&1; then
-  echo -e "${YELLOW}Warning: cardano-cli is not installed. Deposit amount will need to be provided manually.${NC}" >&2
+  print_warn "cardano-cli is not installed. Deposit amount will need to be provided manually."
 fi
 
 # Usage message
 usage() {
-    local col=50
-    echo -e "${UNDERLINE}${BOLD}Create JSON-LD metadata from a Markdown file${NC}"
-    echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<.md-file> --governance-action-type ${NC}<info|treasury|ppu> ${GREEN}--deposit-return-addr ${NC}<stake-address> [${GREEN}--language ${NC}<BCP-47-tag>]"
-    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<.md-file>" "- Path to the .md file as input"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--governance-action-type <info|treasury|ppu>" "- Type of governance action"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "--deposit-return-addr <stake-address>" "- Stake address for deposit return (bech32)"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "[--language <BCP-47-tag>]" "- JSON-LD @language for the document (default: en)"
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu> %s--deposit-return-addr%s <stake-address> [%s--language%s <BCP-47-tag>]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    print_usage_option "<.md-file>"                                  "Path to the .md file as input"
+    print_usage_option "--governance-action-type <info|treasury|ppu>" "Type of governance action"
+    print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
+    print_usage_option "[--language <BCP-47-tag>]"                    "JSON-LD @language for the document (default: en)"
+    print_usage_option "-h, --help"                                   "Show this help message and exit"
     exit 1
 }
 
@@ -54,21 +43,21 @@ usage() {
 query_governance_deposit() {
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    print_warn "cardano-cli not found. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if node socket path is set
   if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if network id is set
   if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
@@ -86,7 +75,7 @@ query_governance_deposit() {
   deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
 
   if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
+    print_warn "Could not query deposit from chain."
     echo "null"
     return 1
   fi
@@ -98,21 +87,21 @@ query_governance_deposit() {
 query_governance_state_prev_actions() {
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    print_warn "cardano-cli not found. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if node socket path is set
   if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if network id is set
   if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
@@ -131,7 +120,7 @@ query_governance_state_prev_actions() {
   gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
 
   if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query governance state from chain.${NC}" >&2
+    print_warn "Could not query governance state from chain."
     echo "null"
     return 1
   fi
@@ -175,7 +164,7 @@ while [[ $# -gt 0 ]]; do
                 governance_action_type="$2"
                 shift 2
             else
-                echo -e "${RED}Error: --governance-action-type requires a value${NC}" >&2
+                print_fail "--governance-action-type requires a value"
                 usage
             fi
             ;;
@@ -184,7 +173,7 @@ while [[ $# -gt 0 ]]; do
                 deposit_return_address="$2"
                 shift 2
             else
-                echo -e "${RED}Error: --deposit-return-addr requires a value${NC}" >&2
+                print_fail "--deposit-return-addr requires a value"
                 usage
             fi
             ;;
@@ -193,7 +182,7 @@ while [[ $# -gt 0 ]]; do
                 language="$2"
                 shift 2
             else
-                echo -e "${RED}Error: --language requires a value${NC}" >&2
+                print_fail "--language requires a value"
                 usage
             fi
             ;;
@@ -204,7 +193,7 @@ while [[ $# -gt 0 ]]; do
             if [ -z "$input_file" ]; then
                 input_file="$1"
             else
-                echo -e "${RED}Error: Input file already specified. Unexpected argument: $1${NC}" >&2
+                print_fail "Input file already specified. Unexpected argument: $1"
                 usage
             fi
             shift
@@ -214,39 +203,38 @@ done
 
 # If no input file provided, show usage
 if [ -z "$input_file" ]; then
-  echo -e "${RED}Error: No input file specified${NC}" >&2
+  print_fail "No input file specified"
   usage
 fi
 
 # Enforce .md extension — the script parses Markdown H2 sections (## Title, ## Abstract, ...)
 if [[ "$input_file" != *.md ]]; then
-  echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' must be a Markdown file with a ${YELLOW}.md${RED} extension.${NC}" >&2
-  echo -e "${YELLOW}This script expects a Markdown document structured with H2 sections (## Title, ## Abstract, ## Motivation, ## Rationale, ## References, ## Authors).${NC}" >&2
+  print_fail "Input file $(fmt_path "$input_file") must be a Markdown file with a .md extension."
+  print_hint "This script expects a Markdown document structured with H2 sections (## Title, ## Abstract, ## Motivation, ## Rationale, ## References, ## Authors)."
   exit 1
 fi
 
 # Ensure the input file actually exists
 if [ ! -f "$input_file" ]; then
-  echo -e "${RED}Error: Input file '${YELLOW}$input_file${RED}' not found.${NC}" >&2
+  print_fail "Input file $(fmt_path "$input_file") not found."
   exit 1
 fi
 
 # If no governance action type provided, show usage
 if [ -z "$governance_action_type" ]; then
-  echo -e "${RED}Error: --governance-action-type is required${NC}" >&2
+  print_fail "--governance-action-type is required"
   usage
 fi
 
 # If no deposit return address provided, show usage
 if [ -z "$deposit_return_address" ]; then
-  echo -e "${RED}Error: --deposit-return-addr is required${NC}" >&2
+  print_fail "--deposit-return-addr is required"
   usage
 fi
 
-echo -e " "
-echo -e "${YELLOW}Creating a governance action metadata file from a markdown file${NC}"
-echo -e "${CYAN}This script assumes a basic structure for the markdown file, using H2 headers${NC}"
-echo -e "${CYAN}This script uses CIP169 governance metadata extension with CIP-116 ProposalProcedure format${NC}"
+print_banner "Creating a governance action metadata file from a markdown file"
+print_info "This script assumes a basic structure for the markdown file, using H2 headers"
+print_info "This script uses CIP169 governance metadata extension with CIP-116 ProposalProcedure format"
 
 # Generate output filename: same directory and name as input, but with .jsonld extension
 input_dir=$(dirname "$input_file")
@@ -309,21 +297,21 @@ get_section_last() {
 query_governance_deposit() {
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    print_warn "cardano-cli not found. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if node socket path is set
   if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if network id is set
   if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
@@ -341,7 +329,7 @@ query_governance_deposit() {
   deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
 
   if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query deposit from chain.${NC}" >&2
+    print_warn "Could not query deposit from chain."
     echo "null"
     return 1
   fi
@@ -353,21 +341,21 @@ query_governance_deposit() {
 query_governance_state_prev_actions() {
   # Check if cardano-cli is available
   if ! command -v cardano-cli >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: cardano-cli not found. Cannot query deposit from chain.${NC}" >&2
+    print_warn "cardano-cli not found. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if node socket path is set
   if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
 
   # Check if network id is set
   if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    echo -e "${YELLOW}Warning: CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain.${NC}" >&2
+    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
     echo "null"
     return 1
   fi
@@ -386,7 +374,7 @@ query_governance_state_prev_actions() {
   gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
 
   if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
-    echo -e "${YELLOW}Warning: Could not query governance state from chain.${NC}" >&2
+    print_warn "Could not query governance state from chain."
     echo "null"
     return 1
   fi
@@ -415,7 +403,7 @@ extract_references() {
       label = $0
       sub(/^\* \[/, "", label)
       sub(/\]\(.*\).*$/, "", label)
-      
+
       # Extract URL from markdown link
       uri = $0
       sub(/^.*\(/, "", uri)
@@ -446,11 +434,11 @@ extract_references() {
 generate_info_onchain() {
   local deposit_amount
   deposit_amount=$(query_governance_deposit)
-  
+
   # If deposit query failed, use null (JSON null, not string)
   local deposit_json
   if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
-    echo -e "${RED} Error: Could not retrieve deposit amount from chain. Please ensure cardano-cli is installed and configured correctly.${NC}" >&2
+    print_fail "Could not retrieve deposit amount from chain. Please ensure cardano-cli is installed and configured correctly."
     exit 1
   else
     deposit_json="$deposit_amount"
@@ -471,7 +459,7 @@ EOF
 generate_ppu_onchain() {
   local deposit_amount
   deposit_amount=$(query_governance_deposit)
-  
+
   # If deposit query failed, use null (JSON null, not string)
   local deposit_json
   if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
@@ -499,23 +487,22 @@ EOF
 
 treasury_collect_inputs() {
   # Prompt & read address from the TTY
-  echo -n "Please enter withdrawal address: " >&2
+  printf 'Please enter withdrawal address: ' >&2
   IFS= read -r T_WITHDRAWAL_ADDRESS </dev/tty
 
   # Validate address
   if [ -z "$T_WITHDRAWAL_ADDRESS" ]; then
-    echo -e "${RED}Error: Withdrawal address cannot be empty${NC}" >&2
+    print_fail "Withdrawal address cannot be empty"
     exit 1
   fi
   if [[ ! "$T_WITHDRAWAL_ADDRESS" =~ ^(stake1|stake_test1)[a-zA-Z0-9]{50,60}$ ]]; then
-    echo -e "${RED}Error: Invalid bech32 stake address format${NC}" >&2
+    print_fail "Invalid bech32 stake address format"
     exit 1
   fi
-  echo -e "${GREEN}Withdrawal address valid format!${NC}" >&2
+  print_pass "Withdrawal address valid format!" >&2
 
   # Try to extract amount from TITLE
-  echo " " >&2
-  echo "Attempting to extract withdrawal amount from metadata title..." >&2
+  print_info "Attempting to extract withdrawal amount from metadata title..." >&2
   local _title
   _title=$(echo "$TITLE" | jq -r . | tr -d '\n')
 
@@ -529,13 +516,13 @@ treasury_collect_inputs() {
 
   # If amount not found in title ask the user
   if [ -z "$T_RAW_ADA" ]; then
-    echo -e "${YELLOW}No withdrawal amount found in title.${NC}" >&2
-    echo -n "Please enter withdrawal amount in ada: " >&2
+    print_warn "No withdrawal amount found in title."
+    printf 'Please enter withdrawal amount in ada: ' >&2
     IFS= read -r T_RAW_ADA </dev/tty
   fi
 
   if [ -z "$T_RAW_ADA" ]; then
-    echo -e "${RED}Error: Withdrawal amount cannot be empty${NC}" >&2
+    print_fail "Withdrawal amount cannot be empty"
     exit 1
   fi
 
@@ -551,20 +538,18 @@ treasury_collect_inputs() {
     }
     END{ if (ok==0) exit 1 }')
   if [ $? -ne 0 ] || [ -z "$_lovelace" ] || [[ ! "$_lovelace" =~ ^[0-9]+$ ]]; then
-    echo -e "${RED}Error: Invalid withdrawal amount: ${T_RAW_ADA}${NC}" >&2
+    print_fail "Invalid withdrawal amount: ${T_RAW_ADA}"
     exit 1
   fi
   T_LOVELACE="$_lovelace"
 
-  echo "Final confirmation:" >&2
-  echo -e "  Amount: ${YELLOW}₳$T_RAW_ADA${NC} (${T_LOVELACE} lovelace)" >&2
-  echo -e "  Address: ${YELLOW}$T_WITHDRAWAL_ADDRESS${NC}" >&2
+  print_info "Final confirmation:" >&2
+  print_info "  Amount: ${YELLOW}₳${T_RAW_ADA}${NC} (${T_LOVELACE} lovelace)" >&2
+  print_info "  Address: ${YELLOW}${T_WITHDRAWAL_ADDRESS}${NC}" >&2
 
-  # confirm with user
-  echo -n "Is this correct? (y/n): " >&2
-  IFS= read -r confirm </dev/tty
-  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-    echo -e "${RED}Aborted by user.${NC}" >&2
+  # confirm with user
+  if ! confirm "Is this correct?"; then
+    print_fail "Cancelled by user"
     exit 1
   fi
 }
@@ -575,7 +560,7 @@ generate_treasury_onchain() {
 
   local deposit_amount
   deposit_amount=$(query_governance_deposit)
-  
+
   # If deposit query failed, use null (JSON null, not string)
   local deposit_json
   if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
@@ -606,7 +591,7 @@ EOF
 # Generate onChain property based on governance action type
 generate_onchain_property() {
   local action_type="$1"
-  
+
   case "$action_type" in
     "info")
       generate_info_onchain
@@ -624,46 +609,43 @@ generate_onchain_property() {
 }
 
 # use helper functions to extract sections
-echo " "
-echo -e "Extracting sections from Markdown"
+print_section "Extracting sections from Markdown"
 
 TITLE=$(get_section "## Title" "## Abstract")
 
 # clean newlines from title
 TITLE=$(echo "$TITLE" | jq -r . | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -Rs .)
-echo -e "Title extracted: ${YELLOW}$TITLE${NC}"
+print_info "Title extracted: ${YELLOW}${TITLE}${NC}"
 
 ABSTRACT=$(get_section "## Abstract" "## Motivation")
 MOTIVATION=$(get_section "## Motivation" "## Rationale")
 RATIONALE=$(get_section_last "## Rationale")
 
 # Generate onChain property based on governance action type
-echo -e " "
-echo -e "Generating onChain property for $governance_action_type"
+print_info "Generating onChain property for $governance_action_type"
 ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
 # Download contexts from both CIP-108 and CIP-169 and merge them
-echo -e " "
-echo -e "${CYAN}Downloading CIP-108 context from $METADATA_108_COMMON_URL...${NC}"
+print_section "Downloading CIP context files"
+print_info "Downloading CIP-108 context from $METADATA_108_COMMON_URL"
 TEMP_CIP108=$(mktemp /tmp/metadata_create_cip108.XXXXXX)
 if ! curl -sSfL "$METADATA_108_COMMON_URL" -o "$TEMP_CIP108"; then
-    echo -e "${RED}Error: Failed to download context from $METADATA_108_COMMON_URL${NC}" >&2
+    print_fail "Failed to download context from $METADATA_108_COMMON_URL"
     rm -f "$TEMP_CIP108"
     exit 1
 fi
 
-echo -e "${CYAN}Downloading CIP-169 context from $METADATA_169_COMMON_URL...${NC}"
+print_info "Downloading CIP-169 context from $METADATA_169_COMMON_URL"
 TEMP_CIP169=$(mktemp /tmp/metadata_create_cip169.XXXXXX)
 if ! curl -sSfL "$METADATA_169_COMMON_URL" -o "$TEMP_CIP169"; then
-    echo -e "${RED}Error: Failed to download context from $METADATA_169_COMMON_URL${NC}" >&2
+    print_fail "Failed to download context from $METADATA_169_COMMON_URL"
     rm -f "$TEMP_CIP108" "$TEMP_CIP169"
     exit 1
 fi
 
-# echo -e "${CYAN}Merging CIP-108 and CIP-169 contexts...${NC}"
 # Merge contexts: use CIP-108 as base and add/update with contents from CIP-169
 # jq -s '.[0] * .[1]' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
 
@@ -693,9 +675,9 @@ elif [ "$governance_action_type" = "treasury" ]; then
         "@id": "CIP116:amount",
         "@type": "CIP116:UInt64"
       }
-    }      
+    }
   }'
-else 
+else
   GOV_ACTION_CONTEXT='{
     "@id": "CIP116:GovAction"
   }'
@@ -764,13 +746,13 @@ jq --slurpfile context    "$TEMP_CONTEXT" \
      }
    }' <<< '{}' > "$TEMP_OUTPUT_JSON"
 
-echo -e "${CYAN}Formatting JSON output...${NC}"
+print_info "Formatting JSON output"
 
 # Use jq to format the JSON output
 jq . "$TEMP_OUTPUT_JSON" > "$FINAL_OUTPUT_JSON"
 
 # Clean up extra newlines at start and end of string fields
-echo -e "${CYAN}Cleaning up extra newlines...${NC}"
+print_info "Cleaning up extra newlines"
 jq '
   .body.title = (.body.title | gsub("^\\n+"; "") | gsub("\\n+$"; "")) |
   .body.abstract = (.body.abstract | gsub("^\\n+"; "") | gsub("\\n+$"; "")) |
@@ -778,7 +760,11 @@ jq '
   .body.rationale = (.body.rationale | gsub("^\\n+"; "") | gsub("\\n+$"; ""))
 ' "$FINAL_OUTPUT_JSON" > "$TEMP_OUTPUT_JSON" && mv "$TEMP_OUTPUT_JSON" "$FINAL_OUTPUT_JSON"
 
-echo " "
-echo -e "${GREEN}JSONLD metadata successfully created! Output: $FINAL_OUTPUT_JSON ${NC}"
-echo -e "${GREEN}Output: $FINAL_OUTPUT_JSON ${NC}"
-echo " "
+print_section "Summary"
+print_pass "JSON-LD metadata created"
+print_kv "Input"    "$(fmt_path "$input_file")"
+print_kv "Output"   "$(fmt_path "$FINAL_OUTPUT_JSON")"
+print_kv "Type"     "$governance_action_type"
+print_kv "Language" "$language"
+print_next "Validate the document (still pre-signing, so use --draft):" \
+           "  ./scripts/metadata-validate.sh '$FINAL_OUTPUT_JSON' --cip108 --cip169 --draft"

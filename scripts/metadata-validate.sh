@@ -1,19 +1,11 @@
 #!/bin/bash
 
-##################################################
-# Colors
-#BLACK='\033[0;30m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BRIGHTWHITE='\033[0;37;1m'
-NC='\033[0m'
-UNDERLINE='\033[4m'
-BOLD='\033[1m'
-GRAY='\033[0;90m'
-WHITE='\033[1;37m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/messages.sh
+source "$SCRIPT_DIR/lib/messages.sh"
+
+WHITE=$'\033[1;37m'
+[ -z "${NC}" ] && WHITE=''
 
 ##################################################
 # Default schema URLs
@@ -40,13 +32,13 @@ DEFAULT_USE_INTERSECT="false"
 
 # Check if cardano-signer is installed
 if ! command -v cardano-signer >/dev/null 2>&1; then
-  echo -e "${RED}Error: cardano-signer is not installed or not in your PATH.${NC}" >&2
+  print_fail "cardano-signer is not installed or not in your PATH."
   exit 1
 fi
 
 # Check if ajv is installed
 if ! command -v ajv >/dev/null 2>&1; then
-  echo -e "${RED}Error: ajv is not installed or not in your PATH.${NC}" >&2
+  print_fail "ajv is not installed or not in your PATH."
   exit 1
 fi
 
@@ -79,22 +71,21 @@ trap cleanup EXIT INT TERM
 # Usage message
 
 usage() {
-    local col=50
-    echo -e "${UNDERLINE}${BOLD}Validate a JSON-LD metadata file${NC}"
-    echo -e "\n"
-    echo -e "Syntax:${BOLD} $0 ${GREEN}<jsonld-file> ${NC}[${GREEN}--cip169${NC}] [${GREEN}--cip108${NC}] [${GREEN}--cip100${NC}] [${GREEN}--cip136${NC}] [${GREEN}--intersect-schema${NC}] [${GREEN}--schema ${NC}URL] [${GREEN}--no-spell-check${NC}] [${GREEN}--no-check-links${NC}] [${GREEN}--draft${NC}]"
-    printf "Params: ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "<jsonld-file>" "- Path to the JSON-LD metadata file"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip100]" "- Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip108]" "- Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip119]" "- Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip136]" "- Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--cip169]" "- Compare against CIP-169 Governance metadata schema (default: $DEFAULT_USE_CIP_169, includes CIP-116)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--intersect-schema]" "- Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--schema URL]" "- Compare against schema at URL"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-spell-check]" "- Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--no-check-links]" "- Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
-    printf "       ${GREEN}%-*s${NC}${GRAY}%s${NC}\n" $((col-8)) "[--draft]" "- Treat the file as a pre-signing draft: downgrade the empty-authors check to a warning instead of an error."
-    printf "        ${GREEN}%-*s${GRAY}%s${NC}\n" $((col-8)) "-h, --help" "- Show this help message and exit"
+    printf '%s%sValidate a JSON-LD metadata file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
+    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-check-links%s] [%s--draft%s]\n' \
+        "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    print_usage_option "<jsonld-file>"        "Path to the JSON-LD metadata file"
+    print_usage_option "[--cip100]"           "Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
+    print_usage_option "[--cip108]"           "Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
+    print_usage_option "[--cip119]"           "Compare against CIP-119 DRep schema (default: $DEFAULT_USE_CIP_119)"
+    print_usage_option "[--cip136]"           "Compare against CIP-136 CC vote schema (default: $DEFAULT_USE_CIP_136)"
+    print_usage_option "[--cip169]"           "Compare against CIP-169 Governance metadata schema (default: $DEFAULT_USE_CIP_169, includes CIP-116)"
+    print_usage_option "[--intersect-schema]" "Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
+    print_usage_option "[--schema URL]"       "Compare against schema at URL"
+    print_usage_option "[--no-spell-check]"   "Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
+    print_usage_option "[--no-check-links]"   "Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
+    print_usage_option "[--draft]"            "Treat the file as a pre-signing draft: downgrade the empty-authors check to a warning instead of an error."
+    print_usage_option "-h, --help"           "Show this help message and exit"
     exit 1
 }
 
@@ -174,20 +165,19 @@ if [ "$use_cip_100" = "false" ] && [ "$use_cip_108" = "false" ] && \
    [ "$use_cip_119" = "false" ] && [ "$use_cip_136" = "false" ] && \
    [ "$use_cip_169" = "false" ] && [ "$use_intersect_schema" = "false" ] && \
    [ "$user_schema" = "false" ]; then
-    echo -e "${RED}Error: At least one schema flag is required.${NC}" >&2
-    echo -e "${YELLOW}Pass one or more of: ${GREEN}--cip100${YELLOW} / ${GREEN}--cip108${YELLOW} / ${GREEN}--cip119${YELLOW} / ${GREEN}--cip136${YELLOW} / ${GREEN}--cip169${YELLOW}, or ${GREEN}--intersect-schema${YELLOW}, or ${GREEN}--schema <URL>${NC}." >&2
+    print_fail "At least one schema flag is required."
+    print_hint "Pass one or more of: --cip100 / --cip108 / --cip119 / --cip136 / --cip169, or --intersect-schema, or --schema <URL>"
     usage
 fi
 
 # Welcome message
-echo -e " "
-echo -e "${YELLOW}Governance Metadata Validation Script${NC}"
-echo -e "${CYAN}This script validates JSON-LD governance metadata files against CIP standards and or Intersect schemas${NC}"
+print_banner "Governance Metadata Validation Script"
+print_info "This script validates JSON-LD governance metadata files against CIP standards and or Intersect schemas"
 
 # If the file ends with .jsonld, create a temporary .json copy (overwrite if exists)
 if [[ "$input_file" == *.jsonld ]]; then
     if [ ! -f "$input_file" ]; then
-        echo -e "${RED}Error: File '${YELLOW}$input_file${RED}' does not exist.${NC}">&2
+        print_fail "File $(fmt_path "$input_file") does not exist."
         usage
         exit 1
     fi
@@ -200,14 +190,14 @@ fi
 
 # Check if the file exists
 if [ ! -f "$JSON_FILE" ]; then
-    echo -e "${RED}Error: File '${YELLOW}$JSON_FILE${RED}' does not exist.${NC}">&2
+    print_fail "File $(fmt_path "$JSON_FILE") does not exist."
     usage
     exit 1
 fi
 
 # Check if the file is valid JSON
 if ! jq empty "$JSON_FILE" >/dev/null 2>&1; then
-    echo -e "${RED}Error: '${YELLOW}$JSON_FILE${RED}' is not valid JSON.${NC}"
+    print_fail "$(fmt_path "$JSON_FILE") is not valid JSON."
     exit 1
 fi
 
@@ -223,16 +213,15 @@ check_length() {
         return
     fi
     if [ "$LENGTH_CHECK_HEADER_SHOWN" -eq 0 ]; then
-        echo -e " "
-        echo -e "${CYAN}Checking field length limits...${NC}"
+        print_section "Checking field length limits"
         LENGTH_CHECK_HEADER_SHOWN=1
     fi
     len=${#text}
     if [ "$len" -gt "$max" ]; then
-        echo -e "${RED}Error: '${YELLOW}$field${RED}' is ${YELLOW}$len${RED} chars, exceeds max of ${YELLOW}$max${RED}.${NC}" >&2
+        print_fail "'$field' is $len chars, exceeds max of $max."
         LENGTH_CHECK_FAILED=1
     else
-        echo -e "${WHITE}'$field' length: ${YELLOW}$len${WHITE} / $max${NC}"
+        print_pass "'$field' length: ${len} / ${max}"
     fi
 }
 check_length title 80
@@ -243,16 +232,15 @@ fi
 
 # Basic spell check on key data fields (requires 'aspell' installed)
 if [ "$check_spelling" = "true" ]; then
-    echo -e " "
-    echo -e "${CYAN}Applying spell check...${NC}"
+    print_section "Applying spell check"
 
     # Fetch the upstream Intersect dictionary so users don't need a local copy
-    echo -e "${WHITE}Fetching Cardano aspell dictionary from ${YELLOW}$CARDANO_ASPELL_DICT_URL${NC}"
+    print_info "Fetching Cardano aspell dictionary from ${YELLOW}${CARDANO_ASPELL_DICT_URL}${NC}"
     TMP_DICT_FILE=$(mktemp /tmp/cardano-aspell-dict.XXXXXX)
     if ! curl --silent --show-error --fail --location --max-time 10 \
               -o "$TMP_DICT_FILE" "$CARDANO_ASPELL_DICT_URL"; then
-        echo -e "${RED}Error: Failed to download aspell dictionary from ${YELLOW}$CARDANO_ASPELL_DICT_URL${NC}." >&2
-        echo -e "${YELLOW}Pass ${GREEN}--no-spell-check${YELLOW} to skip the spell check, or retry when online.${NC}" >&2
+        print_fail "Failed to download aspell dictionary from $CARDANO_ASPELL_DICT_URL."
+        print_hint "Pass --no-spell-check to skip the spell check, or retry when online."
         exit 1
     fi
     PERSONAL_DICT_ARG="--personal=$TMP_DICT_FILE"
@@ -270,10 +258,10 @@ if [ "$check_spelling" = "true" ]; then
     done
 
     if [ -n "$SPELL_OUTPUT" ]; then
-        echo -e "${YELLOW}Possible misspellings:${NC}"
+        print_warn "Possible misspellings:"
         printf '%b' "$SPELL_OUTPUT"
     else
-        echo -e "${GREEN}No misspellings found.${NC}"
+        print_pass "No misspellings found."
     fi
 fi
 
@@ -282,8 +270,7 @@ fi
 # Skip with --no-check-links. IPFS gateway from $IPFS_GATEWAY_URI or https://ipfs.io.
 URI_CHECK_FAILED=0
 if [ "$check_links" = "true" ]; then
-    echo -e " "
-    echo -e "${CYAN}Checking URI reachability...${NC}"
+    print_section "Checking URI reachability"
     IPFS_GATEWAY="${IPFS_GATEWAY_URI:-https://ipfs.io}"
     IPFS_GATEWAY="${IPFS_GATEWAY%/}"
 
@@ -319,7 +306,7 @@ if [ "$check_links" = "true" ]; then
     failed_count=0
 
     if [ "$total_count" -eq 0 ]; then
-        echo -e "${YELLOW}No URIs found to check.${NC}"
+        print_warn "No URIs found to check."
     else
         for raw_uri in "${uris[@]}"; do
             # Trim trailing punctuation that regex may have grabbed
@@ -361,64 +348,62 @@ if [ "$check_links" = "true" ]; then
 
             if [[ "$http_code" =~ ^[23][0-9][0-9]$ ]]; then
                 if [ "$uri" != "$check_url" ]; then
-                    echo -e "${GREEN}[OK]  ${NC} $uri ($http_code via $check_url)"
+                    print_pass "$uri ($http_code via $check_url)"
                 else
-                    echo -e "${GREEN}[OK]  ${NC} $uri ($http_code)"
+                    print_pass "$uri ($http_code)"
                 fi
             else
                 failed_count=$((failed_count + 1))
                 if [ "$uri" != "$check_url" ]; then
-                    echo -e "${RED}[FAIL]${NC} $uri ($http_code via $check_url)" >&2
+                    print_fail "$uri ($http_code via $check_url)"
                 else
-                    echo -e "${RED}[FAIL]${NC} $uri ($http_code)" >&2
+                    print_fail "$uri ($http_code)"
                 fi
             fi
         done
 
-        echo -e " "
         if [ "$failed_count" -gt 0 ]; then
-            echo -e "${RED}$failed_count of $total_count URIs unreachable.${NC}" >&2
-            echo -e "${YELLOW}Re-run with --no-check-links to skip this check (e.g. if offline).${NC}" >&2
+            print_fail "$failed_count of $total_count URIs unreachable."
+            print_hint "Re-run with --no-check-links to skip this check (e.g. if offline)."
             URI_CHECK_FAILED=1
         else
-            echo -e "${GREEN}All $total_count URIs reachable.${NC}"
+            print_pass "All $total_count URIs reachable."
         fi
     fi
 fi
 
-echo -e " "
-echo -e "${CYAN}Applying schema check(s)...${NC}"
+print_section "Applying schema check(s)"
 
 # Create a temporary directory for schema(s)
 mkdir -p "$TMP_SCHEMAS_DIR"
 
 # Download the schemas as needed
 if [ "$use_cip_100" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-100 Governance Metadata schema...${NC}"
+    print_info "Downloading CIP-100 Governance Metadata schema..."
     TEMP_CIP_100_SCHEMA="$TMP_SCHEMAS_DIR/cip-100-schema.json"
     curl -sSfSL "$CIP_100_SCHEMA" -o "$TEMP_CIP_100_SCHEMA"
 fi
 
 if [ "$use_cip_108" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-108 Governance Actions schema...${NC}"
+    print_info "Downloading CIP-108 Governance Actions schema..."
     TEMP_CIP_108_SCHEMA="$TMP_SCHEMAS_DIR/cip-108-schema.json"
     curl -sSfSL "$CIP_108_SCHEMA" -o "$TEMP_CIP_108_SCHEMA"
 fi
 
 if [ "$use_cip_119" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-119 DRep schema...${NC}"
+    print_info "Downloading CIP-119 DRep schema..."
     TEMP_CIP_119_SCHEMA="$TMP_SCHEMAS_DIR/cip-119-schema.json"
     curl -sSfSL "$CIP_119_SCHEMA" -o "$TEMP_CIP_119_SCHEMA"
 fi
 
 if [ "$use_cip_136" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-136 Constitutional Committee Vote schema...${NC}"
+    print_info "Downloading CIP-136 Constitutional Committee Vote schema..."
     TEMP_CIP_136_SCHEMA="$TMP_SCHEMAS_DIR/cip-136-schema.json"
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
 if [ "$use_cip_169" = "true" ]; then
-    echo -e "${WHITE}Downloading CIP-169 Governance Metadata Extension schema...${NC}"
+    print_info "Downloading CIP-169 Governance Metadata Extension schema..."
     TEMP_CIP_169_SCHEMA="$TMP_SCHEMAS_DIR/cip-169-schema.json"
     curl -sSfSL "$CIP_169_SCHEMA" -o "$TEMP_CIP_169_SCHEMA"
 fi
@@ -428,18 +413,18 @@ if [ "$use_intersect_schema" = "true" ]; then
     governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
 
     if [ "$governance_action_type" = "info" ]; then
-        echo -e "${WHITE}Downloading Intersect ${YELLOW}info${WHITE} schema...${NC}"
+        print_info "Downloading Intersect ${YELLOW}info${NC} schema..."
         INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
 
     elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        echo -e "${WHITE}Downloading Intersect ${YELLOW}treasuryWithdrawals${WHITE} schema...${NC}"
+        print_info "Downloading Intersect ${YELLOW}treasuryWithdrawals${NC} schema..."
         INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
 
     elif [ "$governance_action_type" = "protocolParameterChanges" ]; then
-        echo -e "${WHITE}Downloading Intersect ${YELLOW}parameterChanges${WHITE} schema...${NC}"
+        print_info "Downloading Intersect ${YELLOW}parameterChanges${NC} schema..."
         INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
     else
-        echo -e "${RED}Error: Unknown governanceActionType '${YELLOW}$governance_action_type${RED}' in '${YELLOW}$JSON_FILE${RED}'.${NC}"
+        print_fail "Unknown governanceActionType '$governance_action_type' in $(fmt_path "$JSON_FILE")."
         exit 1
     fi
     TEMP_INT_SCHEMA="$TMP_SCHEMAS_DIR/intersect-schema.json"
@@ -447,7 +432,7 @@ if [ "$use_intersect_schema" = "true" ]; then
 fi
 
 if [ "$user_schema" = "true" ]; then
-    echo -e "${WHITE}Downloading schema from ${YELLOW}{$user_schema_url}${WHITE}...${NC}"
+    print_info "Downloading schema from ${YELLOW}${user_schema_url}${NC}"
     TEMP_USER_SCHEMA="$TMP_SCHEMAS_DIR/user-schema.json"
     curl -sSfSL "$user_schema_url" -o "$TEMP_USER_SCHEMA"
 fi
@@ -456,15 +441,14 @@ fi
 schemas=("$TMP_SCHEMAS_DIR"/*-schema.json)
 # In the case where flags are used to not have any schemas download, exit with 1
 if [ -z "$(ls -A $TMP_SCHEMAS_DIR)" ]; then
-    echo -e "${RED}Error: No schemas were downloaded.${NC}"
+    print_fail "No schemas were downloaded."
     exit 1
 fi
 
 VALIDATION_FAILED=0
 
 for schema in "${schemas[@]}"; do
-    echo -e " "
-    echo -e "${CYAN}Validating against schema: ${YELLOW}$schema${NC}"
+    print_section "Validating against schema: $schema"
     if [ -f "$schema" ]; then
         ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=false
         if [ $? -ne 0 ]; then
@@ -479,30 +463,28 @@ STRUCT_CHECK_FAILED=0
 if [ "$use_cip_100" = "true" ] || [ "$use_cip_108" = "true" ] || \
    [ "$use_cip_119" = "true" ] || [ "$use_cip_136" = "true" ] || \
    [ "$use_cip_169" = "true" ] || [ "$use_intersect_schema" = "true" ]; then
-    echo -e " "
-    echo -e "${CYAN}Applying structural integrity checks...${NC}"
+    print_section "Applying structural integrity checks"
 
     # Non-empty authors array. Downgraded to a warning under --draft so the
     authors_count=$(jq -r '(.authors // []) | length' "$JSON_FILE")
     if [ "$authors_count" -eq 0 ]; then
         if [ "$is_draft" = "true" ]; then
-            echo -e "${YELLOW}[WARN]${NC} ${WHITE}authors${NC}: array is empty. Acceptable under ${GREEN}--draft${NC}; re-run without ${GREEN}--draft${NC} after signing."
+            print_warn "authors: array is empty. Acceptable under --draft; re-run without --draft after signing."
         else
-            echo -e "${RED}[FAIL]${NC} ${WHITE}authors${NC}: array is empty. Governance metadata must declare at least one author for the document to be attestable. ${GRAY}(Add a witness or pass ${GREEN}--draft${GRAY} for pre-signing validation.)${NC}" >&2
+            print_fail "authors: array is empty. Governance metadata must declare at least one author for the document to be attestable."
+            print_hint "Add a witness or pass --draft for pre-signing validation."
             STRUCT_CHECK_FAILED=1
         fi
     else
-        echo -e "${GREEN}[OK]${NC}   ${WHITE}authors${NC}: $authors_count entr$([ "$authors_count" -eq 1 ] && echo y || echo ies)"
+        print_pass "authors: $authors_count entr$([ "$authors_count" -eq 1 ] && echo y || echo ies)"
     fi
 fi
 
 # Final result
 if [ "$VALIDATION_FAILED" -ne 0 ] || [ "$URI_CHECK_FAILED" -ne 0 ] || [ "$STRUCT_CHECK_FAILED" -ne 0 ]; then
-    echo -e " "
-    echo -e "${RED}One or more validation errors were found.${NC}"
+    print_fail "One or more validation errors were found."
     exit 1
 else
-    echo -e " "
-    echo -e "${GREEN}No validation errors found.${NC}"
+    print_pass "No validation errors found."
     exit 0
 fi
