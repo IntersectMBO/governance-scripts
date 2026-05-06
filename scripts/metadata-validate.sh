@@ -13,10 +13,10 @@ CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
 CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
-CIP_169_SCHEMA="https://raw.githubusercontent.com/elenabardho/CIPs/refs/heads/cip-governance-metadata-extension-schema/cip-governance-metadata-extension/cip-0169.common.schema.json"
-# CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/redo-schema/CIP-0169/cip-0169.common.schema.json"
+#CIP_169_SCHEMA="https://raw.githubusercontent.com/elenabardho/CIPs/refs/heads/cip-governance-metadata-extension-schema/cip-governance-metadata-extension/cip-0169.common.schema.json"
+CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.schema.json"
 # CIP-169 schemas $ref into the CIP-116 cardano-conway types, so we fetch that
-CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0116/cardano-conway.json"
+CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-116-increase-cost-model-max/CIP-0116/cardano-conway.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
 INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
@@ -465,7 +465,14 @@ for schema in "${schemas[@]}"; do
         if [[ "$schema" == *cip-169-schema.json ]] && [ -n "$CARDANO_CONWAY_REF" ]; then
             ajv_args=(validate --spec=draft2020 -s "$schema" -r "$CARDANO_CONWAY_REF" -d "$JSON_FILE" --all-errors --strict=false)
         fi
-        if ! ajv "${ajv_args[@]}"; then
+        # Drop Ajv's "unknown format X ignored" noise for custom string formats
+        # CIP116 defines many custom types that AJV loves to warn us about
+        set +e
+        ajv "${ajv_args[@]}" 2>&1 \
+            | grep -v 'unknown format ".*" ignored in schema at path'
+        ajv_status="${PIPESTATUS[0]}"
+        set -e
+        if [ "$ajv_status" -ne 0 ]; then
             VALIDATION_FAILED=1
         fi
     fi
