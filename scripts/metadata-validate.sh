@@ -13,7 +13,11 @@ CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
 CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
-CIP_169_SCHEMA="https://raw.githubusercontent.com/elenabardho/CIPs/refs/heads/cip-governance-metadata-extension-schema/cip-governance-metadata-extension/cip-0169.common.schema.json"
+
+# temp, until CIP-169 is merged
+CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.schema.json"
+# temp, until CIP-116 PR is merged
+CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-116-increase-cost-model-max/CIP-0116/cardano-conway.json"
 INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
 INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
 INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
@@ -72,7 +76,7 @@ trap cleanup EXIT INT TERM
 
 usage() {
     printf '%s%sValidate a JSON-LD metadata file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-check-links%s] [%s--draft%s]\n' \
+    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-link-check%s] [%s--draft%s]\n' \
         "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<jsonld-file>"        "Path to the JSON-LD metadata file"
     print_usage_option "[--cip100]"           "Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
@@ -83,7 +87,7 @@ usage() {
     print_usage_option "[--intersect-schema]" "Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
     print_usage_option "[--schema URL]"       "Compare against schema at URL"
     print_usage_option "[--no-spell-check]"   "Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
-    print_usage_option "[--no-check-links]"   "Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
+    print_usage_option "[--no-link-check]"    "Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
     print_usage_option "[--draft]"            "Treat the file as a pre-signing draft: downgrade the empty-authors check to a warning instead of an error."
     print_usage_option "-h, --help"           "Show this help message and exit"
     exit 1
@@ -135,7 +139,7 @@ while [[ $# -gt 0 ]]; do
             user_schema="true"
             shift 2
             ;;
-        --no-check-links)
+        --no-link-check)
             check_links="false"
             shift
             ;;
@@ -267,7 +271,7 @@ fi
 
 # URI reachability check — every URI (structured + markdown-embedded in prose fields)
 # is HEAD-checked (with GET fallback). Duplicates are intentionally re-checked.
-# Skip with --no-check-links. IPFS gateway from $IPFS_GATEWAY_URI or https://ipfs.io.
+# Skip with --no-link-check. IPFS gateway from $IPFS_GATEWAY_URI or https://ipfs.io.
 URI_CHECK_FAILED=0
 if [ "$check_links" = "true" ]; then
     print_section "Checking URI reachability"
@@ -364,7 +368,7 @@ if [ "$check_links" = "true" ]; then
 
         if [ "$failed_count" -gt 0 ]; then
             print_fail "$failed_count of $total_count URIs unreachable."
-            print_hint "Re-run with --no-check-links to skip this check (e.g. if offline)."
+            print_hint "Re-run with --no-link-check to skip this check (e.g. if offline)."
             URI_CHECK_FAILED=1
         else
             print_pass "All $total_count URIs reachable."
@@ -402,31 +406,42 @@ if [ "$use_cip_136" = "true" ]; then
     curl -sSfSL "$CIP_136_SCHEMA" -o "$TEMP_CIP_136_SCHEMA"
 fi
 
+CARDANO_CONWAY_REF=""
 if [ "$use_cip_169" = "true" ]; then
     print_info "Downloading CIP-169 Governance Metadata Extension schema..."
     TEMP_CIP_169_SCHEMA="$TMP_SCHEMAS_DIR/cip-169-schema.json"
     curl -sSfSL "$CIP_169_SCHEMA" -o "$TEMP_CIP_169_SCHEMA"
+
+    echo -e "${WHITE}Downloading CIP-116 cardano-conway types (referenced by CIP-169)...${NC}"
+    # Filename intentionally avoids the "*-schema.json" suffix so the glob below
+    # does not pick it up as a top-level schema to validate against.
+    CARDANO_CONWAY_REF="$TMP_SCHEMAS_DIR/cardano-conway.json"
+    curl -sSfSL "$CIP_116_CONWAY_SCHEMA" -o "$CARDANO_CONWAY_REF"
 fi
 
-# Determine which Intersect schema to use based on governanceActionType property
+# Determine which Intersect schema to use based on the CIP-116 gov_action.tag discriminator.
 if [ "$use_intersect_schema" = "true" ]; then
-    governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
+    gov_action_tag=$(jq -r '.body.onChain.gov_action.tag // "null"' "$JSON_FILE")
 
-    if [ "$governance_action_type" = "info" ]; then
-        print_info "Downloading Intersect ${YELLOW}info${NC} schema..."
-        INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
-
-    elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        print_info "Downloading Intersect ${YELLOW}treasuryWithdrawals${NC} schema..."
-        INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
-
-    elif [ "$governance_action_type" = "protocolParameterChanges" ]; then
-        print_info "Downloading Intersect ${YELLOW}parameterChanges${NC} schema..."
-        INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
-    else
-        print_fail "Unknown governanceActionType '$governance_action_type' in $(fmt_path "$JSON_FILE")."
-        exit 1
-    fi
+    case "$gov_action_tag" in
+        info_action)
+            print_info "Downloading Intersect ${YELLOW}info${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
+            ;;
+        treasury_withdrawals_action)
+            print_info "Downloading Intersect ${YELLOW}treasuryWithdrawals${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
+            ;;
+        parameter_change_action)
+            print_info "Downloading Intersect ${YELLOW}parameterChanges${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
+            ;;
+        *)
+            print_fail "Unknown body.onChain.gov_action.tag '$gov_action_tag' in $(fmt_path "$JSON_FILE")."
+            print_hint "Expected one of: info_action, treasury_withdrawals_action, parameter_change_action."
+            exit 1
+            ;;
+    esac
     TEMP_INT_SCHEMA="$TMP_SCHEMAS_DIR/intersect-schema.json"
     curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
 fi
@@ -450,8 +465,19 @@ VALIDATION_FAILED=0
 for schema in "${schemas[@]}"; do
     print_section "Validating against schema: $schema"
     if [ -f "$schema" ]; then
-        ajv validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=false
-        if [ $? -ne 0 ]; then
+        ajv_args=(validate -s "$schema" -d "$JSON_FILE" --all-errors --strict=false)
+        # CIP-169 references CIP-116 cardano-conway types via $ref; supply them.
+        if [[ "$schema" == *cip-169-schema.json ]] && [ -n "$CARDANO_CONWAY_REF" ]; then
+            ajv_args=(validate --spec=draft2020 -s "$schema" -r "$CARDANO_CONWAY_REF" -d "$JSON_FILE" --all-errors --strict=false)
+        fi
+        # Drop Ajv's "unknown format X ignored" noise for custom string formats
+        # CIP116 defines many custom types that AJV loves to warn us about
+        set +e
+        ajv "${ajv_args[@]}" 2>&1 \
+            | grep -v 'unknown format ".*" ignored in schema at path'
+        ajv_status="${PIPESTATUS[0]}"
+        set -e
+        if [ "$ajv_status" -ne 0 ]; then
             VALIDATION_FAILED=1
         fi
     fi

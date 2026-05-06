@@ -3,8 +3,8 @@
 ##################################################
 
 # Default configuration values
-METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip169.common.jsonld"
-METADATA_108_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0108/cip-0108.common.jsonld"
+METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.jsonld"
+METADATA_108_COMMON_URL="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.jsonld"
 ##################################################
 
 # Exit immediately if a command exits with a non-zero status,
@@ -36,97 +36,6 @@ usage() {
     print_usage_option "[--language <BCP-47-tag>]"                    "JSON-LD @language for the document (default: en)"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
     exit 1
-}
-
-# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
-# Returns the deposit amount in lovelace, or "null" if query fails
-query_governance_deposit() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    print_warn "cardano-cli not found. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query deposit amount
-  local deposit
-  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
-
-  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
-    print_warn "Could not query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  echo "$deposit"
-  return 0
-}
-
-query_governance_state_prev_actions() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    print_warn "cardano-cli not found. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query previous governance state
-  local gov_state
-
-  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
-
-  if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
-    print_warn "Could not query governance state from chain."
-    echo "null"
-    return 1
-  fi
-
-  echo "$gov_state"
-  return 0
 }
 
 # Initialize variables with defaults
@@ -658,7 +567,6 @@ if [ "$governance_action_type" = "info" ]; then
     }
   }'
 elif [ "$governance_action_type" = "treasury" ]; then
-  echo "hello"
   GOV_ACTION_CONTEXT='{
     "@id": "CIP116:GovAction",
     "@context": {
