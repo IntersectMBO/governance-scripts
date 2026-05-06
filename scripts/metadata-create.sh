@@ -3,8 +3,19 @@
 ##################################################
 
 # Default configuration values
-METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.jsonld"
-METADATA_108_COMMON_URL="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.jsonld"
+# The output document's @context resolves to a per-action-type context file
+# in the IntersectMBO/governance-actions repo on `main`. Each file declares
+# the CIP-100/108/116/169 namespaces and the gov_action shape for that type.
+INTERSECT_SCHEMAS_BASE="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas"
+
+resolve_context_url() {
+  case "$1" in
+    info)     echo "${INTERSECT_SCHEMAS_BASE}/info/common.jsonld" ;;
+    treasury) echo "${INTERSECT_SCHEMAS_BASE}/treasury-withdrawals/common.jsonld" ;;
+    ppu)      echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
+    *)        print_fail "No @context mapping for --governance-action-type '$1'"; exit 1 ;;
+  esac
+}
 
 # Governance action deposit in lovelace (CIP-116 UInt64, encoded as a JSON string).
 GOV_ACTION_DEPOSIT="100000000000"
@@ -32,11 +43,10 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu> %s--deposit-return-addr%s <stake-address> [%s--language%s <BCP-47-tag>]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu> %s--deposit-return-addr%s <stake-address>\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                  "Path to the .md file as input"
     print_usage_option "--governance-action-type <info|treasury|ppu>" "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
-    print_usage_option "[--language <BCP-47-tag>]"                    "JSON-LD @language for the document (default: en)"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
     exit 1
 }
@@ -45,12 +55,10 @@ usage() {
 input_file=""
 governance_action_type=""
 deposit_return_address=""
-language="en"
 
 # Create temporary files in /tmp/
 TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
 TEMP_OUTPUT_JSON=$(mktemp /tmp/metadata_create_temp.XXXXXX)
-TEMP_CONTEXT=$(mktemp /tmp/metadata_create_context.XXXXXX)
 TEMP_TITLE=$(mktemp /tmp/metadata_create_title.XXXXXX)
 TEMP_ABSTRACT=$(mktemp /tmp/metadata_create_abstract.XXXXXX)
 TEMP_MOTIVATION=$(mktemp /tmp/metadata_create_motivation.XXXXXX)
@@ -60,7 +68,7 @@ TEMP_ONCHAIN=$(mktemp /tmp/metadata_create_onchain.XXXXXX)
 
 # Cleanup function to remove temporary files
 cleanup() {
-  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" "$TEMP_CONTEXT" \
+  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" \
         "$TEMP_TITLE" "$TEMP_ABSTRACT" "$TEMP_MOTIVATION" \
         "$TEMP_RATIONALE" "$TEMP_REFERENCES" "$TEMP_ONCHAIN"
 }
@@ -86,15 +94,6 @@ while [[ $# -gt 0 ]]; do
                 shift 2
             else
                 print_fail "--deposit-return-addr requires a value"
-                usage
-            fi
-            ;;
-        --language)
-            if [ -n "${2:-}" ]; then
-                language="$2"
-                shift 2
-            else
-                print_fail "--language requires a value"
                 usage
             fi
             ;;
@@ -488,90 +487,10 @@ ONCHAIN_PROPERTY=$(generate_onchain_property "$governance_action_type")
 # Generate references JSON
 REFERENCES_JSON=$(extract_references)
 
-# Download contexts from both CIP-108 and CIP-169 and merge them
-print_section "Downloading CIP context files"
-print_info "Downloading CIP-108 context from $METADATA_108_COMMON_URL"
-TEMP_CIP108=$(mktemp /tmp/metadata_create_cip108.XXXXXX)
-if ! curl -sSfL "$METADATA_108_COMMON_URL" -o "$TEMP_CIP108"; then
-    print_fail "Failed to download context from $METADATA_108_COMMON_URL"
-    rm -f "$TEMP_CIP108"
-    exit 1
-fi
-
-print_info "Downloading CIP-169 context from $METADATA_169_COMMON_URL"
-TEMP_CIP169=$(mktemp /tmp/metadata_create_cip169.XXXXXX)
-if ! curl -sSfL "$METADATA_169_COMMON_URL" -o "$TEMP_CIP169"; then
-    print_fail "Failed to download context from $METADATA_169_COMMON_URL"
-    rm -f "$TEMP_CIP108" "$TEMP_CIP169"
-    exit 1
-fi
-
-# Merge contexts: use CIP-108 as base and add/update with contents from CIP-169
-# jq -s '.[0] * .[1]' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
-
-# Build gov_action context based on governance action type
-if [ "$governance_action_type" = "info" ]; then
-  GOV_ACTION_CONTEXT='{
-    "@id": "CIP116:GovAction",
-    "@context": {
-      "tag": "CIP116:info_action"
-    }
-  }'
-elif [ "$governance_action_type" = "treasury" ]; then
-  GOV_ACTION_CONTEXT='{
-    "@id": "CIP116:GovAction",
-    "@context": {
-      "tag": "CIP116:treasury_withdrawals_action",
-      "rewards": {
-        "@id": "CIP116:rewards",
-        "@container": "@set"
-      },
-      "key": {
-        "@id": "CIP116:rewardAddress",
-        "@type": "CIP116:RewardAddress"
-      },
-      "value": {
-        "@id": "CIP116:amount",
-        "@type": "CIP116:UInt64"
-      }
-    }
-  }'
-else
-  GOV_ACTION_CONTEXT='{
-    "@id": "CIP116:GovAction"
-  }'
-fi
-
-jq -s --argjson gov_action_ctx "$GOV_ACTION_CONTEXT" --arg language "$language" '{
-  "@language": $language,
-  CIP100: .[0]["@context"].CIP100,
-  CIP108: .[0]["@context"].CIP108,
-  CIP116: .[1]["@context"].CIP116,
-  CIP169: .[1]["@context"].CIP169,
-  hashAlgorithm: .[0]["@context"].hashAlgorithm,
-  body: {
-    "@id": .[0]["@context"].body["@id"],
-    "@context": (.[0]["@context"].body["@context"] * {
-      onChain: {
-        "@id": "CIP169:onChain",
-        "@context": {
-          deposit: {
-            "@id": "CIP116:deposit",
-            "@type": "CIP116:UInt64"
-          },
-          reward_account: {
-            "@id": "CIP116:reward_account",
-            "@type": "CIP116:RewardAddress"
-          },
-          gov_action: $gov_action_ctx
-        }
-      }
-    })
-  },
-  authors: .[0]["@context"].authors
-}' "$TEMP_CIP108" "$TEMP_CIP169" > "$TEMP_CONTEXT"
-
-rm -f "$TEMP_CIP108" "$TEMP_CIP169"
+# Resolve the @context URL for this governance action type.
+print_section "Resolving @context URL"
+CONTEXT_URL=$(resolve_context_url "$governance_action_type")
+print_info "Using @context: ${YELLOW}${CONTEXT_URL}${NC}"
 
 # Build the metadata JSON-LD with CIP-116 ProposalProcedure format onChain property
 # Write each value to a temp file to avoid "Argument list too long" with large markdown.
@@ -584,15 +503,15 @@ printf '%s' "$RATIONALE"        > "$TEMP_RATIONALE"
 printf '%s' "$REFERENCES_JSON"  > "$TEMP_REFERENCES"
 printf '%s' "$ONCHAIN_PROPERTY" > "$TEMP_ONCHAIN"
 
-jq --slurpfile context    "$TEMP_CONTEXT" \
-   --slurpfile title      "$TEMP_TITLE" \
-   --slurpfile abstract   "$TEMP_ABSTRACT" \
-   --slurpfile motivation "$TEMP_MOTIVATION" \
-   --slurpfile rationale  "$TEMP_RATIONALE" \
-   --slurpfile references "$TEMP_REFERENCES" \
-   --slurpfile onchain    "$TEMP_ONCHAIN" \
+jq --arg       context_url "$CONTEXT_URL" \
+   --slurpfile title       "$TEMP_TITLE" \
+   --slurpfile abstract    "$TEMP_ABSTRACT" \
+   --slurpfile motivation  "$TEMP_MOTIVATION" \
+   --slurpfile rationale   "$TEMP_RATIONALE" \
+   --slurpfile references  "$TEMP_REFERENCES" \
+   --slurpfile onchain     "$TEMP_ONCHAIN" \
    '{
-     "@context": $context[0],
+     "@context": $context_url,
      "authors": [],
      "hashAlgorithm": "blake2b-256",
      "body": {
@@ -624,6 +543,6 @@ print_pass "JSON-LD metadata created"
 print_kv "Input"    "$(fmt_path "$input_file")"
 print_kv "Output"   "$(fmt_path "$FINAL_OUTPUT_JSON")"
 print_kv "Type"     "$governance_action_type"
-print_kv "Language" "$language"
+print_kv "@context" "$CONTEXT_URL"
 print_next "Validate the document (still pre-signing, so use --draft):" \
            "  ./scripts/metadata-validate.sh '$FINAL_OUTPUT_JSON' --cip108 --cip169 --draft"
