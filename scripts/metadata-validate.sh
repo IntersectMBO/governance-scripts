@@ -13,7 +13,8 @@ CIP_100_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_108_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.schema.json"
 CIP_119_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0119/cip-0119.common.schema.json"
 CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0136/cip-136.common.schema.json"
-#CIP_169_SCHEMA="https://raw.githubusercontent.com/elenabardho/CIPs/refs/heads/cip-governance-metadata-extension-schema/cip-governance-metadata-extension/cip-0169.common.schema.json"
+
+# temp, until CIP-169 is merged
 CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.schema.json"
 # CIP-169 schemas $ref into the CIP-116 cardano-conway types, so we fetch that
 CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-116-increase-cost-model-max/CIP-0116/cardano-conway.json"
@@ -418,25 +419,29 @@ if [ "$use_cip_169" = "true" ]; then
     curl -sSfSL "$CIP_116_CONWAY_SCHEMA" -o "$CARDANO_CONWAY_REF"
 fi
 
-# Determine which Intersect schema to use based on governanceActionType property
+# Determine which Intersect schema to use based on the CIP-116 gov_action.tag discriminator.
 if [ "$use_intersect_schema" = "true" ]; then
-    governance_action_type=$(jq -r '.body.onChain.governanceActionType' "$JSON_FILE")
+    gov_action_tag=$(jq -r '.body.onChain.gov_action.tag // "null"' "$JSON_FILE")
 
-    if [ "$governance_action_type" = "info" ]; then
-        print_info "Downloading Intersect ${YELLOW}info${NC} schema..."
-        INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
-
-    elif [ "$governance_action_type" = "treasuryWithdrawals" ]; then
-        print_info "Downloading Intersect ${YELLOW}treasuryWithdrawals${NC} schema..."
-        INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
-
-    elif [ "$governance_action_type" = "protocolParameterChanges" ]; then
-        print_info "Downloading Intersect ${YELLOW}parameterChanges${NC} schema..."
-        INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
-    else
-        print_fail "Unknown governanceActionType '$governance_action_type' in $(fmt_path "$JSON_FILE")."
-        exit 1
-    fi
+    case "$gov_action_tag" in
+        info_action)
+            print_info "Downloading Intersect ${YELLOW}info${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_INFO_SCHEMA"
+            ;;
+        treasury_withdrawals_action)
+            print_info "Downloading Intersect ${YELLOW}treasuryWithdrawals${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_TREASURY_SCHEMA"
+            ;;
+        parameter_change_action)
+            print_info "Downloading Intersect ${YELLOW}parameterChanges${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
+            ;;
+        *)
+            print_fail "Unknown body.onChain.gov_action.tag '$gov_action_tag' in $(fmt_path "$JSON_FILE")."
+            print_hint "Expected one of: info_action, treasury_withdrawals_action, parameter_change_action."
+            exit 1
+            ;;
+    esac
     TEMP_INT_SCHEMA="$TMP_SCHEMAS_DIR/intersect-schema.json"
     curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
 fi
