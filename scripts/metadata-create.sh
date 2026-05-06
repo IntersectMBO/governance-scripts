@@ -3,10 +3,7 @@
 ##################################################
 
 # Default configuration values
-# The output document's @context resolves to a per-action-type context file
-# in the IntersectMBO/governance-actions repo on `main`. Each file declares
-# the CIP-100/108/116/169 namespaces and the gov_action shape for that type.
-INTERSECT_SCHEMAS_BASE="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas"
+INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas"
 
 resolve_context_url() {
   case "$1" in
@@ -43,10 +40,11 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu> %s--deposit-return-addr%s <stake-address>\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                  "Path to the .md file as input"
     print_usage_option "--governance-action-type <info|treasury|ppu>" "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
+    print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
     exit 1
 }
@@ -55,10 +53,12 @@ usage() {
 input_file=""
 governance_action_type=""
 deposit_return_address=""
+inline_context="false"
 
 # Create temporary files in /tmp/
 TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
 TEMP_OUTPUT_JSON=$(mktemp /tmp/metadata_create_temp.XXXXXX)
+TEMP_CONTEXT=$(mktemp /tmp/metadata_create_context.XXXXXX)
 TEMP_TITLE=$(mktemp /tmp/metadata_create_title.XXXXXX)
 TEMP_ABSTRACT=$(mktemp /tmp/metadata_create_abstract.XXXXXX)
 TEMP_MOTIVATION=$(mktemp /tmp/metadata_create_motivation.XXXXXX)
@@ -68,7 +68,7 @@ TEMP_ONCHAIN=$(mktemp /tmp/metadata_create_onchain.XXXXXX)
 
 # Cleanup function to remove temporary files
 cleanup() {
-  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" \
+  rm -f "$TEMP_MD" "$TEMP_OUTPUT_JSON" "$TEMP_CONTEXT" \
         "$TEMP_TITLE" "$TEMP_ABSTRACT" "$TEMP_MOTIVATION" \
         "$TEMP_RATIONALE" "$TEMP_REFERENCES" "$TEMP_ONCHAIN"
 }
@@ -96,6 +96,10 @@ while [[ $# -gt 0 ]]; do
                 print_fail "--deposit-return-addr requires a value"
                 usage
             fi
+            ;;
+        --inline-context)
+            inline_context="true"
+            shift
             ;;
         -h|--help)
             usage
@@ -492,6 +496,20 @@ print_section "Resolving @context URL"
 CONTEXT_URL=$(resolve_context_url "$governance_action_type")
 print_info "Using @context: ${YELLOW}${CONTEXT_URL}${NC}"
 
+# Stage the @context payload. By default we leave a JSON `null` sentinel in
+# TEMP_CONTEXT and the final jq emits the URL string. With --inline-context, we
+# fetch the canonical document and write its inner @context object so the final
+# jq embeds it verbatim.
+if [ "$inline_context" = "true" ]; then
+  print_info "Inlining @context (fetching ${YELLOW}${CONTEXT_URL}${NC})"
+  if ! curl -sSfL "$CONTEXT_URL" | jq -e '."@context"' > "$TEMP_CONTEXT"; then
+    print_fail "Failed to fetch or parse @context from $CONTEXT_URL"
+    exit 1
+  fi
+else
+  echo 'null' > "$TEMP_CONTEXT"
+fi
+
 # Build the metadata JSON-LD with CIP-116 ProposalProcedure format onChain property
 # Write each value to a temp file to avoid "Argument list too long" with large markdown.
 # --slurpfile reads the file from disk and binds it as a 1-element array,
@@ -504,6 +522,7 @@ printf '%s' "$REFERENCES_JSON"  > "$TEMP_REFERENCES"
 printf '%s' "$ONCHAIN_PROPERTY" > "$TEMP_ONCHAIN"
 
 jq --arg       context_url "$CONTEXT_URL" \
+   --slurpfile context     "$TEMP_CONTEXT" \
    --slurpfile title       "$TEMP_TITLE" \
    --slurpfile abstract    "$TEMP_ABSTRACT" \
    --slurpfile motivation  "$TEMP_MOTIVATION" \
@@ -511,7 +530,7 @@ jq --arg       context_url "$CONTEXT_URL" \
    --slurpfile references  "$TEMP_REFERENCES" \
    --slurpfile onchain     "$TEMP_ONCHAIN" \
    '{
-     "@context": $context_url,
+     "@context": (if $context[0] == null then $context_url else $context[0] end),
      "authors": [],
      "hashAlgorithm": "blake2b-256",
      "body": {

@@ -18,9 +18,10 @@ CIP_136_SCHEMA="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/h
 CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.schema.json"
 # temp, until CIP-116 PR is merged
 CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-116-increase-cost-model-max/CIP-0116/cardano-conway.json"
-INTERSECT_TREASURY_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/treasury-withdrawals/common.schema.json"
-INTERSECT_INFO_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/info/common.schema.json"
-INTERSECT_PPU_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/schemas/parameter-changes/common.schema.json"
+
+INTERSECT_TREASURY_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/treasury-withdrawals/common.schema.json"
+INTERSECT_INFO_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/info/common.schema.json"
+INTERSECT_PPU_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/parameter-changes/common.schema.json"
 
 # Default aspell dictionary (fetched at runtime so users don't need a local copy)
 CARDANO_ASPELL_DICT_URL="https://raw.githubusercontent.com/IntersectMBO/governance-scripts/refs/heads/main/scripts/cardano-aspell-dict.txt"
