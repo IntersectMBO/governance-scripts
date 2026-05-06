@@ -76,7 +76,7 @@ trap cleanup EXIT INT TERM
 
 usage() {
     printf '%s%sValidate a JSON-LD metadata file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-check-links%s] [%s--draft%s]\n' \
+    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-link-check%s] [%s--draft%s]\n' \
         "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<jsonld-file>"        "Path to the JSON-LD metadata file"
     print_usage_option "[--cip100]"           "Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
@@ -87,7 +87,7 @@ usage() {
     print_usage_option "[--intersect-schema]" "Compare against Intersect governance action schemas (default: $DEFAULT_USE_INTERSECT)"
     print_usage_option "[--schema URL]"       "Compare against schema at URL"
     print_usage_option "[--no-spell-check]"   "Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
-    print_usage_option "[--no-check-links]"   "Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
+    print_usage_option "[--no-link-check]"    "Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
     print_usage_option "[--draft]"            "Treat the file as a pre-signing draft: downgrade the empty-authors check to a warning instead of an error."
     print_usage_option "-h, --help"           "Show this help message and exit"
     exit 1
@@ -139,7 +139,7 @@ while [[ $# -gt 0 ]]; do
             user_schema="true"
             shift 2
             ;;
-        --no-check-links)
+        --no-link-check)
             check_links="false"
             shift
             ;;
@@ -271,7 +271,7 @@ fi
 
 # URI reachability check — every URI (structured + markdown-embedded in prose fields)
 # is HEAD-checked (with GET fallback). Duplicates are intentionally re-checked.
-# Skip with --no-check-links. IPFS gateway from $IPFS_GATEWAY_URI or https://ipfs.io.
+# Skip with --no-link-check. IPFS gateway from $IPFS_GATEWAY_URI or https://ipfs.io.
 URI_CHECK_FAILED=0
 if [ "$check_links" = "true" ]; then
     print_section "Checking URI reachability"
@@ -368,7 +368,7 @@ if [ "$check_links" = "true" ]; then
 
         if [ "$failed_count" -gt 0 ]; then
             print_fail "$failed_count of $total_count URIs unreachable."
-            print_hint "Re-run with --no-check-links to skip this check (e.g. if offline)."
+            print_hint "Re-run with --no-link-check to skip this check (e.g. if offline)."
             URI_CHECK_FAILED=1
         else
             print_pass "All $total_count URIs reachable."
