@@ -96,16 +96,51 @@ verify_author_witness() {
     local output
     output=$(printf '%s' "$raw_output" | perl -pe 's/([\x00-\x1f])/sprintf("\\u%04x",ord($1))/ge' | jq '{result, errorMsg, authors, canonizedHash, fileHash}')
 
-    print_kv "Result"          "$(echo "$output" | jq -r '.result')"
-    print_kv "Error Messages"  "$(echo "$output" | jq -r '.errorMsg')"
-    print_kv "Authors"         "$(echo "$output" | jq -c '.authors')"
-    print_kv "Canonized Hash"  "$(echo "$output" | jq -r '.canonizedHash')"
-    print_kv "File Hash"       "$(echo "$output" | jq -r '.fileHash')"
+    local result errorMsg canonized fileHash author_count
+    result=$(echo "$output"    | jq -r '.result')
+    errorMsg=$(echo "$output"  | jq -r '.errorMsg // ""')
+    canonized=$(echo "$output" | jq -r '.canonizedHash')
+    fileHash=$(echo "$output"  | jq -r '.fileHash')
+    author_count=$(echo "$output" | jq '.authors | length')
 
-    local result
-    result=$(echo "$output" | jq -r '.result')
+    if [ "$result" = "true" ]; then
+        local plural=" "
+        [ "$author_count" -eq 1 ] && plural="" || plural="s"
+        print_pass "Signature verification succeeded for ${author_count} author${plural}"
+    else
+        print_fail "Signature verification failed"
+        if [ -n "$errorMsg" ] && [ "$errorMsg" != "null" ]; then
+            print_hint "$errorMsg"
+        fi
+    fi
+
+    # Top-level hashes (aligned 16-wide so "Canonized Hash:" fits).
+    printf '         %s%-16s%s %s\n' "$BOLD" "Canonized Hash:" "$NC" "$canonized"
+    printf '         %s%-16s%s %s\n' "$BOLD" "File Hash:"      "$NC" "$fileHash"
+
+    # Per-author block.
+    local i name algo pubkey sig valid valid_label
+    for ((i = 0; i < author_count; i++)); do
+        name=$(echo   "$output" | jq -r ".authors[$i].name      // \"(unnamed)\"")
+        algo=$(echo   "$output" | jq -r ".authors[$i].algorithm // \"-\"")
+        pubkey=$(echo "$output" | jq -r ".authors[$i].publicKey // \"-\"")
+        sig=$(echo    "$output" | jq -r ".authors[$i].signature // \"-\"")
+        valid=$(echo  "$output" | jq -r ".authors[$i].valid")
+
+        if [ "$valid" = "true" ]; then
+            valid_label="${GREEN}valid${NC}"
+        else
+            valid_label="${RED}invalid${NC}"
+        fi
+
+        printf '\n         %sAuthor %d — %s%s\n' "$BOLD" "$((i+1))" "$name" "$NC"
+        printf '           %s%-11s%s %s\n' "$BOLD" "Witness:"    "$NC" "$valid_label"
+        printf '           %s%-11s%s %s\n' "$BOLD" "Algorithm:"  "$NC" "$algo"
+        printf '           %s%-11s%s %s\n' "$BOLD" "Public Key:" "$NC" "$pubkey"
+        printf '           %s%-11s%s %s\n' "$BOLD" "Signature:"  "$NC" "$sig"
+    done
+
     if [ "$result" != "true" ]; then
-        print_fail "Verification failed with result: $result"
         exit 1
     fi
 }
@@ -127,14 +162,14 @@ check_if_correct_author() {
                 print_pass "Author pub key and name is correctly set to 'Intersect'."
             else
                 print_warn "Author name is NOT set to 'Intersect' but public key matches Intersect's key."
-                print_kv "Author name"       "$(jq -r ".authors[$i].name" "$file")"
-                print_kv "Author public key" "$file_author_key"
+                printf '         %s%-19s%s %s\n' "$BOLD" "Author name:"       "$NC" "$(jq -r ".authors[$i].name" "$file")"
+                printf '         %s%-19s%s %s\n' "$BOLD" "Author public key:" "$NC" "$file_author_key"
             fi
 
         else
             print_warn "Author public key is not Intersect's key."
-            print_kv "Author name"       "$(jq -r ".authors[$i].name" "$file")"
-            print_kv "Author public key" "$file_author_key"
+            printf '         %s%-19s%s %s\n' "$BOLD" "Author name:"       "$NC" "$(jq -r ".authors[$i].name" "$file")"
+            printf '         %s%-19s%s %s\n' "$BOLD" "Author public key:" "$NC" "$file_author_key"
         fi
     done
 }
