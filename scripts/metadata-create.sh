@@ -5,6 +5,9 @@
 # Default configuration values
 METADATA_169_COMMON_URL="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-governance-metadata-extension/CIP-0169/cip-0169.common.jsonld"
 METADATA_108_COMMON_URL="https://raw.githubusercontent.com/cardano-foundation/CIPs/refs/heads/master/CIP-0108/cip-0108.common.jsonld"
+
+# Governance action deposit in lovelace (CIP-116 UInt64, encoded as a JSON string).
+GOV_ACTION_DEPOSIT="100000000000"
 ##################################################
 
 # Exit immediately if a command exits with a non-zero status,
@@ -141,6 +144,14 @@ if [ -z "$deposit_return_address" ]; then
   usage
 fi
 
+# Validate deposit return address as a Bech32 stake address (mainnet or testnet).
+# Cardano stake addresses are 53-54 chars after the prefix; we accept any bech32-ish tail
+# and let downstream tooling reject malformed payloads.
+if [[ ! "$deposit_return_address" =~ ^(stake1|stake_test1)[a-zA-Z0-9]+$ ]]; then
+  print_fail "--deposit-return-addr must be a Bech32 stake address (e.g. stake1... or stake_test1...). Got: $(fmt_path "$deposit_return_address")"
+  exit 1
+fi
+
 print_banner "Creating a governance action metadata file from a markdown file"
 print_info "This script assumes a basic structure for the markdown file, using H2 headers"
 print_info "This script uses CIP169 governance metadata extension with CIP-116 ProposalProcedure format"
@@ -201,50 +212,22 @@ get_section_last() {
 
 }
 
-# Query governance action deposit from chain (required for CIP-116 ProposalProcedure format)
-# Returns the deposit amount in lovelace, or "null" if query fails
-query_governance_deposit() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    print_warn "cardano-cli not found. Cannot query deposit from chain."
-    echo "null"
-    return 1
+# Preflight: every section the schema marks as required must appear as an H2 in the
+# Markdown source. Without this, get_section silently returns an empty string and
+# downstream validation fails far from the cause.
+require_sections() {
+  local missing=()
+  local section
+  for section in "$@"; do
+    if ! grep -qE "^${section}\$" "$TEMP_MD"; then
+      missing+=("$section")
+    fi
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    print_fail "Markdown source is missing required H2 section(s): ${missing[*]}"
+    print_hint "Each required section must appear on its own line, exactly as: ## Title / ## Abstract / ## Motivation / ## Rationale"
+    exit 1
   fi
-
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query deposit amount
-  local deposit
-  deposit=$(cardano-cli conway query gov-state $network_flag 2>/dev/null | jq -r '.currentPParams.govActionDeposit // empty' 2>/dev/null)
-
-  if [ -z "$deposit" ] || [ "$deposit" = "null" ] || [ "$deposit" = "" ]; then
-    print_warn "Could not query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  echo "$deposit"
-  return 0
 }
 
 query_governance_state_prev_actions() {
@@ -341,21 +324,9 @@ extract_references() {
 
 # Generate onChain property for info governance action (CIP-116 ProposalProcedure format)
 generate_info_onchain() {
-  local deposit_amount
-  deposit_amount=$(query_governance_deposit)
-
-  # If deposit query failed, use null (JSON null, not string)
-  local deposit_json
-  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
-    print_fail "Could not retrieve deposit amount from chain. Please ensure cardano-cli is installed and configured correctly."
-    exit 1
-  else
-    deposit_json="$deposit_amount"
-  fi
-
   cat <<EOF
 {
-  "deposit": "$deposit_json",
+  "deposit": "$GOV_ACTION_DEPOSIT",
   "reward_account": "$deposit_return_address",
   "gov_action": {
      "tag": "info_action"
@@ -366,24 +337,13 @@ EOF
 
 # Generate onChain property for ppu governance action (CIP-116 ProposalProcedure format)
 generate_ppu_onchain() {
-  local deposit_amount
-  deposit_amount=$(query_governance_deposit)
-
-  # If deposit query failed, use null (JSON null, not string)
-  local deposit_json
-  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
-    deposit_json="null"
-  else
-    deposit_json="$deposit_amount"
-  fi
-
   prev_gov_actions=$(query_governance_state_prev_actions)
 
   # Note: protocol_param_update field is required for parameter_change_action
   # This is a placeholder - full implementation would require protocol parameter update details
   cat <<EOF
 {
-  "deposit": $deposit_json,
+  "deposit": "$GOV_ACTION_DEPOSIT",
   "reward_account": "$deposit_return_address",
   "gov_action": {
     "tag": "parameter_change_action",
@@ -467,22 +427,11 @@ generate_treasury_onchain() {
   # Collect inputs and log to stderr
   treasury_collect_inputs
 
-  local deposit_amount
-  deposit_amount=$(query_governance_deposit)
-
-  # If deposit query failed, use null (JSON null, not string)
-  local deposit_json
-  if [ "$deposit_amount" = "null" ] || [ -z "$deposit_amount" ]; then
-    deposit_json="null"
-  else
-    deposit_json="$deposit_amount"
-  fi
-
   # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
   # Convert withdrawals to rewards array with key-value pairs
   cat <<EOF
 {
-  "deposit": "$deposit_json",
+  "deposit": "$GOV_ACTION_DEPOSIT",
   "reward_account": "$deposit_return_address",
   "gov_action": {
     "tag": "treasury_withdrawals_action",
@@ -519,6 +468,8 @@ generate_onchain_property() {
 
 # use helper functions to extract sections
 print_section "Extracting sections from Markdown"
+
+require_sections "## Title" "## Abstract" "## Motivation" "## Rationale"
 
 TITLE=$(get_section "## Title" "## Abstract")
 
