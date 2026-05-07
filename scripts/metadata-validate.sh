@@ -23,6 +23,10 @@ INTERSECT_TREASURY_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.
 INTERSECT_INFO_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/info/common.schema.json"
 INTERSECT_PPU_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/parameter-changes/common.schema.json"
 
+# temp branch URLs until Intersect schemas are merged to main
+INTERSECT_HFI_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/add-hf-and-update-committee/schemas/hard-fork-initiation/common.schema.json"
+INTERSECT_UC_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/add-hf-and-update-committee/schemas/update-committee/common.schema.json"
+
 # Default aspell dictionary (fetched at runtime so users don't need a local copy)
 CARDANO_ASPELL_DICT_URL="https://raw.githubusercontent.com/IntersectMBO/governance-scripts/refs/heads/main/scripts/cardano-aspell-dict.txt"
 
@@ -436,6 +440,14 @@ if [ "$use_intersect_schema" = "true" ]; then
         parameter_change_action)
             print_info "Downloading Intersect ${YELLOW}parameterChanges${NC} schema..."
             INTERSECT_SCHEMA_URL="$INTERSECT_PPU_SCHEMA"
+            ;;
+        hard_fork_initiation_action)
+            print_info "Downloading Intersect ${YELLOW}hardForkInitiation${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_HFI_SCHEMA"
+            ;;
+        update_committee)
+            print_info "Downloading Intersect ${YELLOW}updateCommittee${NC} schema..."
+            INTERSECT_SCHEMA_URL="$INTERSECT_UC_SCHEMA"
             ;;
         *)
             print_fail "Unknown body.onChain.gov_action.tag '$gov_action_tag' in $(fmt_path "$JSON_FILE")."
