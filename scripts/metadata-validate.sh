@@ -37,6 +37,7 @@ DEFAULT_USE_CIP_119="false"
 DEFAULT_USE_CIP_136="false"
 DEFAULT_USE_CIP_169="false"
 DEFAULT_USE_INTERSECT="false"
+DEFAULT_USE_JSONLD_CHECK="true"
 ##################################################
 
 # Check if cardano-signer is installed
@@ -81,8 +82,8 @@ trap cleanup EXIT INT TERM
 
 usage() {
     printf '%s%sValidate a JSON-LD metadata file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-link-check%s] [%s--draft%s]\n' \
-        "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<jsonld-file>%s [%s--cip169%s] [%s--cip108%s] [%s--cip100%s] [%s--cip136%s] [%s--intersect-schema%s] [%s--schema%s URL] [%s--no-spell-check%s] [%s--no-link-check%s] [%s--no-jsonld-check%s] [%s--draft%s]\n' \
+        "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<jsonld-file>"        "Path to the JSON-LD metadata file"
     print_usage_option "[--cip100]"           "Compare against CIP-100 schema (default: $DEFAULT_USE_CIP_100)"
     print_usage_option "[--cip108]"           "Compare against CIP-108 Governance actions schema (default: $DEFAULT_USE_CIP_108)"
@@ -93,6 +94,7 @@ usage() {
     print_usage_option "[--schema URL]"       "Compare against schema at URL"
     print_usage_option "[--no-spell-check]"   "Skip aspell-based spell check on body.title/abstract/motivation/rationale (default: enabled; dictionary fetched from IntersectMBO/governance-scripts main)"
     print_usage_option "[--no-link-check]"    "Skip URI reachability check on body URIs and prose markdown links (default: enabled; IPFS gateway via \$IPFS_GATEWAY_URI, falls back to https://ipfs.io)"
+    print_usage_option "[--no-jsonld-check]"  "Skip JSON-LD safe-mode expansion check (default: enabled; needs node + 'jsonld' npm package)"
     print_usage_option "[--draft]"            "Treat the file as a pre-signing draft: downgrade the empty-authors check to a warning instead of an error."
     print_usage_option "-h, --help"           "Show this help message and exit"
     exit 1
@@ -110,6 +112,7 @@ user_schema_url=""
 user_schema="false"
 check_links="true"
 check_spelling="true"
+check_jsonld="$DEFAULT_USE_JSONLD_CHECK"
 is_draft="false"
 
 # Parse command line arguments
@@ -150,6 +153,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-spell-check)
             check_spelling="false"
+            shift
+            ;;
+        --no-jsonld-check)
+            check_jsonld="false"
             shift
             ;;
         --draft)
@@ -381,6 +388,99 @@ if [ "$check_links" = "true" ]; then
     fi
 fi
 
+# JSON-LD safe-mode expansion check. Surfaces "dropping property that did not
+# expand into an absolute IRI or keyword" warnings caused by missing term
+# mappings inside the document's @context. This is the failure mode that the
+# v1.1.0 hard-fork-initiation schema hit on protocol_version.{major,minor}:
+# the context only declared an outer @type, with no inner @context to map the
+# inner keys, so safe-mode JSON-LD processors silently drop them. We use Node
+# + the 'jsonld' npm package because pyld's behaviour matches it byte-for-byte
+# in safe mode (same warning event shape).
+JSONLD_CHECK_FAILED=0
+if [ "$check_jsonld" = "true" ]; then
+    print_section "Applying JSON-LD safe-mode expansion check"
+
+    # Resolve where the 'jsonld' npm package lives. Try (in order):
+    #   1. The current NODE_PATH / CWD's node_modules
+    #   2. The global npm modules dir reported by `npm root -g`
+    JSONLD_NODE_PATH="${NODE_PATH:-}"
+    JSONLD_RESOLVED="false"
+    if ! command -v node >/dev/null 2>&1; then
+        JSONLD_NODE_AVAILABLE="false"
+    else
+        JSONLD_NODE_AVAILABLE="true"
+        if NODE_PATH="$JSONLD_NODE_PATH" node -e "require.resolve('jsonld')" >/dev/null 2>&1; then
+            JSONLD_RESOLVED="true"
+        elif command -v npm >/dev/null 2>&1; then
+            NPM_GLOBAL_ROOT=$(npm root -g 2>/dev/null || true)
+            if [ -n "$NPM_GLOBAL_ROOT" ]; then
+                CANDIDATE="${JSONLD_NODE_PATH:+$JSONLD_NODE_PATH:}$NPM_GLOBAL_ROOT"
+                if NODE_PATH="$CANDIDATE" node -e "require.resolve('jsonld')" >/dev/null 2>&1; then
+                    JSONLD_NODE_PATH="$CANDIDATE"
+                    JSONLD_RESOLVED="true"
+                fi
+            fi
+        fi
+    fi
+    if [ "$JSONLD_NODE_AVAILABLE" = "false" ]; then
+        print_warn "node is not installed; skipping JSON-LD safe-mode check."
+        print_hint "Install Node.js (>= 18) to enable. Or pass --no-jsonld-check to silence this notice."
+    elif [ "$JSONLD_RESOLVED" = "false" ]; then
+        print_warn "node is installed but the 'jsonld' package is not resolvable; skipping JSON-LD safe-mode check."
+        print_hint "Install with: 'npm install -g jsonld' (or 'npm install jsonld' in a project directory). Or pass --no-jsonld-check to silence."
+    else
+        # Run jsonld.expand with safe:true. Exit codes:
+        #   0 = clean expansion
+        #   2 = ValidationError (a property would be dropped)
+        #   3 = any other expansion error (network, malformed @context, ...)
+        # Using CommonJS (-e) rather than ESM so NODE_PATH is honoured for the
+        # bare 'jsonld' specifier — ESM (--input-type=module) ignores NODE_PATH.
+        set +e
+        JSONLD_OUTPUT=$(NODE_PATH="$JSONLD_NODE_PATH" node -e '
+const jsonld = require("jsonld");
+const fs = require("fs");
+const doc = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+jsonld.expand(doc, { safe: true })
+  .then(() => process.exit(0))
+  .catch(e => {
+    if (e.name === "jsonld.ValidationError" && e.details && e.details.event) {
+      const ev = e.details.event;
+      const d  = ev.details || {};
+      const where = d.property
+        ? "property \x27" + d.property + "\x27" +
+          (d.expandedProperty && d.expandedProperty !== d.property ? " (expanded as \x27" + d.expandedProperty + "\x27)" : "")
+        : "(no property in event details)";
+      console.error((ev.code || "validation error") + ": " + (ev.message || "") + " " + where);
+      process.exit(2);
+    }
+    console.error("expansion failed: " + (e.message || e));
+    process.exit(3);
+  });
+' "$JSON_FILE" 2>&1)
+        JSONLD_STATUS=$?
+        set -e
+
+        case "$JSONLD_STATUS" in
+            0)
+                print_pass "Document expands cleanly under JSON-LD safe mode"
+                ;;
+            2)
+                print_fail "JSON-LD safe-mode expansion would drop properties from the anchored body."
+                print_hint "$JSONLD_OUTPUT"
+                print_hint "Cause: a key inside the document's @context lacks an IRI mapping (typically a parent term sets only @type without an inner @context to define its child terms)."
+                print_hint "If this is a published Intersect schema, fix it at source and bump the schema version, then re-anchor with the new URL."
+                JSONLD_CHECK_FAILED=1
+                ;;
+            *)
+                print_fail "JSON-LD expansion failed."
+                print_hint "$JSONLD_OUTPUT"
+                print_hint "If this is a network failure (the @context URL couldn't be fetched), pass --no-jsonld-check to skip."
+                JSONLD_CHECK_FAILED=1
+                ;;
+        esac
+    fi
+fi
+
 print_section "Applying schema check(s)"
 
 # Create a temporary directory for schema(s)
@@ -529,7 +629,7 @@ if [ "$use_cip_100" = "true" ] || [ "$use_cip_108" = "true" ] || \
 fi
 
 # Final result
-if [ "$VALIDATION_FAILED" -ne 0 ] || [ "$URI_CHECK_FAILED" -ne 0 ] || [ "$STRUCT_CHECK_FAILED" -ne 0 ]; then
+if [ "$VALIDATION_FAILED" -ne 0 ] || [ "$URI_CHECK_FAILED" -ne 0 ] || [ "$STRUCT_CHECK_FAILED" -ne 0 ] || [ "$JSONLD_CHECK_FAILED" -ne 0 ]; then
     print_fail "One or more validation errors were found."
     exit 1
 else

@@ -22,6 +22,8 @@ aspell_version=""
 perl_version=""
 awk_version=""
 sed_version=""
+node_version=""
+jsonld_pkg_version=""
 qpdf_version=""
 exiftool_version=""
 bc_version=""
@@ -147,6 +149,73 @@ check_binary() {
     fi
 }
 
+# Check that a Node package is resolvable. Resolution chain matches the one
+# in metadata-validate.sh's JSON-LD safe-mode check: try the current
+# NODE_PATH / CWD first, then fall back to whatever `npm root -g` reports.
+# Reports the package's version (read from its package.json) on success.
+check_npm_package() {
+    local pkg="$1"
+    local requirement="$2"
+    local hint="$3"
+    local supported="${4:-}"
+
+    if ! command -v node >/dev/null 2>&1; then
+        if [ "$requirement" = "required" ]; then
+            tag FAIL
+            printf "%-18s needs node first; then %s\n" "$pkg" "$hint"
+            record FAIL
+        else
+            tag WARN
+            printf "%-18s needs node first; then %s\n" "$pkg" "$hint"
+            record WARN
+        fi
+        return
+    fi
+
+    local pkg_path
+    pkg_path=$(node -e "try { console.log(require.resolve('$pkg/package.json')); } catch (_) {}" 2>/dev/null)
+    if [ -z "$pkg_path" ] && command -v npm >/dev/null 2>&1; then
+        local global_root
+        global_root=$(npm root -g 2>/dev/null || true)
+        if [ -n "$global_root" ]; then
+            pkg_path=$(NODE_PATH="${NODE_PATH:-}${NODE_PATH:+:}$global_root" \
+                node -e "try { console.log(require.resolve('$pkg/package.json')); } catch (_) {}" 2>/dev/null)
+        fi
+    fi
+
+    if [ -n "$pkg_path" ] && [ -f "$pkg_path" ]; then
+        local ver installed_num supported_num cmp
+        ver=$(jq -r '.version // empty' "$pkg_path" 2>/dev/null || true)
+        if [ -n "$supported" ] && [ -n "$ver" ]; then
+            installed_num=$(extract_version_number "$ver")
+            supported_num=$(extract_version_number "$supported")
+            if [ -n "$installed_num" ] && [ -n "$supported_num" ]; then
+                cmp=$(compare_versions "$installed_num" "$supported_num")
+                if [ "$cmp" != "eq" ]; then
+                    tag WARN
+                    printf "%-18s %s (supported: %s)\n" "$pkg" "$ver" "$supported_num"
+                    record WARN
+                    return
+                fi
+            fi
+        fi
+        tag PASS
+        printf "%-18s %s\n" "$pkg" "${ver:-installed}"
+        record PASS
+        return
+    fi
+
+    if [ "$requirement" = "required" ]; then
+        tag FAIL
+        printf "%-18s not found — %s\n" "$pkg" "$hint"
+        record FAIL
+    else
+        tag WARN
+        printf "%-18s not found — %s\n" "$pkg" "$hint"
+        record WARN
+    fi
+}
+
 printf '%s%s=== Governance scripts preflight ===%s\n\n' "$BOLD" "$CYAN" "$NC"
 
 printf '%s%sRequired binaries%s\n' "$BOLD" "$CYAN" "$NC"
@@ -157,6 +226,8 @@ check_binary curl           required "--version" "brew install curl  |  apt inst
 check_binary ipfs           required "version"   "install from https://docs.ipfs.tech/install/command-line/"        "$ipfs_version"
 check_binary pandoc         required "--version" "install from https://pandoc.org/installing.html"                  "$pandoc_version"
 check_binary ajv            required "help"      "npm install -g ajv-cli"                                           "$ajv_version"
+check_binary node           required "--version" "install Node.js >= 18 (https://nodejs.org/) — needed for the metadata-validate.sh JSON-LD safe-mode check" "$node_version"
+check_npm_package jsonld    required             "npm install -g jsonld — needed for the metadata-validate.sh JSON-LD safe-mode check"                       "$jsonld_pkg_version"
 check_binary b2sum          required "--version" "brew install coreutils (macOS)  |  apt install coreutils"         "$b2sum_version"
 check_binary aspell         required "--version" "brew install aspell  |  apt install aspell"                       "$aspell_version"
 check_binary perl           required "--version" "preinstalled on macOS/Linux; otherwise brew/apt install perl"     "$perl_version"
