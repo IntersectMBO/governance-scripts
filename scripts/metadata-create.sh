@@ -7,9 +7,11 @@ INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.0.0
 
 resolve_context_url() {
   case "$1" in
-    info)     echo "${INTERSECT_SCHEMAS_BASE}/info/common.jsonld" ;;
-    treasury) echo "${INTERSECT_SCHEMAS_BASE}/treasury-withdrawals/common.jsonld" ;;
-    ppu)      echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
+    info)      echo "${INTERSECT_SCHEMAS_BASE}/info/common.jsonld" ;;
+    treasury)  echo "${INTERSECT_SCHEMAS_BASE}/treasury-withdrawals/common.jsonld" ;;
+    ppu)       echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
+    hf)        echo "${INTERSECT_SCHEMAS_BASE}/hard-fork-initiation/common.jsonld" ;;
+    committee) echo "${INTERSECT_SCHEMAS_BASE}/update-committee/common.jsonld" ;;
     *)        print_fail "No @context mapping for --governance-action-type '$1'"; exit 1 ;;
   esac
 }
