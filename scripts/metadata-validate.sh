@@ -254,8 +254,6 @@ print_section "Checking content sanity"
 CONTENT_WARN_COUNT=0
 PROSE_FIELDS=(title abstract motivation rationale)
 HEADING_LEN_MAX=80
-# Space-padded set used for substring membership tests against heading text.
-CIP108_FIELD_SET=" title abstract motivation rationale "
 
 for field in "${PROSE_FIELDS[@]}"; do
     text=$(jq -r ".body.$field // empty" "$JSON_FILE")
@@ -270,7 +268,7 @@ for field in "${PROSE_FIELDS[@]}"; do
         CONTENT_WARN_COUNT=$((CONTENT_WARN_COUNT+1))
     fi
 
-    # Walk ATX-style markdown headings; flag overlong text and nested field-name reuse.
+    # Very long ATX-style headings (line-start only — that's what real markdown headings are).
     while IFS= read -r heading_line; do
         heading_text=$(printf '%s' "$heading_line" | tr -d '\r' \
             | sed -E 's/^[[:space:]]{0,3}#+[[:space:]]*//; s/[[:space:]]+#+[[:space:]]*$//')
@@ -280,12 +278,18 @@ for field in "${PROSE_FIELDS[@]}"; do
             print_warn "'$field' has a markdown heading of $len chars (>$HEADING_LEN_MAX): \"$heading_text\""
             CONTENT_WARN_COUNT=$((CONTENT_WARN_COUNT+1))
         fi
-        heading_lower=$(printf '%s' "$heading_text" | tr '[:upper:]' '[:lower:]')
-        if [[ "$CIP108_FIELD_SET" == *" $heading_lower "* ]]; then
-            print_warn "'$field' contains a nested CIP-108 field heading: \"$heading_text\". Field content shouldn't redeclare a CIP-108 field name as a heading."
+    done < <(printf '%s\n' "$text" | grep -E '^[[:space:]]{0,3}#+[[:space:]]+' || true)
+
+    # Nested CIP-108 field-name reuse: '### abstract', '## motivation', etc., anywhere in
+    # the text — line-start OR mid-string. Mid-string matches because writers paste
+    # heading-style markers inline (e.g. "My amazing ### motivation") and that's still a
+    # field-name reuse worth flagging.
+    for nested in "${PROSE_FIELDS[@]}"; do
+        if printf '%s\n' "$text" | grep -qiE "(^|[^[:alnum:]_#])#{1,6}[[:space:]]+${nested}([^[:alnum:]_]|\$)"; then
+            print_warn "'$field' contains nested CIP-108 field heading marker for '$nested' (e.g. '### $nested'). Field content shouldn't redeclare a CIP-108 field name as a heading."
             CONTENT_WARN_COUNT=$((CONTENT_WARN_COUNT+1))
         fi
-    done < <(printf '%s\n' "$text" | grep -E '^[[:space:]]{0,3}#+[[:space:]]+' || true)
+    done
 done
 
 if [ "$CONTENT_WARN_COUNT" -eq 0 ]; then
