@@ -445,6 +445,15 @@ if [ "$use_intersect_schema" = "true" ]; then
     esac
     TEMP_INT_SCHEMA="$TMP_SCHEMAS_DIR/intersect-schema.json"
     curl -sSfSL "$INTERSECT_SCHEMA_URL" -o "$TEMP_INT_SCHEMA"
+        # Under --draft the authors array may legitimately be empty (not yet signed).
+    # The Intersect schema enforces minItems:1 on authors at the JSON Schema level,
+    # which AJV would fail on its own, bypassing the --draft logic entirely.
+    # Remove that constraint so AJV defers the empty-authors check to the structural
+    # integrity block below, where --draft correctly downgrades it to a warning.
+    if [ "$is_draft" = "true" ]; then
+        jq 'del(.definitions.authors.minItems)' "$TEMP_INT_SCHEMA" > "${TEMP_INT_SCHEMA}.tmp" \
+            && mv "${TEMP_INT_SCHEMA}.tmp" "$TEMP_INT_SCHEMA"
+    fi
 fi
 
 if [ "$user_schema" = "true" ]; then
