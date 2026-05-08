@@ -7,9 +7,11 @@ INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.0.0
 
 resolve_context_url() {
   case "$1" in
-    info)     echo "${INTERSECT_SCHEMAS_BASE}/info/common.jsonld" ;;
-    treasury) echo "${INTERSECT_SCHEMAS_BASE}/treasury-withdrawals/common.jsonld" ;;
-    ppu)      echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
+    info)      echo "${INTERSECT_SCHEMAS_BASE}/info/common.jsonld" ;;
+    treasury)  echo "${INTERSECT_SCHEMAS_BASE}/treasury-withdrawals/common.jsonld" ;;
+    ppu)       echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
+    hf)        echo "${INTERSECT_SCHEMAS_BASE}/hard-fork-initiation/common.jsonld" ;;
+    committee) echo "${INTERSECT_SCHEMAS_BASE}/update-committee/common.jsonld" ;;
     *)        print_fail "No @context mapping for --governance-action-type '$1'"; exit 1 ;;
   esac
 }
@@ -40,9 +42,9 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
-    print_usage_option "<.md-file>"                                  "Path to the .md file as input"
-    print_usage_option "--governance-action-type <info|treasury|ppu>" "Type of governance action"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    print_usage_option "<.md-file>"                                     "Path to the .md file as input"
+    print_usage_option "--governance-action-type <info|treasury|ppu|hf>" "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
     print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
@@ -449,6 +451,80 @@ generate_treasury_onchain() {
 EOF
 }
 
+hf_collect_inputs() {
+  # Major protocol version
+  printf 'Please enter target major protocol version: ' >&2
+  IFS= read -r HF_MAJOR </dev/tty
+  if [[ ! "$HF_MAJOR" =~ ^[0-9]+$ ]]; then
+    print_fail "Major protocol version must be a non-negative integer. Got: ${HF_MAJOR}"
+    exit 1
+  fi
+
+  # Minor protocol version (defaults to 0).
+  printf 'Please enter target minor protocol version [0]: ' >&2
+  IFS= read -r HF_MINOR </dev/tty
+  if [ -z "$HF_MINOR" ]; then
+    HF_MINOR="0"
+  fi
+  if [[ ! "$HF_MINOR" =~ ^[0-9]+$ ]]; then
+    print_fail "Minor protocol version must be a non-negative integer. Got: ${HF_MINOR}"
+    exit 1
+  fi
+
+  # Previous hard-fork-initiation action ID
+  printf 'Please enter previous hard fork action transaction id (64 hex chars): ' >&2
+  IFS= read -r HF_PREV_TX </dev/tty
+  if [ -z "$HF_PREV_TX" ]; then
+    print_fail "Previous hard fork action transaction id is required."
+    exit 1
+  fi
+  if [[ ! "$HF_PREV_TX" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    print_fail "Previous hard fork transaction id must be 64 hex characters. Got: ${HF_PREV_TX}"
+    exit 1
+  fi
+  printf 'Please enter previous hard fork action gov_action_index [0]: ' >&2
+  IFS= read -r HF_PREV_IDX </dev/tty
+  if [ -z "$HF_PREV_IDX" ]; then
+    HF_PREV_IDX="0"
+  fi
+  if [[ ! "$HF_PREV_IDX" =~ ^[0-9]+$ ]]; then
+    print_fail "gov_action_index must be a non-negative integer. Got: ${HF_PREV_IDX}"
+    exit 1
+  fi
+
+  print_info "Final confirmation:" >&2
+  print_info "  Target protocol version: ${YELLOW}${HF_MAJOR}.${HF_MINOR}${NC}" >&2
+  print_info "  Previous HF action: ${YELLOW}${HF_PREV_TX}#${HF_PREV_IDX}${NC}" >&2
+
+  if ! confirm "Is this correct?"; then
+    print_fail "Cancelled by user"
+    exit 1
+  fi
+}
+
+generate_hf_onchain() {
+  # Collect inputs and log to stderr
+  hf_collect_inputs
+
+  # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
+  jq -n \
+    --arg     deposit        "$GOV_ACTION_DEPOSIT" \
+    --arg     reward_account "$deposit_return_address" \
+    --arg     prev_tx        "$HF_PREV_TX" \
+    --arg     prev_idx       "$HF_PREV_IDX" \
+    --argjson major          "$HF_MAJOR" \
+    --argjson minor          "$HF_MINOR" \
+    '{
+      deposit: $deposit,
+      reward_account: $reward_account,
+      gov_action: {
+        tag: "hard_fork_initiation_action",
+        gov_action_id: { transaction_id: $prev_tx, gov_action_index: $prev_idx },
+        protocol_version: { major: $major, minor: $minor }
+      }
+    }'
+}
+
 # Generate onChain property based on governance action type
 generate_onchain_property() {
   local action_type="$1"
@@ -462,6 +538,9 @@ generate_onchain_property() {
       ;;
     "ppu")
       generate_ppu_onchain
+      ;;
+    "hf")
+      generate_hf_onchain
       ;;
     *)
       echo "null"
