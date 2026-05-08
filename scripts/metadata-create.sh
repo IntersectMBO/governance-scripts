@@ -3,7 +3,7 @@
 ##################################################
 
 # Default configuration values
-INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas"
+INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.1.1/schemas"
 
 resolve_context_url() {
   case "$1" in
