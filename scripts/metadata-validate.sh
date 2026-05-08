@@ -19,13 +19,11 @@ CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-gove
 # temp, until CIP-116 PR is merged
 CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-116-increase-cost-model-max/CIP-0116/cardano-conway.json"
 
-INTERSECT_TREASURY_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/treasury-withdrawals/common.schema.json"
-INTERSECT_INFO_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/info/common.schema.json"
-INTERSECT_PPU_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.0.0/schemas/parameter-changes/common.schema.json"
-
-# temp branch URLs until Intersect schemas are merged to main
-INTERSECT_HFI_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/add-hf-and-update-committee/schemas/hard-fork-initiation/common.schema.json"
-INTERSECT_UC_SCHEMA="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/add-hf-and-update-committee/schemas/update-committee/common.schema.json"
+INTERSECT_TREASURY_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/treasury-withdrawals/common.schema.json"
+INTERSECT_INFO_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/info/common.schema.json"
+INTERSECT_PPU_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/parameter-changes/common.schema.json"
+INTERSECT_HFI_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/hard-fork-initiation/common.schema.json"
+INTERSECT_UC_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/update-committee/common.schema.json"
 
 # Default aspell dictionary (fetched at runtime so users don't need a local copy)
 CARDANO_ASPELL_DICT_URL="https://raw.githubusercontent.com/IntersectMBO/governance-scripts/refs/heads/main/scripts/cardano-aspell-dict.txt"
