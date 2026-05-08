@@ -19,11 +19,11 @@ CIP_169_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-gove
 # temp, until CIP-116 PR is merged
 CIP_116_CONWAY_SCHEMA="https://raw.githubusercontent.com/Ryun1/CIPs/refs/heads/cip-116-increase-cost-model-max/CIP-0116/cardano-conway.json"
 
-INTERSECT_TREASURY_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/treasury-withdrawals/common.schema.json"
-INTERSECT_INFO_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/info/common.schema.json"
-INTERSECT_PPU_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/parameter-changes/common.schema.json"
-INTERSECT_HFI_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/hard-fork-initiation/common.schema.json"
-INTERSECT_UC_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.0/schemas/update-committee/common.schema.json"
+INTERSECT_TREASURY_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.1/schemas/treasury-withdrawals/common.schema.json"
+INTERSECT_INFO_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.1/schemas/info/common.schema.json"
+INTERSECT_PPU_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.1/schemas/parameter-changes/common.schema.json"
+INTERSECT_HFI_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.1/schemas/hard-fork-initiation/common.schema.json"
+INTERSECT_UC_SCHEMA="https://intersectmbo.github.io/governance-actions/v1.1.1/schemas/update-committee/common.schema.json"
 
 # Default aspell dictionary (fetched at runtime so users don't need a local copy)
 CARDANO_ASPELL_DICT_URL="https://raw.githubusercontent.com/IntersectMBO/governance-scripts/refs/heads/main/scripts/cardano-aspell-dict.txt"
@@ -389,7 +389,7 @@ fi
 # JSON-LD safe-mode expansion check. Surfaces "dropping property that did not
 # expand into an absolute IRI or keyword" warnings caused by missing term
 # mappings inside the document's @context. This is the failure mode that the
-# v1.1.0 hard-fork-initiation schema hit on protocol_version.{major,minor}:
+# v1.1.1 hard-fork-initiation schema hit on protocol_version.{major,minor}:
 # the context only declared an outer @type, with no inner @context to map the
 # inner keys, so safe-mode JSON-LD processors silently drop them. We use Node
 # + the 'jsonld' npm package because pyld's behaviour matches it byte-for-byte
