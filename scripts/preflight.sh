@@ -10,8 +10,8 @@ source "$SCRIPT_DIR/lib/messages.sh"
 # component, preflight WARNs (never fails) — these are advisory, not hard
 # requirements. Leave blank to skip the version check for a tool.
 
-cardano_cli_version="cardano-cli 10.8.0"
-cardano_signer_version="cardano-signer 1.27.0"
+cardano_cli_version="cardano-cli 11.0.0"
+cardano_signer_version="cardano-signer 1.34.0"
 jq_version="1.7.1"
 curl_version="8.7.1"
 ipfs_version="0.38.2"
