@@ -91,6 +91,19 @@ fmt_path() {
     printf "'%s%s%s'" "$YELLOW" "$1" "$NC"
 }
 
+# Abort with a clear [FAIL] if a value pulled from a cardano-cli/jq query is
+# empty or the literal "null". Guards against a renamed/reshaped query field
+# (e.g. across a cardano-cli upgrade) silently feeding a bad value into a
+# downstream command flag. Usage: require_nonnull "$value" "human label"
+require_nonnull() {
+    local value="$1" label="$2"
+    if [ -z "$value" ] || [ "$value" = "null" ]; then
+        print_fail "Could not read $label from cardano-cli output (got empty/null)."
+        print_hint "This can happen if cardano-cli's output format changed or the node is not synced."
+        exit 1
+    fi
+}
+
 # Single help row, replacing ad-hoc col=50 printf blocks.
 print_usage_option() {
     printf '        %s%-42s%s %s%s%s\n' "$GREEN" "$1" "$NC" "$GRAY" "$2" "$NC"
