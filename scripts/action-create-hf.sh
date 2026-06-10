@@ -117,14 +117,15 @@ print_info "This script assumes compliance with Intersect's hard-fork-initiation
 print_info "This script assumes that CARDANO_NODE_SOCKET_PATH, CARDANO_NODE_NETWORK_ID and IPFS_GATEWAY_URI are set"
 
 # Exit if socket path is not set
-if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
+if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
     print_fail "CARDANO_NODE_SOCKET_PATH environment variable is not set."
     exit 1
 fi
 
 # Exit if network id is not set
-if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
+if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
     print_fail "CARDANO_NODE_NETWORK_ID environment variable is not set."
+    exit 1
 fi
 
 # Get if mainnet or testnet
@@ -248,6 +249,26 @@ if [ -n "$prev_action_id_input" ]; then
         exit 1
     fi
 fi
+
+# Verify bech32 integrity (checksum + address type) of stake address
+validate_stake_address() {
+    local label="$1"
+    local address="$2"
+    local info
+    if ! info=$(cardano-cli address info --address "$address" 2>&1); then
+        print_fail "$label is not a valid bech32 address: $(fmt_path "$address")"
+        print_hint "cardano-cli rejected it: $info"
+        exit 1
+    fi
+    local addr_type
+    addr_type=$(echo "$info" | jq -r '.type // ""')
+    if [ "$addr_type" != "stake" ]; then
+        print_fail "$label is bech32-valid but is not a stake address (type=${addr_type:-unknown}): $(fmt_path "$address")"
+        exit 1
+    fi
+}
+
+validate_stake_address "metadata body.onChain.reward_account" "$deposit_return"
 
 # use bech32 prefix to determine if addresses are mainnet or testnet
 is_stake_address_mainnet() {
@@ -395,9 +416,12 @@ print_section "Creating action file"
 action_file="$input_file.action"
 action_json="$input_file.action.json"
 
+gov_action_deposit=$(echo "$gov_state_json" | jq -r '.currentPParams.govActionDeposit')
+require_nonnull "$gov_action_deposit" "governance action deposit (gov-state .currentPParams.govActionDeposit)"
+
 cardano-cli conway governance action create-hardfork \
   --$protocol_magic \
-  --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
+  --governance-action-deposit "$gov_action_deposit" \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \

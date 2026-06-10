@@ -124,14 +124,15 @@ print_info "This script assumes compliance Intersect's treasury withdrawal actio
 print_info "This script assumes that CARDANO_NODE_SOCKET_PATH, CARDANO_NODE_NETWORK_ID and IPFS_GATEWAY_URI are set"
 
 # Exit if socket path is not set
-if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
+if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
     print_fail "CARDANO_NODE_SOCKET_PATH environment variable is not set."
     exit 1
 fi
 
 # Exit if network id is not set
-if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
+if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
     print_fail "CARDANO_NODE_NETWORK_ID environment variable is not set."
+    exit 1
 fi
 
 # Get if mainnet or testnet
