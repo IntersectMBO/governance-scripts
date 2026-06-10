@@ -427,16 +427,22 @@ print_section "Creating action file"
 action_file="$input_file.action"
 action_json="$input_file.action.json"
 
+gov_action_deposit=$(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit')
+require_nonnull "$gov_action_deposit" "governance action deposit (gov-state .currentPParams.govActionDeposit)"
+
+constitution_script_hash=$(cardano-cli conway query constitution | jq -r '.script')
+require_nonnull "$constitution_script_hash" "constitution script hash (constitution .script)"
+
 cardano-cli conway governance action create-treasury-withdrawal \
   --$protocol_magic \
-  --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
+  --governance-action-deposit "$gov_action_deposit" \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
   --check-anchor-data \
   --funds-receiving-stake-address "$withdrawal_address" \
   --transfer "$withdrawal_amount" \
-  --constitution-script-hash $(cardano-cli conway query constitution | jq -r '.script') \
+  --constitution-script-hash "$constitution_script_hash" \
   --out-file "$action_file"
 
 print_pass "Action file created at $(fmt_path "$action_file")"

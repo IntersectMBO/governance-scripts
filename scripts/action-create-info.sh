@@ -283,9 +283,12 @@ print_section "Creating action file"
 action_file="$input_file.action"
 action_json="$input_file.action.json"
 
+gov_action_deposit=$(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit')
+require_nonnull "$gov_action_deposit" "governance action deposit (gov-state .currentPParams.govActionDeposit)"
+
 cardano-cli conway governance action create-info \
   --$protocol_magic \
-  --governance-action-deposit $(cardano-cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
+  --governance-action-deposit "$gov_action_deposit" \
   --deposit-return-stake-address "$deposit_return" \
   --anchor-url "ipfs://$ipfs_cid" \
   --anchor-data-hash "$file_hash" \
