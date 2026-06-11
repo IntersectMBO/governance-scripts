@@ -42,10 +42,11 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--withdrawal-addr%s <stake-address>] [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                     "Path to the .md file as input"
     print_usage_option "--governance-action-type <info|treasury|ppu|hf>" "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
+    print_usage_option "[--withdrawal-addr <stake-address>]"          "Treasury only: withdrawal address (bech32). When set, skips the interactive prompt"
     print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
     exit 1
@@ -55,6 +56,7 @@ usage() {
 input_file=""
 governance_action_type=""
 deposit_return_address=""
+withdrawal_address_input=""
 inline_context="false"
 
 # Create temporary files in /tmp/
@@ -96,6 +98,15 @@ while [[ $# -gt 0 ]]; do
                 shift 2
             else
                 print_fail "--deposit-return-addr requires a value"
+                usage
+            fi
+            ;;
+        --withdrawal-addr)
+            if [ -n "${2:-}" ]; then
+                withdrawal_address_input="$2"
+                shift 2
+            else
+                print_fail "--withdrawal-addr requires a value"
                 usage
             fi
             ;;
@@ -381,9 +392,15 @@ EOF
 }
 
 treasury_collect_inputs() {
-  # Prompt & read address from the TTY
-  printf 'Please enter withdrawal address: ' >&2
-  IFS= read -r T_WITHDRAWAL_ADDRESS </dev/tty
+  # When --withdrawal-addr is supplied, run non-interactively (used by batch
+  # tooling). Otherwise prompt & read the address from the TTY.
+  if [ -n "$withdrawal_address_input" ]; then
+    T_WITHDRAWAL_ADDRESS="$withdrawal_address_input"
+    print_info "Using withdrawal address from --withdrawal-addr flag" >&2
+  else
+    printf 'Please enter withdrawal address: ' >&2
+    IFS= read -r T_WITHDRAWAL_ADDRESS </dev/tty
+  fi
 
   # Validate address
   if [ -z "$T_WITHDRAWAL_ADDRESS" ]; then
@@ -442,10 +459,13 @@ treasury_collect_inputs() {
   print_info "  Amount: ${YELLOW}₳${T_RAW_ADA}${NC} (${T_LOVELACE} lovelace)" >&2
   print_info "  Address: ${YELLOW}${T_WITHDRAWAL_ADDRESS}${NC}" >&2
 
-  # confirm with user
-  if ! confirm "Is this correct?"; then
-    print_fail "Cancelled by user"
-    exit 1
+  # Skip the interactive confirmation when running non-interactively
+  # (withdrawal address provided via flag).
+  if [ -z "$withdrawal_address_input" ]; then
+    if ! confirm "Is this correct?"; then
+      print_fail "Cancelled by user"
+      exit 1
+    fi
   fi
 }
 
