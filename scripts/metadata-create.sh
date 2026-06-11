@@ -280,11 +280,7 @@ query_governance_state_prev_actions() {
   return 0
 }
 
-# Resolve the guardrails (constitution) script hash used as the on-chain
-# `policy_hash` for treasury withdrawals and parameter changes. Logs to stderr
-# and prints only the hash to stdout. Exits the script with an error if the hash
-# cannot be resolved via cardano-cli — these action types must not be emitted
-# without a policy_hash.
+# Resolve the guardrails script hash used as the on-chain
 resolve_policy_hash() {
   local script_hash=""
 
