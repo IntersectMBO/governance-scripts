@@ -279,6 +279,29 @@ query_governance_state_prev_actions() {
   echo "$gov_state"
   return 0
 }
+
+# Resolve the guardrails (constitution) script hash used as the on-chain
+# `policy_hash` for treasury withdrawals and parameter changes. Logs to stderr
+# and prints only the hash to stdout. Exits the script with an error if the hash
+# cannot be resolved via cardano-cli — these action types must not be emitted
+# without a policy_hash.
+resolve_policy_hash() {
+  local script_hash=""
+
+  if command -v cardano-cli >/dev/null 2>&1 && [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    script_hash=$(cardano-cli conway query constitution 2>/dev/null | jq -r '.script // empty') || script_hash=""
+  fi
+
+  if [ -n "$script_hash" ] && [ "$script_hash" != "null" ]; then
+    print_pass "Resolved constitution script hash (policy_hash): ${script_hash}" >&2
+  else
+    print_fail "policy_hash is required for this governance action type, couldn't be resolved from cardano-cli" >&2
+    exit 1
+  fi
+
+  printf '%s' "$script_hash"
+}
+
 # Extract references from References section
 extract_references() {
   awk '
@@ -346,6 +369,7 @@ generate_ppu_onchain() {
 
   # Note: protocol_param_update field is required for parameter_change_action
   # This is a placeholder - full implementation would require protocol parameter update details
+  # POLICY_HASH is resolved at the top level (see "Resolving policy_hash").
   cat <<EOF
 {
   "deposit": "$GOV_ACTION_DEPOSIT",
@@ -353,7 +377,8 @@ generate_ppu_onchain() {
   "gov_action": {
     "tag": "parameter_change_action",
     "gov_action_id": "TODO: get it from user input as well as from chain",
-    "protocol_param_update": {}
+    "protocol_param_update": {},
+    "policy_hash": "$POLICY_HASH"
   }
 }
 EOF
@@ -434,6 +459,7 @@ generate_treasury_onchain() {
 
   # Emit ONLY JSON to stdout (CIP-116 ProposalProcedure format)
   # Convert withdrawals to rewards array with key-value pairs
+  # POLICY_HASH is resolved at the top level (see "Resolving policy_hash").
   cat <<EOF
 {
   "deposit": "$GOV_ACTION_DEPOSIT",
@@ -445,7 +471,8 @@ generate_treasury_onchain() {
         "key": "$T_WITHDRAWAL_ADDRESS",
         "value": "$T_LOVELACE"
       }
-    ]
+    ],
+    "policy_hash": "$POLICY_HASH"
   }
 }
 EOF
@@ -562,6 +589,17 @@ print_info "Title extracted: ${YELLOW}${TITLE}${NC}"
 ABSTRACT=$(get_section "## Abstract" "## Motivation")
 MOTIVATION=$(get_section "## Motivation" "## Rationale")
 RATIONALE=$(get_section_last "## Rationale")
+
+# Resolving policy_hash
+# Treasury withdrawals and parameter changes must carry the guardrails
+# (constitution) script hash as their on-chain policy_hash. Resolve it here at
+# the top level so a failure reliably aborts the script — resolving inside the
+# generator (which runs in a command-substitution subshell) would NOT propagate
+# the exit, and we'd silently emit metadata with an empty policy_hash.
+POLICY_HASH=""
+if [ "$governance_action_type" = "treasury" ] || [ "$governance_action_type" = "ppu" ]; then
+  POLICY_HASH=$(resolve_policy_hash) || exit 1
+fi
 
 # Generate onChain property based on governance action type
 print_info "Generating onChain property for $governance_action_type"
