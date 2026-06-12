@@ -276,7 +276,7 @@ resolve_ppu_prev_gov_action_id() {
   # Reshape ledger {txId, govActionIx} into CIP-116 {transaction_id, gov_action_index}.
   local reshaped
   reshaped=$(printf '%s' "$prev" \
-    | jq '{ transaction_id: .txId, gov_action_index: .govActionIx }')
+    | jq '{ transaction_id: .txId, gov_action_index: (.govActionIx | tostring) }')
   print_pass "Resolved previous parameter-change gov_action_id: $(printf '%s' "$reshaped" | jq -c .)" >&2
   printf '%s' "$reshaped"
 }
