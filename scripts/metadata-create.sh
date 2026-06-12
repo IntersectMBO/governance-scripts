@@ -234,49 +234,51 @@ require_sections() {
   fi
 }
 
-query_governance_state_prev_actions() {
-  # Check if cardano-cli is available
-  if ! command -v cardano-cli >/dev/null 2>&1; then
-    print_warn "cardano-cli not found. Cannot query deposit from chain."
-    echo "null"
-    return 1
+# Query the current on-chain governance state once. Both the governance action
+# deposit (all action types) and the previously enacted parameter-change action
+# id (PPUs only) are derived from it, so it is fetched a single time and passed
+# around. Aborts if cardano-cli cannot reach a node.
+query_gov_state() {
+  if ! command -v cardano-cli >/dev/null 2>&1 || [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    print_fail "cardano-cli with a reachable node (CARDANO_NODE_SOCKET_PATH) is required to query chain state" >&2
+    exit 1
   fi
 
-  # Check if node socket path is set
-  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    print_warn "CARDANO_NODE_SOCKET_PATH not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Check if network id is set
-  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
-    print_warn "CARDANO_NODE_NETWORK_ID not set. Cannot query deposit from chain."
-    echo "null"
-    return 1
-  fi
-
-  # Determine network flag
-  local network_flag=""
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ] || [ "$CARDANO_NODE_NETWORK_ID" = "mainnet" ]; then
-    network_flag="--mainnet"
-  else
-    network_flag="--testnet-magic $CARDANO_NODE_NETWORK_ID"
-  fi
-
-  # Query previous governance state
   local gov_state
-
-  gov_state=$(cardano-cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
-
-  if [ -z "$gov_state" ] || [ "$gov_state" = "null" ] || [ "$gov_state" = "" ]; then
-    print_warn "Could not query governance state from chain."
-    echo "null"
-    return 1
+  if ! gov_state=$(cardano-cli conway query gov-state 2>/dev/null); then
+    print_fail "Failed to query governance state (cardano-cli conway query gov-state)" >&2
+    exit 1
   fi
 
-  echo "$gov_state"
-  return 0
+  printf '%s' "$gov_state"
+}
+
+# Resolve the previously enacted parameter-change (PParamUpdate) governance
+# action id
+resolve_ppu_prev_gov_action_id() {
+  local gov_state="$1"
+  local prev
+
+  prev=$(printf '%s' "$gov_state" \
+    | jq '.nextRatifyState.nextEnactState.prevGovActionIds.PParamUpdate')
+
+  if [ -z "$prev" ]; then
+    print_fail "Could not read prevGovActionIds.PParamUpdate from gov-state (cardano-cli output may have changed)" >&2
+    exit 1
+  fi
+
+  if [ "$prev" = "null" ]; then
+    print_warn "No previously enacted parameter-change action on chain; gov_action_id will be null" >&2
+    printf 'null'
+    return 0
+  fi
+
+  # Reshape ledger {txId, govActionIx} into CIP-116 {transaction_id, gov_action_index}.
+  local reshaped
+  reshaped=$(printf '%s' "$prev" \
+    | jq '{ transaction_id: .txId, gov_action_index: .govActionIx }')
+  print_pass "Resolved previous parameter-change gov_action_id: $(printf '%s' "$reshaped" | jq -c .)" >&2
+  printf '%s' "$reshaped"
 }
 
 # Resolve the guardrails script hash used as the on-chain
@@ -297,19 +299,17 @@ resolve_policy_hash() {
   printf '%s' "$script_hash"
 }
 
-# Resolve the governance action deposit (in lovelace) from the chain's current
-# failure to resolve it from cardano-cli aborts the script.
+# Resolve the governance action deposit (in lovelace) from the supplied gov-state
 resolve_gov_action_deposit() {
-  local deposit=""
+  local gov_state="$1"
+  local deposit
 
-  if command -v cardano-cli >/dev/null 2>&1 && [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    deposit=$(cardano-cli conway query protocol-parameters 2>/dev/null | jq -r '.govActionDeposit // empty') || deposit=""
-  fi
+  deposit=$(printf '%s' "$gov_state" | jq -r '.currentPParams.govActionDeposit // empty')
 
   if [[ "$deposit" =~ ^[0-9]+$ ]]; then
     print_pass "Resolved governance action deposit from chain: ${deposit} lovelace" >&2
   else
-    print_fail "governance action deposit couldn't be resolved from cardano-cli (need a reachable node via CARDANO_NODE_SOCKET_PATH / CARDANO_NODE_NETWORK_ID)" >&2
+    print_fail "governance action deposit couldn't be read from gov-state (.currentPParams.govActionDeposit)" >&2
     exit 1
   fi
 
@@ -379,23 +379,21 @@ EOF
 
 # Generate onChain property for ppu governance action (CIP-116 ProposalProcedure format)
 generate_ppu_onchain() {
-  prev_gov_actions=$(query_governance_state_prev_actions)
-
-  # Note: protocol_param_update field is required for parameter_change_action
-  # This is a placeholder - full implementation would require protocol parameter update details
-  # POLICY_HASH is resolved at the top level (see "Resolving policy_hash").
-  cat <<EOF
-{
-  "deposit": "$GOV_ACTION_DEPOSIT",
-  "reward_account": "$deposit_return_address",
-  "gov_action": {
-    "tag": "parameter_change_action",
-    "gov_action_id": "TODO: get it from user input as well as from chain",
-    "protocol_param_update": {},
-    "policy_hash": "$POLICY_HASH"
-  }
-}
-EOF
+  jq -n \
+    --arg     deposit        "$GOV_ACTION_DEPOSIT" \
+    --arg     reward_account "$deposit_return_address" \
+    --argjson gov_action_id  "$PPU_GOV_ACTION_ID" \
+    --arg     policy_hash    "$POLICY_HASH" \
+    '{
+      deposit: $deposit,
+      reward_account: $reward_account,
+      gov_action: {
+        tag: "parameter_change_action",
+        gov_action_id: $gov_action_id,
+        protocol_param_update: {TODO: "Manually fill in the protocol parameters to update here."},
+        policy_hash: $policy_hash
+      }
+    }'
 }
 
 treasury_collect_inputs() {
@@ -615,9 +613,23 @@ if [ "$governance_action_type" = "treasury" ] || [ "$governance_action_type" = "
   POLICY_HASH=$(resolve_policy_hash) || exit 1
 fi
 
-# Resolve the governance action deposit from the chain's protocol parameters.
-# Required for every action type — aborts if it can't be resolved.
-GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit) || exit 1
+# Query the on-chain governance state once; the deposit (all action types) and
+# the previous parameter-change action id (PPUs only) are derived from it.
+print_section "Querying chain governance state"
+GOV_STATE=$(query_gov_state) || exit 1
+
+# Resolve the governance action deposit. Required for every action type — aborts
+# if it can't be read from chain.
+GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
+
+# Resolve the previously enacted parameter-change gov_action_id (PPUs only).
+# Resolved here at the top level so a failure reliably aborts the script — doing
+# it inside the generator (a command-substitution subshell) would not propagate
+# the exit.
+PPU_GOV_ACTION_ID="null"
+if [ "$governance_action_type" = "ppu" ]; then
+  PPU_GOV_ACTION_ID=$(resolve_ppu_prev_gov_action_id "$GOV_STATE") || exit 1
+fi
 
 # Generate onChain property based on governance action type
 print_info "Generating onChain property for $governance_action_type"
