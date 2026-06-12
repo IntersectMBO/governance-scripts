@@ -1,12 +1,6 @@
 #!/bin/bash
 #
-# budget-proposals-fetch.sh
-#
 # Enumerate all proposals in a hydra budget vote and write a CANDIDATE proposals.json
-# ({ id, name } per proposal, name pre-filled from the title). The hydra API has no
-# "successful/passed" filter, so this lists every submission — review the printed
-# overview, prune the list down to the winning proposals, tidy the names, and copy it
-# to proposals.json.
 
 set -euo pipefail
 
@@ -111,7 +105,3 @@ print_section "Summary"
 print_pass "Wrote ${written} candidate proposal(s) to $(fmt_path "$out_file")"
 print_info "Vote total reported by API: ${total}"
 print_warn "This is EVERY submission — the API has no 'successful' filter."
-print_next "Prune to the winning proposals, tidy names, then make it the live list:" \
-           "  # edit $(basename "$out_file") down to the winners, then:" \
-           "  mv '$out_file' '$BUDGET_DIR/proposals.json'" \
-           "  ./scripts/budget-2026/budget-metadata-build-all.sh"

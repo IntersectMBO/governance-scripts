@@ -13,7 +13,7 @@ BUDGET_DIR="$SCRIPT_DIR"
 # shellcheck source=../lib/messages.sh
 source "$SCRIPTS_DIR/lib/messages.sh"
 
-DEFAULT_PROPOSALS="$BUDGET_DIR/proposals.json"
+DEFAULT_PROPOSALS="$BUDGET_DIR/proposals.candidate.json"
 DEFAULT_OUT_DIR="$BUDGET_DIR/output"
 
 usage() {
