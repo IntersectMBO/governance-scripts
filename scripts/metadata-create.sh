@@ -16,8 +16,6 @@ resolve_context_url() {
   esac
 }
 
-# Governance action deposit in lovelace (CIP-116 UInt64, encoded as a JSON string).
-GOV_ACTION_DEPOSIT="100000000000"
 ##################################################
 
 # Exit immediately if a command exits with a non-zero status,
@@ -34,9 +32,10 @@ if ! command -v pandoc >/dev/null 2>&1; then
   exit 1
 fi
 
-# Check if cardano-cli is installed (needed for deposit querying)
+# Check if cardano-cli is installed (required to query the governance action deposit from chain)
 if ! command -v cardano-cli >/dev/null 2>&1; then
-  print_warn "cardano-cli is not installed. Deposit amount will need to be provided manually."
+  print_fail "cardano-cli is not installed or not in your PATH. It is required to query the governance action deposit from the chain."
+  exit 1
 fi
 
 # Usage message
@@ -296,6 +295,25 @@ resolve_policy_hash() {
   fi
 
   printf '%s' "$script_hash"
+}
+
+# Resolve the governance action deposit (in lovelace) from the chain's current
+# failure to resolve it from cardano-cli aborts the script.
+resolve_gov_action_deposit() {
+  local deposit=""
+
+  if command -v cardano-cli >/dev/null 2>&1 && [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    deposit=$(cardano-cli conway query protocol-parameters 2>/dev/null | jq -r '.govActionDeposit // empty') || deposit=""
+  fi
+
+  if [[ "$deposit" =~ ^[0-9]+$ ]]; then
+    print_pass "Resolved governance action deposit from chain: ${deposit} lovelace" >&2
+  else
+    print_fail "governance action deposit couldn't be resolved from cardano-cli (need a reachable node via CARDANO_NODE_SOCKET_PATH / CARDANO_NODE_NETWORK_ID)" >&2
+    exit 1
+  fi
+
+  printf '%s' "$deposit"
 }
 
 # Extract references from References section
@@ -596,6 +614,10 @@ POLICY_HASH=""
 if [ "$governance_action_type" = "treasury" ] || [ "$governance_action_type" = "ppu" ]; then
   POLICY_HASH=$(resolve_policy_hash) || exit 1
 fi
+
+# Resolve the governance action deposit from the chain's protocol parameters.
+# Required for every action type — aborts if it can't be resolved.
+GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit) || exit 1
 
 # Generate onChain property based on governance action type
 print_info "Generating onChain property for $governance_action_type"
