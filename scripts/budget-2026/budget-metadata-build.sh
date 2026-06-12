@@ -3,9 +3,7 @@
 # budget-metadata-build.sh
 #
 # Build the CIP-108/CIP-169 treasury-withdrawal metadata for ONE 2026 budget
-# proposal: fetch the proposal from the hydra voting API, fill the standardised
-# template (scripts/budget-2026/template.md), then hand the resulting Markdown to
-# the existing metadata-create.sh to produce an unsigned .jsonld.
+# proposal
 
 set -euo pipefail
 
