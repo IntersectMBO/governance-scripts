@@ -43,7 +43,7 @@ With the `metadata-create` script taking the data from the doc and creating a `.
 The input file must be a `.md` file structured with H2 headers (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`). Pass `--language <BCP-47-tag>` to override the default `en` in the generated `@context.@language`.
 
 ```shell
-./scripts/metadata-create.sh my-metadata.md --governance-action-type treasury --deposit-return-addr $DEPOSIT_RETURN_ADDR
+./scripts/metadata-create.sh my-metadata.md --type treasury --deposit-return-addr $DEPOSIT_RETURN_ADDR
 ```
 
 ### 5. Sanity check the metadata

@@ -11,7 +11,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
 - [metadata-create.sh](./scripts/metadata-create.sh)
   - Creates a governance-action JSON-LD file (CIP-108 body + CIP-169 extension + CIP-116 ProposalProcedure on-chain format, including [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas))
   - Requires a `.md` input file with H2 sections (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`)
-  - Requires `--governance-action-type <info|treasury|ppu>` and `--deposit-return-addr <stake-address>`
+  - Requires `--type <info|treasury|ppu>` and `--deposit-return-addr <stake-address>`
   - Optional `--language <BCP-47-tag>` sets the JSON-LD `@context.@language` (default: `en`)
 
 - [metadata-validate.sh](./scripts/metadata-validate.sh)

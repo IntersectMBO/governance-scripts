@@ -12,7 +12,7 @@ resolve_context_url() {
     ppu)       echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
     hf)        echo "${INTERSECT_SCHEMAS_BASE}/hard-fork-initiation/common.jsonld" ;;
     committee) echo "${INTERSECT_SCHEMAS_BASE}/update-committee/common.jsonld" ;;
-    *)        print_fail "No @context mapping for --governance-action-type '$1'"; exit 1 ;;
+    *)        print_fail "No @context mapping for --type '$1'"; exit 1 ;;
   esac
 }
 
@@ -41,9 +41,9 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                     "Path to the .md file as input"
-    print_usage_option "--governance-action-type <info|treasury|ppu|hf>" "Type of governance action"
+    print_usage_option "--type <info|treasury|ppu|hf>"                  "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
     print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
@@ -80,12 +80,12 @@ trap cleanup EXIT
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --governance-action-type)
+        --type)
             if [ -n "${2:-}" ]; then
                 governance_action_type="$2"
                 shift 2
             else
-                print_fail "--governance-action-type requires a value"
+                print_fail "--type requires a value"
                 usage
             fi
             ;;
@@ -138,7 +138,7 @@ fi
 
 # If no governance action type provided, show usage
 if [ -z "$governance_action_type" ]; then
-  print_fail "--governance-action-type is required"
+  print_fail "--type is required"
   usage
 fi
 
@@ -278,6 +278,33 @@ resolve_ppu_prev_gov_action_id() {
   reshaped=$(printf '%s' "$prev" \
     | jq '{ transaction_id: .txId, gov_action_index: (.govActionIx | tostring) }')
   print_pass "Resolved previous parameter-change gov_action_id: $(printf '%s' "$reshaped" | jq -c .)" >&2
+  printf '%s' "$reshaped"
+}
+
+# Resolve the previously enacted hard-fork-initiation governance action id
+resolve_hf_prev_gov_action_id() {
+  local gov_state="$1"
+  local prev
+
+  prev=$(printf '%s' "$gov_state" \
+    | jq '.nextRatifyState.nextEnactState.prevGovActionIds.HardFork')
+
+  if [ -z "$prev" ]; then
+    print_fail "Could not read prevGovActionIds.HardFork from gov-state (cardano-cli output may have changed)" >&2
+    exit 1
+  fi
+
+  if [ "$prev" = "null" ]; then
+    print_warn "No previously enacted hard-fork-initiation action on chain; gov_action_id will be null" >&2
+    printf 'null'
+    return 0
+  fi
+
+  # Reshape ledger {txId, govActionIx} into CIP-116 {transaction_id, gov_action_index}.
+  local reshaped
+  reshaped=$(printf '%s' "$prev" \
+    | jq '{ transaction_id: .txId, gov_action_index: (.govActionIx | tostring) }')
+  print_pass "Resolved previous hard-fork-initiation gov_action_id: $(printf '%s' "$reshaped" | jq -c .)" >&2
   printf '%s' "$reshaped"
 }
 
@@ -510,30 +537,12 @@ hf_collect_inputs() {
     exit 1
   fi
 
-  # Previous hard-fork-initiation action ID
-  printf 'Please enter previous hard fork action transaction id (64 hex chars): ' >&2
-  IFS= read -r HF_PREV_TX </dev/tty
-  if [ -z "$HF_PREV_TX" ]; then
-    print_fail "Previous hard fork action transaction id is required."
-    exit 1
-  fi
-  if [[ ! "$HF_PREV_TX" =~ ^[0-9a-fA-F]{64}$ ]]; then
-    print_fail "Previous hard fork transaction id must be 64 hex characters. Got: ${HF_PREV_TX}"
-    exit 1
-  fi
-  printf 'Please enter previous hard fork action gov_action_index [0]: ' >&2
-  IFS= read -r HF_PREV_IDX </dev/tty
-  if [ -z "$HF_PREV_IDX" ]; then
-    HF_PREV_IDX="0"
-  fi
-  if [[ ! "$HF_PREV_IDX" =~ ^[0-9]+$ ]]; then
-    print_fail "gov_action_index must be a non-negative integer. Got: ${HF_PREV_IDX}"
-    exit 1
-  fi
+  # Previous hard-fork-initiation action id is resolved from chain (HF_GOV_ACTION_ID),
+  # not collected here — mirrors the parameter-change (ppu) flow.
 
   print_info "Final confirmation:" >&2
   print_info "  Target protocol version: ${YELLOW}${HF_MAJOR}.${HF_MINOR}${NC}" >&2
-  print_info "  Previous HF action: ${YELLOW}${HF_PREV_TX}#${HF_PREV_IDX}${NC}" >&2
+  print_info "  Previous HF action: ${YELLOW}$(printf '%s' "$HF_GOV_ACTION_ID" | jq -c .)${NC}" >&2
 
   if ! confirm "Is this correct?"; then
     print_fail "Cancelled by user"
@@ -549,8 +558,7 @@ generate_hf_onchain() {
   jq -n \
     --arg     deposit        "$GOV_ACTION_DEPOSIT" \
     --arg     reward_account "$deposit_return_address" \
-    --arg     prev_tx        "$HF_PREV_TX" \
-    --arg     prev_idx       "$HF_PREV_IDX" \
+    --argjson gov_action_id  "$HF_GOV_ACTION_ID" \
     --argjson major          "$HF_MAJOR" \
     --argjson minor          "$HF_MINOR" \
     '{
@@ -558,7 +566,7 @@ generate_hf_onchain() {
       reward_account: $reward_account,
       gov_action: {
         tag: "hard_fork_initiation_action",
-        gov_action_id: { transaction_id: $prev_tx, gov_action_index: $prev_idx },
+        gov_action_id: $gov_action_id,
         protocol_version: { major: $major, minor: $minor }
       }
     }'
@@ -629,6 +637,15 @@ GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
 PPU_GOV_ACTION_ID="null"
 if [ "$governance_action_type" = "ppu" ]; then
   PPU_GOV_ACTION_ID=$(resolve_ppu_prev_gov_action_id "$GOV_STATE") || exit 1
+fi
+
+# Resolve the previously enacted hard-fork-initiation gov_action_id (hf only).
+# Resolved here at the top level so a failure reliably aborts the script — doing
+# it inside the generator (a command-substitution subshell) would not propagate
+# the exit.
+HF_GOV_ACTION_ID="null"
+if [ "$governance_action_type" = "hf" ]; then
+  HF_GOV_ACTION_ID=$(resolve_hf_prev_gov_action_id "$GOV_STATE") || exit 1
 fi
 
 # Generate onChain property based on governance action type
