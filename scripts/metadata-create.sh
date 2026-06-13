@@ -12,7 +12,7 @@ resolve_context_url() {
     ppu)       echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
     hf)        echo "${INTERSECT_SCHEMAS_BASE}/hard-fork-initiation/common.jsonld" ;;
     committee) echo "${INTERSECT_SCHEMAS_BASE}/update-committee/common.jsonld" ;;
-    *)        print_fail "No @context mapping for --governance-action-type '$1'"; exit 1 ;;
+    *)        print_fail "No @context mapping for --type '$1'"; exit 1 ;;
   esac
 }
 
@@ -41,9 +41,9 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                     "Path to the .md file as input"
-    print_usage_option "--governance-action-type <info|treasury|ppu|hf>" "Type of governance action"
+    print_usage_option "--type <info|treasury|ppu|hf>"                  "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
     print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
@@ -80,12 +80,12 @@ trap cleanup EXIT
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --governance-action-type)
+        --type)
             if [ -n "${2:-}" ]; then
                 governance_action_type="$2"
                 shift 2
             else
-                print_fail "--governance-action-type requires a value"
+                print_fail "--type requires a value"
                 usage
             fi
             ;;
@@ -138,7 +138,7 @@ fi
 
 # If no governance action type provided, show usage
 if [ -z "$governance_action_type" ]; then
-  print_fail "--governance-action-type is required"
+  print_fail "--type is required"
   usage
 fi
 
