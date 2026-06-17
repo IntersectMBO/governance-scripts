@@ -12,7 +12,7 @@ HYDRA_VOTE_ID="69dfeabdc3904a3d239858da"
 
 # TODO: confirm the exact public path against the live site before submitting
 # (the validator does a link-reachability check on references).
-HYDRA_PROPOSAL_URL_BASE="https://hydra-voting.intersectmbo.org/votes/cardano-budget-2026/proposals"
+HYDRA_PROPOSAL_URL_BASE="https://hydra-voting.intersectmbo.org/votes/cardano-budget-2026"
 
 WITHDRAWAL_ADDR="stake_test1uz6ljatyc7w52z44hskd5pu5cvw7qemwz6re3ux4pmdqumcn2qyrx"
 DEPOSIT_RETURN_ADDR="stake_test1uz6ljatyc7w52z44hskd5pu5cvw7qemwz6re3ux4pmdqumcn2qyrx"
