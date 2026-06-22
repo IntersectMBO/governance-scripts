@@ -51,7 +51,7 @@ Intersect will utilize a single Treasury Reserve Smart Contract (TRSC), with one
 
 The Oversight Committee consists of Sundae Labs, Cardano Foundation, Dquadrant, NMKR, Sundial and Eternl. Their role is to independently verify key administrative actions using on-chain logic, ensuring accuracy and consistency without exercising discretion over governance decisions.
 
-For all details on Intersect’s configuration please see the 2025 [**Smart Contract Guide**](https://docs.intersectmbo.org/cardano-facilitation-services/cardano-budget/intersect-administration-services/smart-contracts-as-part-of-our-administration) on the knowledgebase.
+For all details on Intersect’s configuration please see the [**Smart Contract Guide**](https://admin-services.docs.intersectmbo.org/governance/smart-contracts) on the knowledgebase.
 
 The high level permissions are as follows:
 
