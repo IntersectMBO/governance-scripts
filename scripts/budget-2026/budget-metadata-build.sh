@@ -87,7 +87,7 @@ source "$CONFIG_FILE"
 print_banner "Building 2026 budget metadata for proposal $proposal_id"
 
 # Warn (don't block) on un-filled config so dry runs still work.
-for var in WITHDRAWAL_ADDR DEPOSIT_RETURN_ADDR TRSC_STAKE_ADDR TRSC_PAYMENT_ADDR PSSC_PAYMENT_ADDR SUCCESSFUL_PROPOSALS_CSV_URL; do
+for var in WITHDRAWAL_ADDR DEPOSIT_RETURN_ADDR TRSC_STAKE_ADDR TRSC_PAYMENT_ADDR PSSC_PAYMENT_ADDR ; do
     if [[ "${!var:-}" == *REPLACEME* ]]; then
         print_warn "config.sh: $var still contains a REPLACEME placeholder."
     fi
@@ -116,6 +116,7 @@ fi
 FULL_TITLE=$(jq -r '.title // empty' "$PROPOSAL_JSON")
 SUMMARY=$(jq -r '.summary // empty' "$PROPOSAL_JSON")
 PILLAR=$(jq -r '.metaData.strategyFramework.pillarRationale // empty' "$PROPOSAL_JSON")
+PRIOR_FUNDING=$(jq -r '.metaData.priorFunding // empty' "$PROPOSAL_JSON")
 total_budget=$(jq -r '.metaData.totalBudget // empty' "$PROPOSAL_JSON")
 
 [ -z "$FULL_TITLE" ] && { print_fail "Proposal has no 'title' field."; exit 1; }
@@ -127,6 +128,7 @@ if [[ ! "$total_budget" =~ ^[0-9]+$ ]]; then
 fi
 [ -z "$SUMMARY" ] && print_warn "Proposal 'summary' is empty (Motivation will be blank)."
 [ -z "$PILLAR" ] && print_warn "Proposal 'metaData.strategyFramework.pillarRationale' is empty."
+[ -z "$PRIOR_FUNDING" ] && print_warn "Proposal 'metaData.priorFunding' is empty."
 
 print_kv "Title"        "$FULL_TITLE"
 print_kv "Total budget" "${total_budget} ADA"
@@ -168,14 +170,30 @@ if [ "${#composed_title}" -gt "$MAX_TITLE_LEN" ]; then
 fi
 print_kv "On-chain title" "$composed_title"
 
+# --- build budget breakdown markdown table ---
+BUDGET_BREAKDOWN="| Work Package | Total (ADA) |"$'\n'
+BUDGET_BREAKDOWN+="|---|---|"$'\n'
+while IFS= read -r entry; do
+    wp_name=$(printf '%s' "$entry" | jq -r '.wp_name')
+    total=$(printf '%s' "$entry" | jq -r '.total')
+    formatted_total=$(format_commas "$total")
+    BUDGET_BREAKDOWN+="| ${wp_name} | ${formatted_total} |"$'\n'
+done < <(jq -c '.metaData.proposalDetails.workPackages[] | {wp_name: .name, total: (.budgetBreakdown | map(.total) | add)}' "$PROPOSAL_JSON")
+breakdown_sum=$(jq '[.metaData.proposalDetails.workPackages[].budgetBreakdown[].total] | add' "$PROPOSAL_JSON")
+# admin_fee=$(( (breakdown_sum * 3 + 99)/ 100 ))
+admin_fee=$(($total_budget-$breakdown_sum))
+grand_total=$(( breakdown_sum + admin_fee ))
+BUDGET_BREAKDOWN+="| Intersect Budget Administration fee | $(format_commas "$admin_fee") |"$'\n'
+BUDGET_BREAKDOWN+="| **Total** | **$(format_commas "$grand_total")** |"$'\n'
+
 # --- render the template ---
 print_section "Rendering template"
 md_file="$out_dir/$out_name.md"
 
-export AMOUNT TITLE_NAME FULL_TITLE SUMMARY PILLAR
+export AMOUNT TITLE_NAME FULL_TITLE SUMMARY PILLAR PRIOR_FUNDING BUDGET_BREAKDOWN
 export PROPOSAL_LINK="${HYDRA_PROPOSAL_URL_BASE%/}/$proposal_id"
 export TRSC_STAKE_ADDR TRSC_PAYMENT_ADDR PSSC_PAYMENT_ADDR
-export CSV_URL="$SUCCESSFUL_PROPOSALS_CSV_URL"
+
 
 awk '
     function lrep(s, tok, val,   p, out) {
@@ -192,7 +210,9 @@ awk '
         line=lrep(line, "{{TITLE_NAME}}",               ENVIRON["TITLE_NAME"])
         line=lrep(line, "{{FULL_TITLE}}",               ENVIRON["FULL_TITLE"])
         line=lrep(line, "{{PROJECT_HIGH_LEVEL}}",       ENVIRON["SUMMARY"])
+        line=lrep(line, "{{BUDGET_BREAKDOWN}}",         ENVIRON["BUDGET_BREAKDOWN"])
         line=lrep(line, "{{PILLAR_RATIONALE}}",         ENVIRON["PILLAR"])
+        line=lrep(line, "{{PRIOR_FUNDING}}",            ENVIRON["PRIOR_FUNDING"])
         line=lrep(line, "{{HYDRA_PROPOSAL_LINK}}",      ENVIRON["PROPOSAL_LINK"])
         line=lrep(line, "{{TRSC_STAKE_ADDR}}",          ENVIRON["TRSC_STAKE_ADDR"])
         line=lrep(line, "{{TRSC_PAYMENT_ADDR}}",        ENVIRON["TRSC_PAYMENT_ADDR"])
@@ -209,7 +229,8 @@ print_section "Creating JSON-LD via metadata-create.sh"
 "$SCRIPTS_DIR/metadata-create.sh" "$md_file" \
     --governance-action-type treasury \
     --deposit-return-addr "$DEPOSIT_RETURN_ADDR" \
-    --withdrawal-addr "$WITHDRAWAL_ADDR"
+    --withdrawal-addr "$WITHDRAWAL_ADDR" \
+    --inline-context
 
 print_section "Summary"
 print_pass "Built unsigned metadata for proposal $proposal_id"
