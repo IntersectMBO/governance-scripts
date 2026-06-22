@@ -1,7 +1,57 @@
 [
   {
-    "id": "69fdc9b261c4f060e2fef6c9",
-    "name": "Dano Finance",
-    "title": "Dano Finance: DeFi Kernel, American Options, and Orderbook SDK"
+    "id": "69fc5a8785ddd26899aaf208",
+    "name": "Tx3 by TxPipe",
+    "title": "Tx3 by TxPipe: Open API Layer for Cardano's dApp Protocols"
+  },
+  {
+    "id": "69f9dabb92f043aa2df1a282",
+    "name": "Oura by TxPipe",
+    "title": "Oura by TxPipe: Maintaining Cardano’s Event Pipeline"
+  },
+  {
+    "id": "69f9d3db0a4abf2b3c1da737",
+    "name": "UTxO RPC by TxPipe",
+    "title": "UTxO RPC by TxPipe: Maintaining Cardano’s Integration Standard, Year 2"
+  },
+  {
+    "id": "69f9ca0e4b815ecdc8d91a17",
+    "name": "Dolos by TxPipe",
+    "title": "Dolos by TxPipe: Maintaining Cardano's Lightweight Data Node, Year 2"
+  },
+  {
+    "id": "69f8c6dec9c351b28aa8d7b8",
+    "name": "Pallas by TxPipe",
+    "title": "Pallas by TxPipe: Maintaining Cardano's Core Rust Libraries, Year 2"
+  },
+  {
+    "id": "69fae404f9ebc26d057f51bf",
+    "name": "MLabs Core Tool Maintenance & Enhancement",
+    "title": "MLabs Core Tool Maintenance & Enhancement: Plutarch and Ply"
+  },
+  {
+    "id": "69f9d441f86410919eef6bd5",
+    "name": "Bringing Real-World Payments to Cardano with Wirex",
+    "title": "Bringing Real-World Payments to Cardano with Wirex"
+  },
+  {
+    "id": "69f3529e1e63d3708e0dadb6",
+    "name": "Mithril Protocol",
+    "title": "Mithril Protocol"
+  },
+  {
+    "id": "69f38e85985067f4ae957a5e",
+    "name": "Intersect Technical Steering Committee Support",
+    "title": "Intersect Technical Steering Committee Support"
+  },
+  {
+    "id": "69e8b481b637aef81b4fadd7",
+    "name": "Hardware Wallet Maintenance 2026",
+    "title": "Hardware Wallet Maintenance 2026"
+  },
+  {
+    "id": "69e7a834d6a29288536b1200",
+    "name": "Intersect",
+    "title": "Intersect: Governance coordination and technical stewardship for the Cardano ecosystem"
   }
 ]
