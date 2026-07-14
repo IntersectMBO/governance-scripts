@@ -13,6 +13,8 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Requires a `.md` input file with H2 sections (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`)
   - Requires `--governance-action-type <info|treasury|ppu>` and `--deposit-return-addr <stake-address>`
   - Optional `--language <BCP-47-tag>` sets the JSON-LD `@context.@language` (default: `en`)
+  - Optional `--cip179-survey-ref <tx-id>[#index]` links a CIP-179 v5 survey (index defaults to `0`); terminal users are also offered a short interactive prompt
+  - Optional `--network <mainnet|preprod|preview>` supports node-free deposit resolution without accepting a manually entered amount. It requires current Koios and light-mode parameters to agree, and rejects a mainnet/testnet deposit-return address mismatch.
 
 - [metadata-validate.sh](./scripts/metadata-validate.sh)
   - Requires at least one schema source (`--cip100` / `--cip108` / `--cip119` / `--cip136` / `--cip169` / `--intersect-schema` / `--schema <URL>`); errors early otherwise
