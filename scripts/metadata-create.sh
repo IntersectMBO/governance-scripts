@@ -32,20 +32,17 @@ if ! command -v pandoc >/dev/null 2>&1; then
   exit 1
 fi
 
-# Check if cardano-cli is installed (required to query the governance action deposit from chain)
-if ! command -v cardano-cli >/dev/null 2>&1; then
-  print_fail "cardano-cli is not installed or not in your PATH. It is required to query the governance action deposit from the chain."
-  exit 1
-fi
-
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--network%s <mainnet|preprod|preview>] [%s--inline-context%s] [%s--cip179-survey-ref%s <tx-id>[#index]]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                     "Path to the .md file as input"
     print_usage_option "--governance-action-type <info|treasury|ppu|hf>" "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
+    print_usage_option "[--network <mainnet|preprod|preview>]"       "Resolve the deposit from checked network sources when no node is available"
     print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
+    print_usage_option "[--cip179-survey-ref <tx-id>[#index]]"       "Link a CIP-179 v5 survey (index defaults to 0)"
+    print_usage_option "[--no-cip179-survey]"                        "Do not offer the interactive CIP-179 survey prompt"
     print_usage_option "-h, --help"                                   "Show this help message and exit"
     exit 1
 }
@@ -54,7 +51,10 @@ usage() {
 input_file=""
 governance_action_type=""
 deposit_return_address=""
+network=""
 inline_context="false"
+cip179_survey_ref=""
+offer_cip179_survey="true"
 
 # Create temporary files in /tmp/
 TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
@@ -98,8 +98,30 @@ while [[ $# -gt 0 ]]; do
                 usage
             fi
             ;;
+        --network)
+            if [ -n "${2:-}" ]; then
+                network="$2"
+                shift 2
+            else
+                print_fail "--network requires a value"
+                usage
+            fi
+            ;;
         --inline-context)
             inline_context="true"
+            shift
+            ;;
+        --cip179-survey-ref)
+            if [ -n "${2:-}" ]; then
+                cip179_survey_ref="$2"
+                shift 2
+            else
+                print_fail "--cip179-survey-ref requires a value"
+                usage
+            fi
+            ;;
+        --no-cip179-survey)
+            offer_cip179_survey="false"
             shift
             ;;
         -h|--help)
@@ -154,6 +176,68 @@ fi
 if [[ ! "$deposit_return_address" =~ ^(stake1|stake_test1)[a-zA-Z0-9]+$ ]]; then
   print_fail "--deposit-return-addr must be a Bech32 stake address (e.g. stake1... or stake_test1...). Got: $(fmt_path "$deposit_return_address")"
   exit 1
+fi
+
+case "$network" in
+  "") ;;
+  mainnet)
+    if [[ "$deposit_return_address" != stake1* ]]; then
+      print_fail "--network mainnet requires a mainnet stake1... deposit return address."
+      exit 1
+    fi
+    ;;
+  preprod|preview)
+    if [[ "$deposit_return_address" != stake_test1* ]]; then
+      print_fail "--network $network requires a testnet stake_test1... deposit return address."
+      exit 1
+    fi
+    ;;
+  *)
+    print_fail "--network must be one of: mainnet, preprod, preview. Got: $(fmt_path "$network")"
+    exit 1
+    ;;
+esac
+
+if [ -n "$network" ]; then
+  if ! command -v curl >/dev/null 2>&1; then
+    print_fail "curl is required when --network is used."
+    exit 1
+  fi
+elif ! command -v cardano-cli >/dev/null 2>&1; then
+  print_fail "cardano-cli is not installed or not in your PATH. Use --network for a checked node-free deposit lookup."
+  exit 1
+fi
+
+# Keep CIP-179 optional: existing non-interactive callers are unchanged, while
+# terminal users get one small hook before the metadata is generated.
+if [ -z "$cip179_survey_ref" ] && [ "$offer_cip179_survey" = "true" ] && [ -t 0 ] && [ -t 1 ]; then
+  printf 'Would you like to link a CIP-179 survey? [y/N]: ' >/dev/tty
+  IFS= read -r link_cip179_survey </dev/tty
+  if [[ "$link_cip179_survey" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+    printf 'Survey definition transaction id (append #index when index is not 0): ' >/dev/tty
+    IFS= read -r cip179_survey_ref </dev/tty
+  fi
+fi
+
+cip179_survey_tx_id=""
+cip179_survey_index=""
+if [ -n "$cip179_survey_ref" ]; then
+  if [[ ! "$cip179_survey_ref" =~ ^[0-9a-fA-F]{64}(#[0-9]+)?$ ]]; then
+    print_fail "CIP-179 survey reference must be 64 hexadecimal characters, optionally followed by #index."
+    exit 1
+  fi
+  cip179_survey_tx_id="${cip179_survey_ref%%#*}"
+  if [[ "$cip179_survey_ref" == *"#"* ]]; then
+    cip179_survey_index="${cip179_survey_ref##*#}"
+  else
+    cip179_survey_index="0"
+  fi
+  if [ "$cip179_survey_index" -gt 65535 ]; then
+    print_fail "CIP-179 survey index must be an integer from 0 to 65535."
+    exit 1
+  fi
+  cip179_survey_tx_id=$(printf '%s' "$cip179_survey_tx_id" | tr '[:upper:]' '[:lower:]')
+  inline_context="true"
 fi
 
 print_banner "Creating a governance action metadata file from a markdown file"
@@ -314,6 +398,81 @@ resolve_gov_action_deposit() {
   fi
 
   printf '%s' "$deposit"
+}
+
+# Resolve the current deposit without a local node. Koios supplies the current
+# epoch and deposit; the light-mode parameter source used by the transaction
+# scripts supplies an independent deposit value. Fail closed if either source
+# is malformed, stale at an epoch boundary, or disagrees with the other.
+resolve_remote_gov_action_deposit() {
+  local selected_network="$1"
+  local koios_base
+  local params_url
+
+  case "$selected_network" in
+    mainnet)
+      koios_base="https://api.koios.rest/api/v1"
+      params_url="https://uptime.live/data/cardano/parms/mainnet-parameters.json"
+      ;;
+    preprod|preview)
+      koios_base="https://${selected_network}.koios.rest/api/v1"
+      params_url="https://uptime.live/data/cardano/parms/${selected_network}-parameters.json"
+      ;;
+    *)
+      print_fail "Unsupported network for deposit lookup: $selected_network" >&2
+      return 1
+      ;;
+  esac
+
+  local epoch_params
+  local tip
+  local light_params
+  if ! epoch_params=$(curl -fsSL --retry 2 --max-time 30 \
+      -H 'Cache-Control: no-cache, no-store' \
+      "${koios_base}/epoch_params?select=epoch_no,gov_action_deposit&order=epoch_no.desc&limit=1"); then
+    print_fail "Failed to query current $selected_network epoch parameters from Koios." >&2
+    return 1
+  fi
+  if ! tip=$(curl -fsSL --retry 2 --max-time 30 \
+      -H 'Cache-Control: no-cache, no-store' \
+      "${koios_base}/tip?select=epoch_no"); then
+    print_fail "Failed to query the current $selected_network epoch from Koios." >&2
+    return 1
+  fi
+  if ! light_params=$(curl -fsSL --retry 2 --max-time 30 \
+      -H 'Cache-Control: no-cache, no-store' "$params_url"); then
+    print_fail "Failed to query current $selected_network light-mode protocol parameters." >&2
+    return 1
+  fi
+
+  local params_epoch
+  local tip_epoch
+  local koios_deposit
+  local light_deposit
+  params_epoch=$(printf '%s' "$epoch_params" | jq -er '.[0].epoch_no | tostring') || true
+  tip_epoch=$(printf '%s' "$tip" | jq -er '.[0].epoch_no | tostring') || true
+  koios_deposit=$(printf '%s' "$epoch_params" | jq -er '.[0].gov_action_deposit | tostring') || true
+  light_deposit=$(printf '%s' "$light_params" | jq -er '.govActionDeposit | tostring') || true
+
+  if [[ ! "$params_epoch" =~ ^[0-9]+$ ]] || [[ ! "$tip_epoch" =~ ^[0-9]+$ ]]; then
+    print_fail "Network responses did not contain valid epoch numbers; refusing to infer the deposit." >&2
+    return 1
+  fi
+  if [ "$params_epoch" != "$tip_epoch" ]; then
+    print_fail "Koios epoch parameters are not current (parameters: $params_epoch, tip: $tip_epoch); retry after the epoch boundary." >&2
+    return 1
+  fi
+  if [[ ! "$koios_deposit" =~ ^[1-9][0-9]*$ ]] || [[ ! "$light_deposit" =~ ^[1-9][0-9]*$ ]]; then
+    print_fail "Network responses did not contain valid positive governance action deposits." >&2
+    return 1
+  fi
+  if [ "$koios_deposit" != "$light_deposit" ]; then
+    print_fail "Governance action deposit sources disagree (Koios: $koios_deposit, light mode: $light_deposit); refusing to continue." >&2
+    return 1
+  fi
+
+  print_pass "Resolved $selected_network governance action deposit for epoch $tip_epoch from two matching sources: ${koios_deposit} lovelace" >&2
+  printf '%s' "$koios_deposit"
 }
 
 # Extract references from References section
@@ -613,14 +772,28 @@ if [ "$governance_action_type" = "treasury" ] || [ "$governance_action_type" = "
   POLICY_HASH=$(resolve_policy_hash) || exit 1
 fi
 
-# Query the on-chain governance state once; the deposit (all action types) and
-# the previous parameter-change action id (PPUs only) are derived from it.
-print_section "Querying chain governance state"
-GOV_STATE=$(query_gov_state) || exit 1
+# Resolve the governance action deposit. A named-network lookup never accepts a
+# user-supplied amount and requires two current sources to agree. If a node is
+# also available, require its value to agree as a third check.
+GOV_STATE=""
+GOV_ACTION_DEPOSIT=""
+if [ -n "$network" ]; then
+  print_section "Resolving checked network parameters"
+  GOV_ACTION_DEPOSIT=$(resolve_remote_gov_action_deposit "$network") || exit 1
 
-# Resolve the governance action deposit. Required for every action type — aborts
-# if it can't be read from chain.
-GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
+  if command -v cardano-cli >/dev/null 2>&1 && [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    GOV_STATE=$(query_gov_state) || exit 1
+    NODE_GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
+    if [ "$NODE_GOV_ACTION_DEPOSIT" != "$GOV_ACTION_DEPOSIT" ]; then
+      print_fail "Local node and remote governance action deposits disagree; refusing to continue."
+      exit 1
+    fi
+  fi
+else
+  print_section "Querying chain governance state"
+  GOV_STATE=$(query_gov_state) || exit 1
+  GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
+fi
 
 # Resolve the previously enacted parameter-change gov_action_id (PPUs only).
 # Resolved here at the top level so a failure reliably aborts the script — doing
@@ -628,6 +801,9 @@ GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
 # the exit.
 PPU_GOV_ACTION_ID="null"
 if [ "$governance_action_type" = "ppu" ]; then
+  if [ -z "$GOV_STATE" ]; then
+    GOV_STATE=$(query_gov_state) || exit 1
+  fi
   PPU_GOV_ACTION_ID=$(resolve_ppu_prev_gov_action_id "$GOV_STATE") || exit 1
 fi
 
@@ -657,6 +833,21 @@ else
   echo 'null' > "$TEMP_CONTEXT"
 fi
 
+if [ -n "$cip179_survey_tx_id" ]; then
+  jq '
+    .CIP179 = "https://github.com/cardano-foundation/CIPs/blob/master/CIP-0179/README.md#" |
+    .body."@context".cip179 = {
+      "@id": "CIP179:link",
+      "@context": {
+        "specVersion": "CIP179:specVersion",
+        "kind": "CIP179:kind",
+        "surveyTxId": "CIP179:surveyTxId",
+        "surveyIndex": "CIP179:surveyIndex"
+      }
+    }
+  ' "$TEMP_CONTEXT" > "$TEMP_OUTPUT_JSON" && mv "$TEMP_OUTPUT_JSON" "$TEMP_CONTEXT"
+fi
+
 # Build the metadata JSON-LD with CIP-116 ProposalProcedure format onChain property
 # Write each value to a temp file to avoid "Argument list too long" with large markdown.
 # --slurpfile reads the file from disk and binds it as a 1-element array,
@@ -669,6 +860,8 @@ printf '%s' "$REFERENCES_JSON"  > "$TEMP_REFERENCES"
 printf '%s' "$ONCHAIN_PROPERTY" > "$TEMP_ONCHAIN"
 
 jq --arg       context_url "$CONTEXT_URL" \
+   --arg       cip179_tx_id "$cip179_survey_tx_id" \
+   --argjson   cip179_index "${cip179_survey_index:-0}" \
    --slurpfile context     "$TEMP_CONTEXT" \
    --slurpfile title       "$TEMP_TITLE" \
    --slurpfile abstract    "$TEMP_ABSTRACT" \
@@ -688,7 +881,15 @@ jq --arg       context_url "$CONTEXT_URL" \
        "references": $references[0],
        "onChain": $onchain[0]
      }
-   }' <<< '{}' > "$TEMP_OUTPUT_JSON"
+   } |
+   if $cip179_tx_id == "" then . else
+     .body.cip179 = {
+       "specVersion": 5,
+       "kind": "survey-link",
+       "surveyTxId": $cip179_tx_id,
+       "surveyIndex": $cip179_index
+     }
+   end' <<< '{}' > "$TEMP_OUTPUT_JSON"
 
 print_info "Formatting JSON output"
 
@@ -710,5 +911,8 @@ print_kv "Input"    "$(fmt_path "$input_file")"
 print_kv "Output"   "$(fmt_path "$FINAL_OUTPUT_JSON")"
 print_kv "Type"     "$governance_action_type"
 print_kv "@context" "$CONTEXT_URL"
+if [ -n "$cip179_survey_tx_id" ]; then
+  print_kv "CIP-179"  "${cip179_survey_tx_id}#${cip179_survey_index}"
+fi
 print_next "Validate the document (still pre-signing, so use --draft):" \
            "  ./scripts/metadata-validate.sh '$FINAL_OUTPUT_JSON' --cip108 --cip169 --draft"
