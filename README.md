@@ -12,6 +12,7 @@ This repository holds shell scripts that Intersect uses to engage in Cardano on-
   - Creates a governance-action JSON-LD file (CIP-108 body + CIP-169 extension + CIP-116 ProposalProcedure on-chain format, including [Intersect CIP108 schemas](https://github.com/IntersectMBO/governance-actions/tree/main/schemas))
   - Requires a `.md` input file with H2 sections (`## Title`, `## Abstract`, `## Motivation`, `## Rationale`, `## References`, `## Authors`)
   - Requires `--governance-action-type <info|treasury|ppu>` and `--deposit-return-addr <stake-address>`
+  - Optional `--withdrawal-addr <stake-address>` (treasury only) supplies the withdrawal address non-interactively, skipping the interactive prompt
   - Optional `--language <BCP-47-tag>` sets the JSON-LD `@context.@language` (default: `en`)
 
 - [metadata-validate.sh](./scripts/metadata-validate.sh)
@@ -82,7 +83,11 @@ Note: These are really only useful for archival reasons.
 
 ### Documentation
 
-- [2025 Budget Treasury Withdrawals](./docs/2025-budget-withdrawals.md)
+- [Treasury Withdrawal Action Procedure](./docs/treasury-withdrawal-procedure.md)
+  - Step-by-step single-item flow for building a treasury withdrawal governance action.
+- [Info Action Procedure](./docs/info-action-procedure.md)
+  - Step-by-step flow for building an info governance action.
+- [2025 Budget Treasury Withdrawals](./docs/archive/2025-budget-withdrawals.md)
   - Documents the scripts and high level process to create the treasury withdrawal governance actions for the Intersect 2025 budget.
 
 ## Dependencies
