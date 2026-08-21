@@ -440,7 +440,7 @@ fi
 # JSON-LD safe-mode expansion check. Surfaces "dropping property that did not
 # expand into an absolute IRI or keyword" warnings caused by missing term
 # mappings inside the document's @context. This is the failure mode that the
-# v1.1.0 hard-fork-initiation schema hit on protocol_version.{major,minor}:
+# v1.1.1 hard-fork-initiation schema hit on protocol_version.{major,minor}:
 # the context only declared an outer @type, with no inner @context to map the
 # inner keys, so safe-mode JSON-LD processors silently drop them. We use Node
 # + the 'jsonld' npm package because pyld's behaviour matches it byte-for-byte
