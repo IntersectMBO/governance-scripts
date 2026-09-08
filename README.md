@@ -216,3 +216,12 @@ source ./scripts/.env
 ## License
 
 See [License](./LICENSE).
+
+### CIP-179 network and input checks
+
+A survey index is a decimal uint16 (0–65535); leading zeros are normalized.
+With `--network`, all local node queries use that network explicitly. A socket
+for another network must fail rather than supply a policy or previous action.
+The checked remote deposit lookup does not remove the local-node requirement
+for treasury or parameter-change metadata, which also require constitution state.
+Temporary files respect `TMPDIR`.

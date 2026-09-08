@@ -126,6 +126,9 @@ infra/terraform/.terraform*
 .env
 .envrc
 
-test/
+test/*
+!test/metadata_test.py
+!test/fixtures/
 
 ./scripts/.env
+.test-artifacts/

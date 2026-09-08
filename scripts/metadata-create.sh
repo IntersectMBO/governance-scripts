@@ -56,16 +56,16 @@ inline_context="false"
 cip179_survey_ref=""
 offer_cip179_survey="true"
 
-# Create temporary files in /tmp/
-TEMP_MD=$(mktemp /tmp/metadata_create_md.XXXXXX)
-TEMP_OUTPUT_JSON=$(mktemp /tmp/metadata_create_temp.XXXXXX)
-TEMP_CONTEXT=$(mktemp /tmp/metadata_create_context.XXXXXX)
-TEMP_TITLE=$(mktemp /tmp/metadata_create_title.XXXXXX)
-TEMP_ABSTRACT=$(mktemp /tmp/metadata_create_abstract.XXXXXX)
-TEMP_MOTIVATION=$(mktemp /tmp/metadata_create_motivation.XXXXXX)
-TEMP_RATIONALE=$(mktemp /tmp/metadata_create_rationale.XXXXXX)
-TEMP_REFERENCES=$(mktemp /tmp/metadata_create_references.XXXXXX)
-TEMP_ONCHAIN=$(mktemp /tmp/metadata_create_onchain.XXXXXX)
+# Respect the caller's project-local temporary directory.
+TEMP_MD=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_md.XXXXXX)
+TEMP_OUTPUT_JSON=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_temp.XXXXXX)
+TEMP_CONTEXT=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_context.XXXXXX)
+TEMP_TITLE=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_title.XXXXXX)
+TEMP_ABSTRACT=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_abstract.XXXXXX)
+TEMP_MOTIVATION=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_motivation.XXXXXX)
+TEMP_RATIONALE=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_rationale.XXXXXX)
+TEMP_REFERENCES=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_references.XXXXXX)
+TEMP_ONCHAIN=$(mktemp "${TMPDIR:-/tmp}"/metadata_create_onchain.XXXXXX)
 
 # Cleanup function to remove temporary files
 cleanup() {
@@ -198,6 +198,14 @@ case "$network" in
     ;;
 esac
 
+# Explicit CLI flags override inherited network defaults for every local query.
+node_network_args=()
+case "$network" in
+  mainnet) node_network_args=(--mainnet) ;;
+  preprod) node_network_args=(--testnet-magic 1) ;;
+  preview) node_network_args=(--testnet-magic 2) ;;
+esac
+
 if [ -n "$network" ]; then
   if ! command -v curl >/dev/null 2>&1; then
     print_fail "curl is required when --network is used."
@@ -232,7 +240,11 @@ if [ -n "$cip179_survey_ref" ]; then
   else
     cip179_survey_index="0"
   fi
-  if [ "$cip179_survey_index" -gt 65535 ]; then
+  # Strip leading zeros before comparing bounded decimal digits. Never pass an
+  # arbitrary-length user string to Bash arithmetic or jq's number conversion.
+  cip179_survey_index="${cip179_survey_index#"${cip179_survey_index%%[!0]*}"}"
+  cip179_survey_index="${cip179_survey_index:-0}"
+  if [[ ${#cip179_survey_index} -gt 5 ]] || [[ ${#cip179_survey_index} -eq 5 && "$cip179_survey_index" > "65535" ]]; then
     print_fail "CIP-179 survey index must be an integer from 0 to 65535."
     exit 1
   fi
@@ -329,7 +341,7 @@ query_gov_state() {
   fi
 
   local gov_state
-  if ! gov_state=$(cardano-cli conway query gov-state 2>/dev/null); then
+  if ! gov_state=$(cardano-cli conway query gov-state "${node_network_args[@]}" 2>/dev/null); then
     print_fail "Failed to query governance state (cardano-cli conway query gov-state)" >&2
     exit 1
   fi
@@ -370,7 +382,7 @@ resolve_policy_hash() {
   local script_hash=""
 
   if command -v cardano-cli >/dev/null 2>&1 && [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
-    script_hash=$(cardano-cli conway query constitution 2>/dev/null | jq -r '.script // empty') || script_hash=""
+    script_hash=$(cardano-cli conway query constitution "${node_network_args[@]}" 2>/dev/null | jq -r '.script // empty') || script_hash=""
   fi
 
   if [ -n "$script_hash" ] && [ "$script_hash" != "null" ]; then
@@ -825,7 +837,7 @@ print_info "Using @context: ${YELLOW}${CONTEXT_URL}${NC}"
 # jq embeds it verbatim.
 if [ "$inline_context" = "true" ]; then
   print_info "Inlining @context (fetching ${YELLOW}${CONTEXT_URL}${NC})"
-  if ! curl -sSfL "$CONTEXT_URL" | jq -e '."@context"' > "$TEMP_CONTEXT"; then
+  if ! curl -sSfL --retry 2 --max-time 30 --max-filesize 1048576 "$CONTEXT_URL" | jq -e '."@context"' > "$TEMP_CONTEXT"; then
     print_fail "Failed to fetch or parse @context from $CONTEXT_URL"
     exit 1
   fi
