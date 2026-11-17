@@ -3,7 +3,7 @@
 ##################################################
 
 # Default configuration values
-INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.2.0/schemas"
+INTERSECT_SCHEMAS_BASE="https://intersectmbo.github.io/governance-actions/v1.2.1/schemas"
 
 resolve_context_url() {
   case "$1" in
@@ -12,6 +12,7 @@ resolve_context_url() {
     ppu)       echo "${INTERSECT_SCHEMAS_BASE}/parameter-changes/common.jsonld" ;;
     hf)        echo "${INTERSECT_SCHEMAS_BASE}/hard-fork-initiation/common.jsonld" ;;
     committee) echo "${INTERSECT_SCHEMAS_BASE}/update-committee/common.jsonld" ;;
+    constitution) echo "${INTERSECT_SCHEMAS_BASE}/new-constitution/common.jsonld" ;;
     *)        print_fail "No @context mapping for --governance-action-type '$1'"; exit 1 ;;
   esac
 }
@@ -41,9 +42,9 @@ fi
 # Usage message
 usage() {
     printf '%s%sCreate JSON-LD metadata from a Markdown file%s\n\n' "$UNDERLINE" "$BOLD" "$NC"
-    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf> %s--deposit-return-addr%s <stake-address> [%s--withdrawal-addr%s <stake-address>] [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
+    printf 'Syntax:%s %s %s<.md-file> --governance-action-type%s <info|treasury|ppu|hf|constitution> %s--deposit-return-addr%s <stake-address> [%s--withdrawal-addr%s <stake-address>] [%s--inline-context%s]\n' "$BOLD" "$0" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC" "$GREEN" "$NC"
     print_usage_option "<.md-file>"                                     "Path to the .md file as input"
-    print_usage_option "--governance-action-type <info|treasury|ppu|hf>" "Type of governance action"
+    print_usage_option "--governance-action-type <info|treasury|ppu|hf|constitution>" "Type of governance action"
     print_usage_option "--deposit-return-addr <stake-address>"        "Stake address for deposit return (bech32)"
     print_usage_option "[--withdrawal-addr <stake-address>]"          "Treasury only: withdrawal address (bech32). When set, skips the interactive prompt"
     print_usage_option "[--inline-context]"                           "Embed the full @context object in the document instead of referencing the URL"
@@ -266,15 +267,27 @@ query_gov_state() {
 
 # Resolve the previously enacted parameter-change (PParamUpdate) governance
 # action id
-resolve_ppu_prev_gov_action_id() {
+resolve_prev_gov_action_id() {
   local gov_state="$1"
+  local type="$2" # 0=ppu, 1=new-constitution
   local prev
-
-  prev=$(printf '%s' "$gov_state" \
-    | jq '.nextRatifyState.nextEnactState.prevGovActionIds.PParamUpdate')
+  case "$type" in
+    "0")
+      prev=$(printf '%s' "$gov_state" \
+        | jq '.nextRatifyState.nextEnactState.prevGovActionIds.PParamUpdate')
+      ;;
+    "1")
+      prev=$(printf '%s' "$gov_state" \
+        | jq '.nextRatifyState.nextEnactState.prevGovActionIds.Constitution')
+      ;;
+    *)
+      print_fail "resolve_prev_gov_action_id: unknown type '$type'" >&2
+      exit 1
+      ;;
+  esac
 
   if [ -z "$prev" ]; then
-    print_fail "Could not read prevGovActionIds.PParamUpdate from gov-state (cardano-cli output may have changed)" >&2
+    print_fail "Could not read prevGovActionIds from gov-state (cardano-cli output may have changed)" >&2
     exit 1
   fi
 
@@ -308,6 +321,37 @@ resolve_policy_hash() {
   fi
 
   printf '%s' "$script_hash"
+}
+
+# Resolve the hash of an anchor document. Tries cardano-cli hash anchor-data --url
+# first; falls back to a manual prompt if the command fails or is unavailable.
+resolve_anchor_hash() {
+  local url="$1"
+  local hash=""
+
+  if command -v cardano-cli >/dev/null 2>&1; then
+    print_info "Attempting to hash anchor data from URL..." >&2
+    hash=$(cardano-cli hash anchor-data --url "$url" 2>/dev/null) || hash=""
+  fi
+
+  if [[ "$hash" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    print_pass "Anchor dataHash resolved: ${hash}" >&2
+    printf '%s' "$hash"
+    return 0
+  fi
+
+  print_warn "Could not hash anchor data automatically. Please enter it manually." >&2
+  printf 'Please enter constitution anchor dataHash (64 hex chars): ' >&2
+  IFS= read -r hash </dev/tty
+  if [ -z "$hash" ]; then
+    print_fail "Constitution anchor dataHash cannot be empty" >&2
+    exit 1
+  fi
+  if [[ ! "$hash" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    print_fail "Constitution anchor dataHash must be 64 hex characters. Got: ${hash}" >&2
+    exit 1
+  fi
+  printf '%s' "$hash"
 }
 
 # Resolve the governance action deposit (in lovelace) from the supplied gov-state
@@ -403,6 +447,72 @@ generate_ppu_onchain() {
         gov_action_id: $gov_action_id,
         protocol_param_update: {TODO: "Manually fill in the protocol parameters to update here."},
         policy_hash: $policy_hash
+      }
+    }'
+}
+
+constitution_collect_inputs() {
+  printf 'Please enter constitution anchor URL: ' >&2
+  IFS= read -r CONST_ANCHOR_URL </dev/tty
+  if [ -z "$CONST_ANCHOR_URL" ]; then
+    print_fail "Constitution anchor URL cannot be empty"
+    exit 1
+  fi
+
+  CONST_ANCHOR_HASH=$(resolve_anchor_hash "$CONST_ANCHOR_URL")
+
+  print_info "Current on-chain guardrail script hash: ${YELLOW}${POLICY_HASH}${NC}" >&2
+  printf 'Is a new guardrail script being added? [y/N]: ' >&2
+  IFS= read -r _new_script_answer </dev/tty
+  if [[ "$_new_script_answer" =~ ^[yY]$ ]]; then
+    printf 'Please enter new guardrail script hash (56 hex chars): ' >&2
+    IFS= read -r CONST_POLICY_HASH </dev/tty
+    if [ -z "$CONST_POLICY_HASH" ]; then
+      print_fail "Guardrail script hash cannot be empty"
+      exit 1
+    fi
+    if [[ ! "$CONST_POLICY_HASH" =~ ^[0-9a-fA-F]{56}$ ]]; then
+      print_fail "Guardrail script hash must be 56 hex characters. Got: ${CONST_POLICY_HASH}"
+      exit 1
+    fi
+    print_pass "Using new guardrail script hash: ${CONST_POLICY_HASH}" >&2
+  else
+    CONST_POLICY_HASH="$POLICY_HASH"
+    print_info "Using existing guardrail script hash: ${YELLOW}${CONST_POLICY_HASH}${NC}" >&2
+  fi
+
+  print_info "Final confirmation:" >&2
+  print_info "  Anchor URL:       ${YELLOW}${CONST_ANCHOR_URL}${NC}" >&2
+  print_info "  Anchor dataHash:  ${YELLOW}${CONST_ANCHOR_HASH}${NC}" >&2
+  print_info "  Guardrail script: ${YELLOW}${CONST_POLICY_HASH:-null}${NC}" >&2
+
+  if ! confirm "Is this correct?"; then
+    print_fail "Cancelled by user"
+    exit 1
+  fi
+}
+
+# Generate onChain property for constitution governance action (CIP-116 ProposalProcedure format)
+generate_constitution_onchain() {
+  constitution_collect_inputs
+
+  jq -n \
+    --arg     deposit        "$GOV_ACTION_DEPOSIT" \
+    --arg     reward_account "$deposit_return_address" \
+    --argjson gov_action_id  "$NEW_CONST_ACTION_ID" \
+    --arg     anchor_url     "$CONST_ANCHOR_URL" \
+    --arg     anchor_hash    "$CONST_ANCHOR_HASH" \
+    --arg     policy_hash    "$CONST_POLICY_HASH" \
+    '{
+      deposit: $deposit,
+      reward_account: $reward_account,
+      gov_action: {
+        tag: "new_constitution",
+        gov_action_id: $gov_action_id,
+        constitution: {
+          anchor: { url: $anchor_url, data_hash: $anchor_hash },
+          script_hash: (if $policy_hash == "" then null else $policy_hash end)
+        }
       }
     }'
 }
@@ -601,6 +711,9 @@ generate_onchain_property() {
     "hf")
       generate_hf_onchain
       ;;
+    "constitution")
+      generate_constitution_onchain
+      ;;
     *)
       echo "null"
       ;;
@@ -629,7 +742,7 @@ RATIONALE=$(get_section_last "## Rationale")
 # generator (which runs in a command-substitution subshell) would NOT propagate
 # the exit, and we'd silently emit metadata with an empty policy_hash.
 POLICY_HASH=""
-if [ "$governance_action_type" = "treasury" ] || [ "$governance_action_type" = "ppu" ]; then
+if [ "$governance_action_type" = "treasury" ] || [ "$governance_action_type" = "ppu" ] || [ "$governance_action_type" = "constitution" ]; then
   POLICY_HASH=$(resolve_policy_hash) || exit 1
 fi
 
@@ -642,13 +755,18 @@ GOV_STATE=$(query_gov_state) || exit 1
 # if it can't be read from chain.
 GOV_ACTION_DEPOSIT=$(resolve_gov_action_deposit "$GOV_STATE") || exit 1
 
-# Resolve the previously enacted parameter-change gov_action_id (PPUs only).
+# Resolve the previously enacted parameter-change gov_action_id (PPUs/New COnstitution only).
 # Resolved here at the top level so a failure reliably aborts the script — doing
 # it inside the generator (a command-substitution subshell) would not propagate
 # the exit.
 PPU_GOV_ACTION_ID="null"
 if [ "$governance_action_type" = "ppu" ]; then
-  PPU_GOV_ACTION_ID=$(resolve_ppu_prev_gov_action_id "$GOV_STATE") || exit 1
+  PPU_GOV_ACTION_ID=$(resolve_prev_gov_action_id "$GOV_STATE" 0) || exit 1
+fi
+
+NEW_CONST_ACTION_ID="null"
+if [ "$governance_action_type" = "constitution" ]; then
+  NEW_CONST_ACTION_ID=$(resolve_prev_gov_action_id "$GOV_STATE" 1) || exit 1
 fi
 
 # Generate onChain property based on governance action type
