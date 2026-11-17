@@ -507,11 +507,11 @@ generate_constitution_onchain() {
       deposit: $deposit,
       reward_account: $reward_account,
       gov_action: {
-        tag: "new_constitution_action",
+        tag: "new_constitution",
         gov_action_id: $gov_action_id,
         constitution: {
-          anchor: { url: $anchor_url, dataHash: $anchor_hash },
-          script: (if $policy_hash == "" then null else $policy_hash end)
+          anchor: { url: $anchor_url, data_hash: $anchor_hash },
+          script_hash: (if $policy_hash == "" then null else $policy_hash end)
         }
       }
     }'
